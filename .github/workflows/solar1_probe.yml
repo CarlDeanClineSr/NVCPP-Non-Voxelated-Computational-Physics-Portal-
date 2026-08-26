@@ -2,6 +2,12 @@ name: NVCPP SOLAR-1 MAG Discovery Probe
 
 on:
   workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - "sources/solar1/**"
+      - "config/solar1_mag_l3.yaml"
+      - ".github/workflows/solar1_probe.yml"
 
 permissions:
   contents: read
