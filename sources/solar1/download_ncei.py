@@ -11,13 +11,13 @@ import hashlib
 from pathlib import Path
 import requests
 
-API_BASE = "https://www.ncei.noaa.gov/cloud-access/space-weather-portal/api/v1"
+NCEI_API_BASE = "https://www.ncei.noaa.gov/cloud-access/space-weather-portal/api/v1"
 
 def sha256_text(text: str) -> str:
     return hashlib.sha256(text.encode("utf-8")).hexdigest()
 
 def probe_endpoint(session: requests.Session, endpoint_path: str, params: dict = None) -> dict:
-    url = f"{API_BASE}{endpoint_path}"
+    url = f"{NCEI_API_BASE}{endpoint_path}"
     try:
         response = session.get(url, params=params, timeout=30)
         response.raise_for_status()
@@ -43,15 +43,11 @@ def probe_endpoint(session: requests.Session, endpoint_path: str, params: dict =
             "error": str(e)
         }
 
-def main():
-    parser = argparse.ArgumentParser(description="SOLAR-1 MAG Discovery Probe")
-    parser.add_argument("--outdir", default="runs/solar1/probe", help="Output directory for discovery artifacts")
-    args = parser.parse_args()
-
-    out_dir = Path(args.outdir)
+def probe_solar1_mag(outdir: str = "runs/solar1/probe") -> dict:
+    out_dir = Path(outdir)
     out_dir.mkdir(parents=True, exist_ok=True)
 
-    print(f"[NVCPP-Discovery] Probing NOAA/NCEI Space Weather Portal at {API_BASE}...")
+    print(f"[NVCPP-Discovery] Probing NOAA/NCEI Space Weather Portal at {NCEI_API_BASE}...")
     session = requests.Session()
     session.headers.update({"User-Agent": "NVCPP-DiscoveryProbe/1.0.0"})
 
@@ -78,7 +74,7 @@ def main():
     # Compile Discovery Manifest
     manifest = {
         "source": "NOAA/NCEI Space Weather Portal",
-        "api_base": API_BASE,
+        "api_base": NCEI_API_BASE,
         "mission": "SOLAR-1",
         "instrument": "MAG",
         "known_product_candidates": ["mag-l3_solar1", "sci_mag-l3_solar1"],
@@ -94,6 +90,13 @@ def main():
     manifest_path = out_dir / "solar1_mag_discovery_manifest.json"
     manifest_path.write_text(json.dumps(manifest, indent=2))
     print(f"[NVCPP-Discovery] Probe complete. Manifest written to {manifest_path}")
+    return manifest
+
+def main():
+    parser = argparse.ArgumentParser(description="SOLAR-1 MAG Discovery Probe")
+    parser.add_argument("--outdir", default="runs/solar1/probe", help="Output directory for discovery artifacts")
+    args = parser.parse_args()
+    probe_solar1_mag(outdir=args.outdir)
 
 if __name__ == "__main__":
     main()
