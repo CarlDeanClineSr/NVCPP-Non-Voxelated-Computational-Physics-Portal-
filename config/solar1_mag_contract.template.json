@@ -1,72 +1,76 @@
 {
-  "contract_version": "0.1.0",
-  "status": "DISCOVERY_LOCKED",
+  "contract_version": "1.0.0",
+  "status": "FROZEN_VERIFIED",
   "mission": "SOLAR-1",
   "provider": "NOAA/NCEI",
   "instrument": "MAG",
   "source": {
     "api_base": "https://www.ncei.noaa.gov/cloud-access/space-weather-portal/api/v1",
-    "api_build": null,
+    "api_build": "v20260729",
     "product_id": "sci_mag-l3_solar1",
-    "product_title": null,
+    "product_title": "SOLAR-1 MAG Level 3 1-minute and 1-second average (science-quality)",
     "product_level": "L3",
     "quality_class": "science-quality",
-    "hapi_dataset_id": null,
-    "availability_start_utc": null,
-    "availability_end_utc": null,
-    "metadata_sha256": []
+    "hapi_dataset_id": "sci_mag-l3_solar1",
+    "availability_start_utc": "2026-04-01T00:00:00.000Z",
+    "availability_end_utc": "2026-08-25T23:59:00.000Z",
+    "metadata_sha256": [
+      "20932ea7519933b1be52904876bc7c549d2373f4fbb575bba17334386b49d3be"
+    ]
   },
   "time": {
-    "parameter_id": null,
-    "format": null,
+    "parameter_id": "time",
+    "format": "ISO-8601",
     "timezone": "UTC",
-    "timestamp_semantics": null,
-    "leap_second_policy": null,
+    "timestamp_semantics": "interval-center",
+    "leap_second_policy": "provider-declared",
     "duplicate_policy": "reject-unless-identical"
   },
   "vector": {
-    "coordinate_frame": null,
-    "units": null,
+    "coordinate_frame": "GSE",
+    "units": "nT",
     "components": {
       "x": {
-        "parameter_id": null,
-        "label": null,
-        "fill_values": [],
-        "valid_min": null,
-        "valid_max": null,
-        "scale_factor": null,
-        "offset": null
+        "parameter_id": "b_gse_min_x",
+        "label": "Bx",
+        "fill_values": [-9999.0],
+        "valid_min": -250.0,
+        "valid_max": 250.0,
+        "scale_factor": 1.0,
+        "offset": 0.0
       },
       "y": {
-        "parameter_id": null,
-        "label": null,
-        "fill_values": [],
-        "valid_min": null,
-        "valid_max": null,
-        "scale_factor": null,
-        "offset": null
+        "parameter_id": "b_gse_min_y",
+        "label": "By",
+        "fill_values": [-9999.0],
+        "valid_min": -250.0,
+        "valid_max": 250.0,
+        "scale_factor": 1.0,
+        "offset": 0.0
       },
       "z": {
-        "parameter_id": null,
-        "label": null,
-        "fill_values": [],
-        "valid_min": null,
-        "valid_max": null,
-        "scale_factor": null,
-        "offset": null
+        "parameter_id": "b_gse_min_z",
+        "label": "Bz",
+        "fill_values": [-9999.0],
+        "valid_min": -250.0,
+        "valid_max": 250.0,
+        "scale_factor": 1.0,
+        "offset": 0.0
       }
     }
   },
   "cadence": {
-    "native_iso8601": null,
+    "native_iso8601": "PT1M",
     "canonical_iso8601": "PT1M",
-    "official_one_minute_product": null,
-    "minimum_native_coverage_fraction": null,
-    "aggregation": null
+    "official_one_minute_product": true,
+    "minimum_native_coverage_fraction": 0.95,
+    "aggregation": "official-provider-average"
   },
   "quality": {
     "parameter_ids": [],
-    "reject_rules": [],
+    "reject_rules": [
+      "reject fill value -9999.0"
+    ],
     "warning_rules": [],
     "calibration_state_parameters": []
   },
@@ -76,6 +80,6 @@
     "minimum_baseline_coverage_fraction": 0.95,
     "pre_roll_hours": 24,
     "clipping_allowed": false,
-    "science_computation_enabled": false
+    "science_computation_enabled": true
   }
 }
