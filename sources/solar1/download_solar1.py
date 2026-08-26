@@ -55,18 +55,13 @@ def validate_frozen_contract(contract_path: Path):
     if not contract_path.exists():
         raise SystemExit(f"[ERROR] Frozen contract not found at {contract_path}. Failing closed.")
     
-    def validate_frozen_contract(contract_path: Path):
-    print(f"[NVCPP-CONTRACT] Pre-validating contract at {contract_path}...")
-    if not contract_path.exists():
-        raise SystemExit(f"[ERROR] Frozen contract not found at {contract_path}. Failing closed.")
-    
     try:
         contract_dict = json.loads(contract_path.read_text())
-        validate_contract(contract_dict) # Pass dict instead of string path if validate_contract expects data
+        validate_contract(contract_dict)
     except Exception as e:
         raise SystemExit(f"[ERROR] Contract validation failed: {e}. Failing closed.")
     
-    print("[NVCPP-CONTRACT] Full semantic contract pre-validation PASSED.") 
+    print("[NVCPP-CONTRACT] Full semantic contract pre-validation PASSED.")
 
 def fetch_solar1_hapi_data(start_iso: str, stop_iso: str, out_dir: Path) -> pd.DataFrame:
     """
@@ -93,7 +88,6 @@ def fetch_solar1_hapi_data(start_iso: str, stop_iso: str, out_dir: Path) -> pd.D
     raw_path = out_dir / "solar1_mag_raw.csv"
     raw_path.write_bytes(raw_bytes)
     
-    # Strict row-level column count enforcement (fail-closed, no skipping bad lines)
     col_names = ["time", "b_gse_min_x", "b_gse_min_y", "b_gse_min_z"]
     expected_cols = len(col_names)
     
@@ -115,10 +109,8 @@ def run_solar1_pipeline(run_name: str, start_time: str, analysis_start: str, end
     run_output_dir = outdir / run_name
     run_output_dir.mkdir(parents=True, exist_ok=True)
 
-    # 1. Pre-validate authoritative contract
     validate_frozen_contract(contract_path)
 
-    # 2. Fetch data with strict parsing
     raw_df = fetch_solar1_hapi_data(start_time, end_time, run_output_dir)
     raw_csv_path = run_output_dir / "solar1_mag_raw.csv"
     raw_sha = sha256_file(raw_csv_path)
@@ -128,7 +120,6 @@ def run_solar1_pipeline(run_name: str, start_time: str, analysis_start: str, end
 
     print(f"[NVCPP] Successfully parsed {len(raw_df)} rows from HAPI stream.")
 
-    # Parse timestamps
     print("[NVCPP] Converting time to UTC datetime...")
     raw_df["time"] = pd.to_datetime(raw_df["time"], errors="coerce", utc=True)
     invalid_time = int(raw_df["time"].isna().sum())
@@ -138,10 +129,7 @@ def run_solar1_pipeline(run_name: str, start_time: str, analysis_start: str, end
     for col in (bx, by, bz):
         raw_df[col] = pd.to_numeric(raw_df[col], errors="coerce")
 
-    # 3. Classify and quarantine anomalies into separate tracking DataFrame
     quarantine_records = []
-
-    # Fill value detection (-9999.0)
     fill_sentinel = -9999.0
     fill_mask = (raw_df[bx] <= fill_sentinel) | (raw_df[by] <= fill_sentinel) | (raw_df[bz] <= fill_sentinel)
     if fill_mask.any():
@@ -150,7 +138,6 @@ def run_solar1_pipeline(run_name: str, start_time: str, analysis_start: str, end
         quarantine_records.append(fill_df)
         raw_df.loc[fill_mask, [bx, by, bz]] = np.nan
 
-    # Zero-vector anomaly detection (0.0 nT)
     zero_mask = (raw_df[bx] == 0.0) & (raw_df[by] == 0.0) & (raw_df[bz] == 0.0)
     if zero_mask.any():
         zero_df = raw_df.loc[zero_mask].copy()
@@ -161,7 +148,6 @@ def run_solar1_pipeline(run_name: str, start_time: str, analysis_start: str, end
     fill_count = int(fill_mask.sum())
     zero_count = int(zero_mask.sum())
 
-    # Write standalone quarantine artifact if anomalies exist
     quarantine_path = run_output_dir / "solar1_quarantine.csv"
     if quarantine_records:
         q_combined = pd.concat(quarantine_records)
@@ -187,7 +173,6 @@ def run_solar1_pipeline(run_name: str, start_time: str, analysis_start: str, end
     clean_df.sort_values("time", inplace=True)
     clean_df.reset_index(drop=True, inplace=True)
 
-    # Calculate vector magnitude component-wise: B = sqrt(Bx^2 + By^2 + Bz^2)
     print("[NVCPP] Calculating vector magnitude component-wise...")
     clean_df["B_mag"] = np.sqrt(
         clean_df[bx].pow(2) + clean_df[by].pow(2) + clean_df[bz].pow(2)
@@ -202,7 +187,6 @@ def run_solar1_pipeline(run_name: str, start_time: str, analysis_start: str, end
     if "chi_B24M" not in processed_df.columns:
         raise SystemExit("[ERROR] chi_B24M was not produced. Failing closed.")
 
-    # Slice output to isolate analysis window (dropping 24h pre-roll)
     analysis_df = processed_df[processed_df["time"] >= pd.to_datetime(analysis_start)].copy()
     valid_chi = analysis_df["chi_B24M"].dropna()
 
@@ -237,7 +221,6 @@ def run_solar1_pipeline(run_name: str, start_time: str, analysis_start: str, end
     summary_file.write_text(summary_text)
     report_sha = sha256_file(summary_file)
 
-    # 4. Comprehensive Run Manifest
     manifest = {
         "run_name": run_name,
         "timestamp_utc": datetime.now(timezone.utc).isoformat(),
@@ -246,14 +229,8 @@ def run_solar1_pipeline(run_name: str, start_time: str, analysis_start: str, end
         "protocol_version": PROTOCOL_VERSION,
         "contract_path": str(contract_path),
         "contract_sha256": sha256_file(contract_path),
-        "retrieval_window": {
-            "start": start_time,
-            "end": end_time
-        },
-        "analysis_window": {
-            "start": analysis_start,
-            "end": end_time
-        },
+        "retrieval_window": {"start": start_time, "end": end_time},
+        "analysis_window": {"start": analysis_start, "end": end_time},
         "metrics": {
             "raw_rows_retrieved": len(raw_df),
             "invalid_timestamps": invalid_time,
