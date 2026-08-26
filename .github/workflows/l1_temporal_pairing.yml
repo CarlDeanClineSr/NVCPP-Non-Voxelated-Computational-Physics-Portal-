@@ -44,7 +44,7 @@ jobs:
 
       - name: 2. Fetch & Compute DSCOVR MAG
         run: |
-          python historical/download_dscovr_cdaweb.py \
+          python -m historical.download_dscovr_cdaweb \
             --run dscovr_overlap \
             --start ${{ github.event.inputs.start_time }} \
             --analysis-start ${{ github.event.inputs.analysis_start }} \
@@ -56,7 +56,7 @@ jobs:
           python core/temporal_pairing.py \
             --dscovr runs/historical/dscovr_overlap/cline_l1_rows.csv \
             --solar1 runs/historical/solar1_overlap/solar1_cline_l1_rows.csv \
-            --outdir runs/pairing 
+            --outdir runs/pairing
 
       - name: Archive Coherence Artifacts
         if: always()
