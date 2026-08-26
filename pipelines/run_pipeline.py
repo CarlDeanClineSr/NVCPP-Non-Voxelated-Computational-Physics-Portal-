@@ -7,10 +7,11 @@ and unclipped physical baseline preservation.
 
 import argparse
 import sys
-import yaml
 from pathlib import Path
-import pandas as pd
+
 import numpy as np
+import pandas as pd
+import yaml
 
 try:
     from core.cline_l1_chain_v1 import run_chain
@@ -18,6 +19,12 @@ try:
 except ImportError as e:
     print(f"[ERROR] Failed to import NVCPP modules. {e}", file=sys.stderr)
     sys.exit(1)
+
+
+# CDAWeb DSCOVR text export uses -1.00000E+31 as a missing-data sentinel
+# for magnetic vector components. This is not a physical measurement and must
+# never be admitted to the baseline calculation.
+CDAWEB_FILL_ABS_THRESHOLD = 1.0e30
 
 
 def run_dscovr_historical(run_name: str, out_path: Path):
@@ -48,7 +55,6 @@ def run_dscovr_historical(run_name: str, out_path: Path):
     if raw_df.empty:
         raise SystemExit("[ERROR] Retrieved telemetry is empty. Failing closed.")
 
-    # Resolve required columns explicitly and fail closed if the source layout changed.
     epoch_cols = [col for col in raw_df.columns if "epoch" in col.lower()]
     bx_cols = [col for col in raw_df.columns if "bx" in col.lower()]
     by_cols = [col for col in raw_df.columns if "by" in col.lower()]
@@ -63,49 +69,45 @@ def run_dscovr_historical(run_name: str, out_path: Path):
     time_col = epoch_cols[0]
     bx, by, bz = bx_cols[0], by_cols[0], bz_cols[0]
 
-    # CDAWeb text responses may contain descriptor/header rows mixed with data.
-    # Parse the expected compact UTC EPOCH form first, then fall back for valid
-    # alternate timestamps. Invalid descriptor rows become NaT and are removed.
-    print(f"[NVCPP] Converting {time_col} to datetime...")
-    # First pass: try the strict format
-    parsed_time = pd.to_datetime(
+    # The NASA CDAWeb text payload explicitly declares:
+    #     dd-mm-yyyy hh:mm:ss.ms
+    # Example: 10-05-2024 00:00:00.500 means 10 May 2024, NOT October 5.
+    print(f"[NVCPP] Parsing {time_col} using CDAWeb dd-mm-yyyy UTC contract...")
+    raw_df[time_col] = pd.to_datetime(
         raw_df[time_col].astype(str).str.strip(),
-        format="%Y%m%dT%H%M%S.%fZ",
+        format="%d-%m-%Y %H:%M:%S.%f",
         errors="coerce",
         utc=True,
     )
-    
-    # Second pass: if NaT exists, use a unified parse to prevent precision mismatch
-    fallback_mask = parsed_time.isna()
-    if fallback_mask.any():
-        # Let pandas infer the format for everything at once to guarantee uniform dtype
-        parsed_time = pd.to_datetime(
-            raw_df[time_col].astype(str).str.strip(),
-            errors="coerce",
-            utc=True,
-            format="mixed"
-        )
-    raw_df[time_col] = parsed_time 
 
     print("[NVCPP] Converting magnetic vectors to numeric values...")
     for col in (bx, by, bz):
         raw_df[col] = pd.to_numeric(raw_df[col], errors="coerce")
 
-    invalid_time = int(raw_df[time_col].isna().sum())
-    invalid_vector = int(raw_df[[bx, by, bz]].isna().any(axis=1).sum())
-    valid_mask = raw_df[time_col].notna() & raw_df[[bx, by, bz]].notna().all(axis=1)
+    invalid_time_mask = raw_df[time_col].isna()
+    invalid_numeric_mask = raw_df[[bx, by, bz]].isna().any(axis=1)
+
+    # Reject CDAWeb missing-data sentinels before magnitude or baseline math.
+    # This is source sanitization, not clipping: no finite physical value is
+    # modified, capped, winsorized, or substituted.
+    fill_mask = raw_df[[bx, by, bz]].abs().ge(CDAWEB_FILL_ABS_THRESHOLD).any(axis=1)
+
+    invalid_time = int(invalid_time_mask.sum())
+    invalid_numeric = int(invalid_numeric_mask.sum())
+    fill_rows = int(fill_mask.sum())
+
+    valid_mask = ~(invalid_time_mask | invalid_numeric_mask | fill_mask)
     clean_df = raw_df.loc[valid_mask].copy()
 
     print(
         f"[NVCPP] Sanitization: {len(raw_df)} parsed rows; "
-        f"{invalid_time} invalid timestamps; {invalid_vector} invalid vector rows; "
-        f"{len(clean_df)} valid physical rows."
+        f"{invalid_time} invalid timestamps; {invalid_numeric} nonnumeric vector rows; "
+        f"{fill_rows} CDAWeb fill rows rejected; {len(clean_df)} physical rows admitted."
     )
 
     if clean_df.empty:
         raise SystemExit("[ERROR] No valid timestamped magnetic vectors remain. Failing closed.")
 
-    # A time-based rolling window requires a monotonic, NaT-free datetime index.
     clean_df.sort_values(time_col, inplace=True)
     clean_df.reset_index(drop=True, inplace=True)
 
@@ -113,6 +115,17 @@ def run_dscovr_historical(run_name: str, out_path: Path):
         raise SystemExit("[ERROR] NaT remained after timestamp sanitization. Failing closed.")
     if not clean_df[time_col].is_monotonic_increasing:
         raise SystemExit("[ERROR] DSCOVR timestamps are not monotonic after sorting. Failing closed.")
+
+    # Verify that the parsed run stayed inside the requested calendar interval.
+    requested_start = pd.Timestamp("2024-05-10T00:00:00Z")
+    requested_end = pd.Timestamp("2024-05-13T00:00:00Z")
+    parsed_min = clean_df[time_col].min()
+    parsed_max = clean_df[time_col].max()
+    if parsed_min < requested_start or parsed_max > requested_end:
+        raise SystemExit(
+            "[ERROR] Parsed timestamps escaped the requested May 2024 interval: "
+            f"{parsed_min} to {parsed_max}. Failing closed."
+        )
 
     print("[NVCPP] Calculating vector magnitude from BX, BY, BZ components...")
     clean_df["B_mag"] = np.sqrt(
@@ -142,12 +155,16 @@ def run_dscovr_historical(run_name: str, out_path: Path):
     summary_file.write_text(
         f"# NVCPP Historical Run: {run_name}\n\n"
         f"- **Dataset**: {dataset_id}\n"
-        f"- **Interval**: {start_time} to {end_time}\n"
+        f"- **Requested interval**: {start_time} to {end_time}\n"
+        f"- **Parsed physical interval**: {parsed_min.isoformat()} to {parsed_max.isoformat()}\n"
         f"- **Rows retrieved/parsed**: {len(raw_df)}\n"
         f"- **Rows admitted to physics**: {len(clean_df)}\n"
         f"- **Invalid timestamps rejected**: {invalid_time}\n"
-        f"- **Invalid vector rows rejected**: {invalid_vector}\n"
+        f"- **Nonnumeric vector rows rejected**: {invalid_numeric}\n"
+        f"- **CDAWeb fill rows rejected**: {fill_rows}\n"
         f"- **Rows with valid chi_B24M**: {len(valid_chi)}\n"
+        f"- **Min B_mag (nT)**: {clean_df['B_mag'].min():.6g}\n"
+        f"- **Max B_mag (nT)**: {clean_df['B_mag'].max():.6g}\n"
         f"- **Max chi_B24M**: {max_chi:.6g}\n"
         f"- **Clipping applied**: False\n"
         f"- **Constraint Guard**: Unclipped chi_B24M Active\n"
