@@ -1,12 +1,12 @@
 {
-  "contract_version": "1.0.0",
+  "contract_version": "1.1.0",
   "status": "FROZEN_VERIFIED",
   "mission": "SOLAR-1",
   "provider": "NOAA/NCEI",
   "instrument": "MAG",
   "source": {
     "api_base": "https://www.ncei.noaa.gov/cloud-access/space-weather-portal/api/v1",
-    "api_build": "v20260729",
+    "hapi_version": "3.2.0",
     "product_id": "sci_mag-l3_solar1",
     "product_title": "SOLAR-1 MAG Level 3 1-minute and 1-second average (science-quality)",
     "product_level": "L3",
@@ -16,15 +16,17 @@
     "availability_end_utc": "2026-08-25T23:59:00.000Z",
     "metadata_sha256": [
       "20932ea7519933b1be52904876bc7c549d2373f4fbb575bba17334386b49d3be"
-    ]
+    ],
+    "schema_fingerprint_algorithm": "sha256-canonical-hapi-required-fields-v1",
+    "schema_fingerprint_sha256": "ecbb15e4b773accd224132326eb081d42f71c605965801e768799a65a9c31a69"
   },
   "time": {
     "parameter_id": "time",
     "format": "ISO-8601",
     "timezone": "UTC",
-    "timestamp_semantics": "interval-center",
-    "leap_second_policy": "provider-declared",
-    "duplicate_policy": "reject-unless-identical"
+    "timestamp_semantics": "provider UTC label; interval position not asserted",
+    "leap_second_policy": "provider output preserved; no silent normalization",
+    "duplicate_policy": "reject-conflicting; quarantine-identical"
   },
   "vector": {
     "coordinate_frame": "GSE",
@@ -34,51 +36,57 @@
         "parameter_id": "b_gse_min_x",
         "label": "Bx",
         "fill_values": [-9999.0],
-        "valid_min": -250.0,
-        "valid_max": 250.0,
-        "scale_factor": 1.0,
-        "offset": 0.0
+        "provider_valid_min": null,
+        "provider_valid_max": null
       },
       "y": {
         "parameter_id": "b_gse_min_y",
         "label": "By",
         "fill_values": [-9999.0],
-        "valid_min": -250.0,
-        "valid_max": 250.0,
-        "scale_factor": 1.0,
-        "offset": 0.0
+        "provider_valid_min": null,
+        "provider_valid_max": null
       },
       "z": {
         "parameter_id": "b_gse_min_z",
         "label": "Bz",
         "fill_values": [-9999.0],
-        "valid_min": -250.0,
-        "valid_max": 250.0,
-        "scale_factor": 1.0,
-        "offset": 0.0
+        "provider_valid_min": null,
+        "provider_valid_max": null
       }
     }
   },
   "cadence": {
     "native_iso8601": "PT1M",
     "canonical_iso8601": "PT1M",
+    "expected_seconds": 60,
     "official_one_minute_product": true,
-    "minimum_native_coverage_fraction": 0.95,
     "aggregation": "official-provider-average"
+  },
+  "acquisition": {
+    "response_format": "csv",
+    "explicit_parameters": [
+      "time",
+      "b_gse_min_x",
+      "b_gse_min_y",
+      "b_gse_min_z"
+    ]
   },
   "quality": {
     "quality_parameter_available": false,
     "quality_basis": [
       "NOAA science-quality product classification",
-      "provider fill-value rejection (-9999.0)",
-      "NVCPP zero-vector quarantine"
+      "provider fill-value rejection",
+      "NVCPP exact-zero-vector quarantine"
     ],
     "parameter_ids": [],
     "reject_rules": [
-      "reject fill value -9999.0",
-      "quarantine exact-zero vector anomalies"
+      "reject exact provider fill values",
+      "quarantine exact-zero vectors",
+      "reject conflicting duplicate timestamps"
     ],
-    "warning_rules": [],
+    "warning_rules": [
+      "preserve unexplained gaps and cadence deviations in the manifest"
+    ],
     "calibration_state_parameters": []
   },
   "physics": {
