@@ -54,9 +54,9 @@ jobs:
       - name: 3. Execute Temporal Pairing Engine
         run: |
           python core/temporal_pairing.py \
-            --dscovr runs/historical/dscovr_overlap/dscovr_cline_l1_rows.csv \
+            --dscovr runs/historical/dscovr_overlap/cline_l1_rows.csv \
             --solar1 runs/historical/solar1_overlap/solar1_cline_l1_rows.csv \
-            --outdir runs/pairing
+            --outdir runs/pairing 
 
       - name: Archive Coherence Artifacts
         if: always()
