@@ -1,0 +1,46 @@
+name: NVCPP SOLAR-1 MAG Discovery Probe
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - "sources/solar1/**"
+      - "config/solar1_mag_l3.yaml"
+      - ".github/workflows/solar1_probe.yml"
+
+permissions:
+  contents: read
+
+env:
+  PYTHONUNBUFFERED: "1"
+
+jobs:
+  probe-solar1-mag:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install probe dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install requests
+
+      - name: Probe NOAA/NCEI SOLAR-1 MAG metadata
+        run: |
+          python -m sources.solar1.download_ncei \
+            --outdir runs/solar1/probe
+
+      - name: Upload discovery artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: solar1-mag-discovery-${{ github.run_id }}
+          path: runs/solar1/probe/
+          if-no-files-found: error
+          retention-days: 30
