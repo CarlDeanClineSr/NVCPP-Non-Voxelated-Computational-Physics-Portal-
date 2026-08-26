@@ -10,6 +10,7 @@ import sys
 import yaml
 from pathlib import Path
 import pandas as pd
+import numpy as np
 
 # Import the NVCPP core and historical modules we just added
 try:
@@ -38,7 +39,6 @@ def run_dscovr_historical(run_name: str, out_path: Path):
         dataset_id = "DSCOVR_H0_MAG"
         start_time = "20240510T000000Z" 
         end_time = "20240513T000000Z"   
-        # Try B1GSE first, which is the standard vector magnetic field in GSE coordinates
         variables = ["B1GSE"] 
     else:
         print(f"[ERROR] Unknown run target: {run_name}. Failing closed.", file=sys.stderr)
@@ -54,11 +54,17 @@ def run_dscovr_historical(run_name: str, out_path: Path):
     # Dynamically find the exact column names CDAWeb returned
     time_col = [col for col in raw_df.columns if 'epoch' in col.lower()][0]
     
-    # Find the magnetic column whether NASA named it b1f1 or b1gse
+    # Extract Vector Components and Calculate Magnitude
     try:
-        b_col = [col for col in raw_df.columns if 'b1f1' in col.lower() or 'b1gse' in col.lower()][0]
+        bx = [col for col in raw_df.columns if 'bx' in col.lower()][0]
+        by = [col for col in raw_df.columns if 'by' in col.lower()][0]
+        bz = [col for col in raw_df.columns if 'bz' in col.lower()][0]
+        
+        print("[NVCPP] Calculating vector magnitude from BX, BY, BZ components...")
+        raw_df['B_mag'] = np.sqrt(raw_df[bx]**2 + raw_df[by]**2 + raw_df[bz]**2)
+        b_col = 'B_mag'
     except IndexError:
-        print(f"[ERROR] Could not find expected magnetic field column in NASA's response. Available columns: {list(raw_df.columns)}", file=sys.stderr)
+        print(f"[ERROR] Could not find expected magnetic field components. Available columns: {list(raw_df.columns)}", file=sys.stderr)
         sys.exit(1)
 
     # 2. Execute CLINE L1 Math (Unclipped Trailing B0 & Chi_B24M)
