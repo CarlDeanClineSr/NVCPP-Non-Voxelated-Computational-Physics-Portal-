@@ -67,20 +67,25 @@ def run_dscovr_historical(run_name: str, out_path: Path):
     # Parse the expected compact UTC EPOCH form first, then fall back for valid
     # alternate timestamps. Invalid descriptor rows become NaT and are removed.
     print(f"[NVCPP] Converting {time_col} to datetime...")
+    # First pass: try the strict format
     parsed_time = pd.to_datetime(
         raw_df[time_col].astype(str).str.strip(),
         format="%Y%m%dT%H%M%S.%fZ",
         errors="coerce",
         utc=True,
     )
+    
+    # Second pass: if NaT exists, use a unified parse to prevent precision mismatch
     fallback_mask = parsed_time.isna()
     if fallback_mask.any():
-        parsed_time.loc[fallback_mask] = pd.to_datetime(
-            raw_df.loc[fallback_mask, time_col].astype(str).str.strip(),
+        # Let pandas infer the format for everything at once to guarantee uniform dtype
+        parsed_time = pd.to_datetime(
+            raw_df[time_col].astype(str).str.strip(),
             errors="coerce",
             utc=True,
+            format="mixed"
         )
-    raw_df[time_col] = parsed_time
+    raw_df[time_col] = parsed_time 
 
     print("[NVCPP] Converting magnetic vectors to numeric values...")
     for col in (bx, by, bz):
