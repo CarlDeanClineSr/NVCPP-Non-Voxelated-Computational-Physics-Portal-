@@ -1,0 +1,87 @@
+name: Apply NVCPP Hardening V2
+
+on:
+  push:
+    branches: [hardening-v2-audit]
+    paths:
+      - "staging/hardening_v2_payload.b64"
+
+permissions:
+  contents: write
+
+env:
+  PYTHONUNBUFFERED: "1"
+  EXPECTED_PAYLOAD_SHA256: "e886d16f9ca77edf6d94f9d1b3f58805d02aeba0c98541b4649429c110d0a1e4"
+
+jobs:
+  apply-and-verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Check out staging branch
+        uses: actions/checkout@v4
+        with:
+          ref: hardening-v2-audit
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Decode, verify, and safely extract payload
+        run: |
+          python - <<'PY'
+          import base64
+          import hashlib
+          import os
+          import tarfile
+          from pathlib import Path
+
+          encoded = Path("staging/hardening_v2_payload.b64").read_text().strip()
+          payload = base64.b64decode(encoded, validate=True)
+          actual = hashlib.sha256(payload).hexdigest()
+          expected = os.environ["EXPECTED_PAYLOAD_SHA256"]
+          if actual != expected:
+              raise SystemExit(f"payload SHA-256 mismatch: {actual} != {expected}")
+
+          archive = Path("/tmp/nvcpp_hardening_v2.tar.gz")
+          archive.write_bytes(payload)
+          with tarfile.open(archive, "r:gz") as tf:
+              root = Path.cwd().resolve()
+              for member in tf.getmembers():
+                  destination = (root / member.name).resolve()
+                  if root not in destination.parents and destination != root:
+                      raise SystemExit(f"unsafe archive path: {member.name}")
+              tf.extractall(root)
+          print(f"verified payload {actual}")
+          PY
+
+      - name: Remove superseded contracts and staging transport
+        run: |
+          rm -f config/solar1_mag_contract.template.json
+          rm -f config/solar1_mag_l3.yaml
+          rm -f staging/hardening_v2_payload.b64
+          rm -f .github/workflows/apply_hardening_v2.yml
+          rmdir staging 2>/dev/null || true
+
+      - name: Install locked dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -r requirements.txt
+
+      - name: Verify exact staged source
+        run: |
+          python -m compileall -q core historical pipelines sources tests
+          python -m sources.solar1.validate_contract config/solar1_mag_contract.v1.json
+          python -m unittest discover -s tests -v
+          sha256sum --check SHA256SUMS.txt
+
+      - name: Commit verified hardening tree
+        run: |
+          git config user.name "NVCPP Audit Bot"
+          git config user.email "actions@users.noreply.github.com"
+          git add -A
+          git diff --cached --quiet && { echo "No changes to commit"; exit 1; }
+          git commit -m "hardening: align ingestion, pairing, provenance, and discovery"
+          git push origin HEAD:hardening-v2-audit
