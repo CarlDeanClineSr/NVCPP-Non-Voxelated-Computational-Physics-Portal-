@@ -1,5 +1,7 @@
-"""NOAA SOLAR-1 source adapter package."""
+"""NOAA SOLAR-1 source adapters.
 
-from .download_ncei import NCEI_API_BASE, probe_solar1_mag
+Modules are intentionally not imported eagerly so validation, discovery, and
+science runners retain independent fail-closed entry points.
+"""
 
-__all__ = ["NCEI_API_BASE", "probe_solar1_mag"]
+__all__: list[str] = []
