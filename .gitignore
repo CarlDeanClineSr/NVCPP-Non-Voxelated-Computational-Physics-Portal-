@@ -1,0 +1,33 @@
+# Python
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.venv/
+venv/
+
+# Credentials and local configuration
+.env
+.env.*
+!.env.example
+*service-account*.json
+*credentials*.json
+*token*.json
+
+# Runtime data and generated outputs
+data/
+raw/
+runs/
+artifacts/
+outputs/
+drive_publish_report.json
+*.fits
+*.fit
+*.fts
+*.parquet
+*.zip
+
+# Editors and operating systems
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db

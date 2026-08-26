@@ -1,0 +1,9 @@
+mission: DSCOVR
+source_kind: solar_wind_magnetic
+dataset: DSCOVR_H0_MAG
+instrument: PlasMag magnetometer
+coordinate_frame: GSE
+units: nT
+ingest_protocol: CDAWEB-DSCOVR-RESTCSV-1M-v1
+variables: [B1GSE, B1F1, FLAG1]
+source_url: https://cdaweb.gsfc.nasa.gov/

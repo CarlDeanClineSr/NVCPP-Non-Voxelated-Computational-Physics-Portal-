@@ -1,0 +1,9 @@
+mission: dscovr
+pipeline: historical_epoch
+run: gannon_may_2024_dscovr_mag_only
+output_root: runs/historical
+publish:
+  sink: google_drive
+  create_only: true
+  folder_id_from_env: GDRIVE_VAULT_FOLDER_ID
+  credentials_from_env: GDRIVE_SERVICE_ACCOUNT_JSON

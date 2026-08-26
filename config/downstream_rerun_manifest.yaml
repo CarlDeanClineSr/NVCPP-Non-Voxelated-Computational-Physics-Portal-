@@ -1,0 +1,8 @@
+manifest_version: 1
+canonical_protocol: CLINE-L1-B24M-TRAIL-v1
+canonical_column: chi_B24M
+legacy_repository_imported: false
+modules: []
+notes:
+  - No legacy downstream module was imported into NVCPP.
+  - Any future module must name chi_B24M explicitly and pass the canonical protocol ID.
