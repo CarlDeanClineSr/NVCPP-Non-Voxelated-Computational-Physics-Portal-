@@ -19,7 +19,6 @@ def download_cdaweb_data(dataset_id: str, start_time: str, end_time: str, variab
     """
     out_dir.mkdir(parents=True, exist_ok=True)
     
-    # Format CDAWeb REST API URL
     var_string = ",".join(variables)
     url = f"https://cdaweb.gsfc.nasa.gov/WS/cdasr/1/dataviews/sp_phys/datasets/{dataset_id}/data/{start_time},{end_time}/{var_string}?format=text"
     
@@ -31,12 +30,6 @@ def download_cdaweb_data(dataset_id: str, start_time: str, end_time: str, variab
         response.raise_for_status()
         data_json = response.json()
         
-        # --- DIAGNOSTIC PRINT: Force NASA to show us what they sent ---
-        print("\n[NASA CDAWeb Raw Response]:")
-        print(json.dumps(data_json, indent=2))
-        print("-" * 40 + "\n")
-        
-        # Extract the dynamically generated file URL from the JSON structure
         file_url = None
         if "FileDescription" in data_json:
             file_url = data_json["FileDescription"][0].get("Name")
@@ -44,11 +37,10 @@ def download_cdaweb_data(dataset_id: str, start_time: str, end_time: str, variab
             file_url = data_json["DataResult"]["FileDescription"][0].get("Name")
             
         if not file_url:
-            raise ValueError("Could not locate FileDescription URL in NASA's response. See JSON above.")
+            raise ValueError("Could not locate FileDescription URL in NASA's response.")
             
         print(f"[NVCPP-Historical] NASA generated the data at: {file_url}")
         
-        # Step 2: Download the actual text/CSV data from the generated URL
         data_response = requests.get(file_url, timeout=60)
         data_response.raise_for_status()
         raw_data = data_response.content
@@ -57,14 +49,11 @@ def download_cdaweb_data(dataset_id: str, start_time: str, end_time: str, variab
         print(f"[ERROR] CDAWeb retrieval failed: {e}", file=sys.stderr)
         raise SystemExit(f"Fail-closed: Cannot retrieve telemetry for {dataset_id}")
 
-    # 1. Provenance: Hash the raw bytes
     sha256_hash = hashlib.sha256(raw_data).hexdigest()
     
-    # 2. Provenance: Save raw response bytes
     raw_file = out_dir / f"{dataset_id}_raw_bytes.csv"
     raw_file.write_bytes(raw_data)
     
-    # 3. Provenance: Save manifest
     manifest = {
         "dataset": dataset_id,
         "start_time": start_time,
@@ -83,7 +72,16 @@ def download_cdaweb_data(dataset_id: str, start_time: str, end_time: str, variab
     
     # 4. Parse with explicit headers (Fail-closed on bad layout)
     try:
-        df = pd.read_csv(StringIO(raw_data.decode('utf-8')), comment='#', sep=r'\s+') 
+        text = raw_data.decode('utf-8')
+        # Strip out all of NASA's comment lines and empty space
+        lines = [line.strip() for line in text.split('\n') if line.strip() and not line.startswith('#')]
+        
+        if not lines:
+            raise ValueError("No data rows found after filtering comments.")
+            
+        # Parse using 2 or more spaces (keeps date/time as a single column)
+        df = pd.read_csv(StringIO('\n'.join(lines)), sep=r'\s{2,}', engine='python')
+        
     except Exception as e:
         raise SystemExit(f"[ERROR] Strict header parsing failed: {e}")
         
