@@ -1,56 +1,61 @@
 """
-NVCPP Core Baseline Protocol V1
-Strict, unclipped mathematical engine for physical telemetry processing.
-Calculates trailing B0 baselines and chi_B24M without clipping, saturation, or generic aliasing.
+NVCPP Core Math Engine: CLINE-L1-B24M-TRAIL-v1
+Implements prior-only trailing 24-hour median baseline, relative signed delta,
+and unclipped canonical chi_B24M.
 """
 
 import pandas as pd
 import numpy as np
 
-PROTOCOL_ID = "CLINE_L1_BASELINE_PROTOCOL"
-PROTOCOL_VERSION = "1.0.0"
-
-class ProtocolConfig:
-    def __init__(self, baseline_hours=24):
-        self.baseline_hours = baseline_hours
-        self.chi_label = "chi_B24M"
-        self.clipping_allowed = False
-
-def calculate_trailing_baseline(df: pd.DataFrame, time_col: str, b_mag_col: str, baseline_hours: int = 24) -> pd.DataFrame:
+def calculate_trailing_median_baseline(
+    df: pd.DataFrame, 
+    time_col: str, 
+    b_mag_col: str, 
+    window_hours: int = 24,
+    min_coverage: float = 0.95
+) -> pd.DataFrame:
     """
-    Calculates the trailing B0 baseline using prior-only data.
-    Ensures zero future-data leakage into current physical states.
+    Computes prior-only (closed='left') trailing 24-hour median baseline (B0).
+    Enforces full elapsed time window and minimum sample coverage.
     """
     df = df.sort_values(time_col).copy()
     df.set_index(time_col, inplace=True)
     
-    # Calculate rolling mean using exactly the preceding baseline_hours window
-    rolling_b0 = df[b_mag_col].rolling(f'{baseline_hours}h', closed='left').mean()
-    df['B0'] = rolling_b0.values
+    # Calculate rolling count and median using prior-only window (closed='left')
+    rolling_obj = df[b_mag_col].rolling(f'{window_hours}h', closed='left')
+    rolling_median = rolling_obj.median()
+    rolling_count = rolling_obj.count()
+    
+    # Verify elapsed window time
+    start_time = df.index[0]
+    elapsed_time = df.index - start_time
+    full_window_mask = elapsed_time >= pd.Timedelta(hours=window_hours)
+    
+    # Expected samples per window based on median sample rate
+    if len(df) > 1:
+        median_interval_sec = pd.Series(df.index).diff().dt.total_seconds().median()
+        if median_interval_sec > 0:
+            expected_samples = (window_hours * 3600) / median_interval_sec
+            coverage_mask = (rolling_count / expected_samples) >= min_coverage
+        else:
+            coverage_mask = pd.Series(True, index=df.index)
+    else:
+        coverage_mask = pd.Series(False, index=df.index)
+        
+    # Baseline is valid only when full window has elapsed and coverage is sufficient
+    valid_baseline_mask = full_window_mask & coverage_mask
+    df['B0'] = np.where(valid_baseline_mask, rolling_median, np.nan)
+    
+    # Compute distinct metrics: Ratio, Signed Delta, and Absolute Chi
+    df['ratio_B24M'] = df[b_mag_col] / df['B0']
+    df['delta_B24M'] = (df[b_mag_col] - df['B0']) / df['B0']
+    df['chi_B24M'] = np.abs(df['delta_B24M'])
     
     df.reset_index(inplace=True)
     return df
 
-def apply_chi_b24m(df: pd.DataFrame, b_mag_col: str = 'B_mag', b0_col: str = 'B0') -> pd.DataFrame:
-    """
-    Computes unclipped chi_B24M from instantaneous B and trailing B0.
-    Strictly forbids generic 'chi' naming and data winsorization.
-    """
-    if 'chi' in df.columns:
-        raise ValueError("Generic 'chi' detected. NVCPP enforces explicit 'chi_B24M' labeling.")
-        
-    df['chi_B24M'] = df[b_mag_col] / df[b0_col]
-    
-    # NVCPP Constraint Check
-    if df['chi_B24M'].max() <= 1.0 or df['chi_B24M'].min() < 0:
-        print("[WARNING] Abnormal chi_B24M range detected. Ensure data is unclipped.")
-        
-    return df
-
 def run_chain(telemetry_df: pd.DataFrame, time_col: str, b_mag_col: str) -> pd.DataFrame:
     """
-    Executes the full CLINE L1 verification chain on raw telemetry.
+    Entry point for NVCPP L1 physics computation chain.
     """
-    df = calculate_trailing_baseline(telemetry_df, time_col, b_mag_col)
-    df = apply_chi_b24m(df)
-    return df
+    return calculate_trailing_median_baseline(telemetry_df, time_col, b_mag_col)
