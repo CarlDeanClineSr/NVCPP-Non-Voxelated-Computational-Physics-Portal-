@@ -1,102 +1,135 @@
 #!/usr/bin/env python3
-"""
-NVCPP SOLAR-1 MAG Discovery Probe
-Interrogates NOAA/NCEI Space Weather Portal REST and HAPI endpoints
-without guessing schemas, enforcing strict provenance hashing.
-"""
+"""Fail-closed metadata monitor for the SOLAR-1 MAG source contract."""
+
+from __future__ import annotations
 
 import argparse
-import json
 import hashlib
+import json
 from pathlib import Path
+from typing import Any
+
 import requests
 
-NCEI_API_BASE = "https://www.ncei.noaa.gov/cloud-access/space-weather-portal/api/v1"
+from sources.solar1.download_solar1 import schema_fingerprint
+from sources.solar1.validate_contract import load_contract_or_raise
 
-def sha256_text(text: str) -> str:
-    return hashlib.sha256(text.encode("utf-8")).hexdigest()
+VERSION = "2.0.0"
 
-def probe_endpoint(session: requests.Session, endpoint_path: str, params: dict = None) -> dict:
-    url = f"{NCEI_API_BASE}{endpoint_path}"
-    try:
-        response = session.get(url, params=params, timeout=30)
-        response.raise_for_status()
-        try:
-            data = response.json()
-        except ValueError:
-            data = {"raw_text": response.text}
-        
-        raw_dump = json.dumps(data, sort_keys=True)
-        return {
-            "endpoint": endpoint_path,
-            "params": params or {},
-            "resolved_url": response.url,
-            "status": "ok",
-            "sha256": sha256_text(raw_dump),
-            "data": data
-        }
-    except Exception as e:
-        return {
-            "endpoint": endpoint_path,
-            "params": params or {},
-            "status": "failed",
-            "error": str(e)
-        }
 
-def probe_solar1_mag(outdir: str = "runs/solar1/probe") -> dict:
-    out_dir = Path(outdir)
-    out_dir.mkdir(parents=True, exist_ok=True)
+def sha256_bytes(value: bytes) -> str:
+    return hashlib.sha256(value).hexdigest()
 
-    print(f"[NVCPP-Discovery] Probing NOAA/NCEI Space Weather Portal at {NCEI_API_BASE}...")
-    session = requests.Session()
-    session.headers.update({"User-Agent": "NVCPP-DiscoveryProbe/1.0.0"})
 
-    requests_log = []
-
-    # 1. Query filtered products for SOLAR-1 MAG
-    prod_result = probe_endpoint(session, "/products", params={"sat": "SOLAR-1", "inst": "MAG"})
-    requests_log.append(prod_result)
-    if prod_result["status"] == "ok":
-        Path(out_dir / "products_filtered.json").write_text(json.dumps(prod_result["data"], indent=2))
-
-    # 2. Query HAPI catalog for available datasets
-    hapi_cat = probe_endpoint(session, "/hapi/catalog")
-    requests_log.append(hapi_cat)
-    if hapi_cat["status"] == "ok":
-        Path(out_dir / "hapi_catalog.json").write_text(json.dumps(hapi_cat["data"], indent=2))
-
-    # 3. Query HAPI info endpoint for sci_mag-l3_solar1 parameter definitions
-    hapi_info = probe_endpoint(session, "/hapi/info", params={"dataset": "sci_mag-l3_solar1"})
-    requests_log.append(hapi_info)
-    if hapi_info["status"] == "ok":
-        Path(out_dir / "hapi_info_sci_mag_l3.json").write_text(json.dumps(hapi_info["data"], indent=2))
-
-    # Compile Discovery Manifest
-    manifest = {
-        "source": "NOAA/NCEI Space Weather Portal",
-        "api_base": NCEI_API_BASE,
-        "mission": "SOLAR-1",
-        "instrument": "MAG",
-        "known_product_candidates": ["mag-l3_solar1", "sci_mag-l3_solar1"],
-        "probe_passed": True,
-        "science_computation_enabled": False,
-        "reason": "Discovery phase: exact parameter IDs/units/frame/cadence must be frozen first.",
-        "successful_requests": sum(1 for r in requests_log if r["status"] == "ok"),
-        "requests": [{k: v for k, v in r.items() if k != "data"} for r in requests_log],
-        "candidate_product_records": [r["data"] for r in requests_log if r["endpoint"] == "/products" and r["status"] == "ok"],
-        "candidate_hapi_records": [r["data"] for r in requests_log if "hapi" in r["endpoint"] and r["status"] == "ok"]
+def fetch_json(
+    session: requests.Session,
+    url: str,
+    *,
+    params: dict[str, str] | None,
+    outdir: Path,
+    filename: str,
+) -> tuple[dict[str, Any], dict[str, Any]]:
+    response = session.get(url, params=params, timeout=60)
+    raw = response.content
+    path = outdir / filename
+    path.write_bytes(raw)
+    response.raise_for_status()
+    data = response.json()
+    return data, {
+        "resolved_url": response.url,
+        "http_code": response.status_code,
+        "raw_path": path.name,
+        "raw_size_bytes": len(raw),
+        "raw_sha256": sha256_bytes(raw),
     }
 
-    manifest_path = out_dir / "solar1_mag_discovery_manifest.json"
-    manifest_path.write_text(json.dumps(manifest, indent=2))
-    print(f"[NVCPP-Discovery] Probe complete. Manifest written to {manifest_path}")
+
+def run_probe(outdir: Path, contract_path: Path) -> dict[str, Any]:
+    outdir.mkdir(parents=True, exist_ok=True)
+    contract = load_contract_or_raise(contract_path)
+    base = contract["source"]["api_base"]
+    session = requests.Session()
+    session.headers.update({"User-Agent": f"NVCPP-SOLAR1-MAG-Metadata/{VERSION}"})
+
+    products, products_meta = fetch_json(
+        session,
+        f"{base}/products",
+        params={"sat": "SOLAR-1", "inst": "MAG"},
+        outdir=outdir,
+        filename="products_filtered.json",
+    )
+    catalog, catalog_meta = fetch_json(
+        session,
+        f"{base}/hapi/catalog",
+        params=None,
+        outdir=outdir,
+        filename="hapi_catalog.json",
+    )
+    info, info_meta = fetch_json(
+        session,
+        f"{base}/hapi/info",
+        params={"dataset": contract["source"]["hapi_dataset_id"]},
+        outdir=outdir,
+        filename="hapi_info_sci_mag_l3.json",
+    )
+
+    product_id = contract["source"]["product_id"]
+    product_found = any(
+        isinstance(item, dict)
+        and (item.get("product") == product_id or item.get("id") == product_id)
+        for item in products.get("data", [])
+    )
+    catalog_found = any(
+        isinstance(item, dict) and item.get("id") == product_id
+        for item in catalog.get("catalog", [])
+    )
+    observed_fingerprint, canonical = schema_fingerprint(info, contract)
+    expected_fingerprint = contract["source"]["schema_fingerprint_sha256"]
+    schema_match = observed_fingerprint == expected_fingerprint
+    hapi_ok = info.get("status", {}).get("code") == 1200
+
+    passed = product_found and catalog_found and schema_match and hapi_ok
+    manifest = {
+        "probe_version": VERSION,
+        "probe_passed": passed,
+        "science_computation_enabled": False,
+        "product_id": product_id,
+        "checks": {
+            "product_found": product_found,
+            "hapi_catalog_found": catalog_found,
+            "hapi_status_1200": hapi_ok,
+            "schema_fingerprint_match": schema_match,
+        },
+        "expected_schema_fingerprint_sha256": expected_fingerprint,
+        "observed_schema_fingerprint_sha256": observed_fingerprint,
+        "canonical_schema": canonical,
+        "contract_sha256": sha256_bytes(contract_path.read_bytes()),
+        "requests": {
+            "products": products_meta,
+            "catalog": catalog_meta,
+            "info": info_meta,
+        },
+    }
+    (outdir / "solar1_mag_discovery_manifest.json").write_text(
+        json.dumps(manifest, indent=2),
+        encoding="utf-8",
+    )
+    if not passed:
+        raise SystemExit("SOLAR-1 MAG metadata no longer matches the frozen contract")
     return manifest
 
-def main():
-    parser = argparse.ArgumentParser(description="SOLAR-1 MAG Discovery Probe")
-    parser.add_argument("--outdir", default="runs/solar1/probe", help="Output directory for discovery artifacts")
+
+def main() -> None:
+    parser = argparse.ArgumentParser(description="Monitor SOLAR-1 MAG metadata")
+    parser.add_argument("--outdir", type=Path, default=Path("runs/solar1/probe"))
+    parser.add_argument(
+        "--contract",
+        type=Path,
+        default=Path("config/solar1_mag_contract.v1.json"),
+    )
     args = parser.parse_args()
-    probe_solar1_mag(outdir=args.outdir)
+    print(json.dumps(run_probe(args.outdir, args.contract), indent=2))
+
 
 if __name__ == "__main__":
     main()

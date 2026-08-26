@@ -1,58 +1,36 @@
-name: NVCPP SOLAR-1 MAG Discovery Probe
+name: NVCPP SOLAR-1 MAG Metadata Monitor
 
 on:
   workflow_dispatch:
   push:
     branches: [main]
     paths:
-      - "sources/solar1/**"
-      - "tests/test_solar1_contract.py"
-      - "config/solar1_mag_l3.yaml"
-      - "config/solar1_mag_contract.template.json"
+      - "sources/solar1/download_ncei.py"
+      - "sources/solar1/download_solar1.py"
+      - "sources/solar1/validate_contract.py"
+      - "config/solar1_mag_contract.v1.json"
+      - "requirements.txt"
       - ".github/workflows/solar1_probe.yml"
 
 permissions:
   contents: read
 
-env:
-  PYTHONUNBUFFERED: "1"
-
-concurrency:
-  group: solar1-mag-discovery-${{ github.ref }}
-  cancel-in-progress: false
-
 jobs:
-  probe-solar1-mag:
+  monitor:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
-      - name: Check out repository
-        uses: actions/checkout@v4
-
-      - name: Set up Python
-        uses: actions/setup-python@v5
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
-
-      - name: Install probe dependencies
-        run: |
-          python -m pip install --upgrade pip
-          pip install requests
-
-      - name: Validate locked contract tooling
-        run: |
-          python -m json.tool config/solar1_mag_contract.template.json > /dev/null
-          python -m unittest discover -s tests -p 'test_solar1_contract.py' -v
-
-      - name: Probe NOAA/NCEI SOLAR-1 MAG metadata
-        run: |
-          python -m sources.solar1.download_ncei \
-            --outdir runs/solar1/probe
-
-      - name: Upload discovery artifacts
+          cache: pip
+      - run: python -m pip install -r requirements.txt
+      - run: python -m sources.solar1.download_ncei --outdir runs/solar1/probe
+      - if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: solar1-mag-discovery-${{ github.run_id }}
+          name: solar1-mag-metadata-${{ github.run_id }}
           path: runs/solar1/probe/
           if-no-files-found: error
-          retention-days: 30
+          retention-days: 90

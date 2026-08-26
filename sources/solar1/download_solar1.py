@@ -1,275 +1,525 @@
 #!/usr/bin/env python3
-"""
-NVCPP SOLAR-1 Historical Downloader & Ingestion Engine
-Enforces full semantic contract validation, strict raw row-level column checks,
-forensic quarantine artifact generation, unclipped vector magnitude computation,
-and comprehensive pre/post run manifests.
-"""
+"""Audited NOAA/NCEI SOLAR-1 MAG ingestion and CLINE L1 execution."""
+
+from __future__ import annotations
 
 import argparse
-import sys
-import json
-import hashlib
-import subprocess
 import csv
+import hashlib
+import importlib.metadata
+import io
+import json
+import os
+import platform
+import subprocess
 from datetime import datetime, timezone
 from pathlib import Path
-import pandas as pd
+from typing import Any
+
 import numpy as np
+import pandas as pd
 import requests
 
-try:
-    from core.cline_l1_chain_v1 import run_chain, PROTOCOL_ID, PROTOCOL_VERSION
-except ImportError:
-    PROTOCOL_ID = "CLINE-L1-B24M-TRAIL-v1"
-    PROTOCOL_VERSION = "1.0.0"
-    def run_chain(df, time_col, b_mag_col):
-        raise NotImplementedError("Core math engine required.")
+from core.cline_l1_chain_v1 import PROTOCOL_ID, PROTOCOL_VERSION, run_chain
+from sources.solar1.validate_contract import load_contract_or_raise
 
-try:
-    from sources.solar1.validate_contract import validate_contract
-except ImportError:
-    def validate_contract(contract_path):
-        print(f"[NVCPP-WARNING] Strict validator module not found; falling back to direct JSON check for {contract_path}")
-        data = json.loads(Path(contract_path).read_text())
-        if data.get("status") != "FROZEN_VERIFIED":
-            raise SystemExit("[ERROR] Contract status is not FROZEN_VERIFIED.")
+RUNNER_VERSION = "2.0.0"
 
-NCEI_API_BASE = "https://www.ncei.noaa.gov/cloud-access/space-weather-portal/api/v1"
 
-def sha256_bytes(b: bytes) -> str:
-    return hashlib.sha256(b).hexdigest()
+def sha256_bytes(value: bytes) -> str:
+    return hashlib.sha256(value).hexdigest()
+
 
 def sha256_file(path: Path) -> str:
     return sha256_bytes(path.read_bytes())
 
-def get_git_commit_sha() -> str:
+
+def utc_now() -> str:
+    return datetime.now(timezone.utc).isoformat()
+
+
+def git_commit() -> str:
     try:
-        res = subprocess.run(["git", "rev-parse", "HEAD"], capture_output=True, text=True, check=True)
-        return res.stdout.strip()
+        return subprocess.run(
+            ["git", "rev-parse", "HEAD"],
+            check=True,
+            capture_output=True,
+            text=True,
+        ).stdout.strip()
     except Exception:
-        return "unknown"
+        return os.environ.get("GITHUB_SHA", "unknown")
 
-def validate_frozen_contract(contract_path: Path):
-    print(f"[NVCPP-CONTRACT] Pre-validating contract at {contract_path}...")
-    if not contract_path.exists():
-        raise SystemExit(f"[ERROR] Frozen contract not found at {contract_path}. Failing closed.")
-    
+
+def dependency_versions() -> dict[str, str]:
+    result: dict[str, str] = {"python": platform.python_version()}
+    for package in ("requests", "pandas", "numpy"):
+        try:
+            result[package] = importlib.metadata.version(package)
+        except importlib.metadata.PackageNotFoundError:
+            result[package] = "not-installed"
+    return result
+
+
+def _identity_from_info(info: dict[str, Any], vector_parameter: str) -> dict[str, Any]:
+    for record in info.get("additionalMetadata", []):
+        content = record.get("content")
+        if isinstance(content, dict) and isinstance(content.get(vector_parameter), dict):
+            metadata = content[vector_parameter]
+            return {
+                key: metadata.get(key)
+                for key in ("product", "instrument", "satellite")
+            }
+    return {"product": None, "instrument": None, "satellite": None}
+
+
+def canonical_schema(info: dict[str, Any], contract: dict[str, Any]) -> dict[str, Any]:
+    required = contract["acquisition"]["explicit_parameters"]
+    parameter_map = {
+        parameter.get("name"): parameter
+        for parameter in info.get("parameters", [])
+        if isinstance(parameter, dict)
+    }
+    missing = [name for name in required if name not in parameter_map]
+    if missing:
+        raise ValueError(f"HAPI /info is missing required parameters: {missing}")
+
+    parameters = []
+    for name in required:
+        source = parameter_map[name]
+        parameters.append(
+            {
+                key: source.get(key)
+                for key in ("name", "type", "units", "fill")
+                if key in source
+            }
+        )
+    return {
+        "hapi_version": info.get("HAPI"),
+        "parameters": parameters,
+        "identity": _identity_from_info(info, required[1]),
+    }
+
+
+def schema_fingerprint(info: dict[str, Any], contract: dict[str, Any]) -> tuple[str, dict[str, Any]]:
+    canonical = canonical_schema(info, contract)
+    encoded = json.dumps(
+        canonical,
+        sort_keys=True,
+        separators=(",", ":"),
+    ).encode("utf-8")
+    return sha256_bytes(encoded), canonical
+
+
+def request_hapi_info(
+    session: requests.Session,
+    contract: dict[str, Any],
+    outdir: Path,
+) -> dict[str, Any]:
+    endpoint = f'{contract["source"]["api_base"]}/hapi/info'
+    params = {"dataset": contract["source"]["hapi_dataset_id"]}
+    response = session.get(endpoint, params=params, timeout=60)
+    response.raise_for_status()
+    raw = response.content
+    path = outdir / "solar1_hapi_info.json"
+    path.write_bytes(raw)
     try:
-        contract_dict = json.loads(contract_path.read_text())
-        validate_contract(contract_dict)
-    except Exception as e:
-        raise SystemExit(f"[ERROR] Contract validation failed: {e}. Failing closed.")
-    
-    print("[NVCPP-CONTRACT] Full semantic contract pre-validation PASSED.")
+        info = response.json()
+    except ValueError as exc:
+        raise ValueError("HAPI /info did not return JSON") from exc
 
-def fetch_solar1_hapi_data(start_iso: str, stop_iso: str, out_dir: Path) -> pd.DataFrame:
-    """
-    Queries NOAA/NCEI HAPI data endpoint with strict row-level column count enforcement.
-    Explicitly requests parameters: time, b_gse_min_x, b_gse_min_y, b_gse_min_z.
-    """
-    url = f"{NCEI_API_BASE}/hapi/data"
+    if info.get("status", {}).get("code") != 1200:
+        raise ValueError(f"HAPI /info status is not 1200: {info.get('status')}")
+
+    observed, canonical = schema_fingerprint(info, contract)
+    expected = contract["source"]["schema_fingerprint_sha256"]
+    if observed != expected:
+        raise ValueError(
+            "HAPI schema fingerprint changed; "
+            f"expected {expected}, observed {observed}"
+        )
+
+    return {
+        "info": info,
+        "path": path,
+        "raw_sha256": sha256_bytes(raw),
+        "canonical_schema": canonical,
+        "canonical_schema_sha256": observed,
+        "resolved_url": response.url,
+    }
+
+
+def request_hapi_csv(
+    session: requests.Session,
+    contract: dict[str, Any],
+    start_iso: str,
+    stop_iso: str,
+    outdir: Path,
+) -> tuple[pd.DataFrame, dict[str, Any]]:
+    endpoint = f'{contract["source"]["api_base"]}/hapi/data'
+    parameters = contract["acquisition"]["explicit_parameters"]
     params = {
-        "dataset": "sci_mag-l3_solar1",
+        "dataset": contract["source"]["hapi_dataset_id"],
         "start": start_iso,
         "stop": stop_iso,
-        "parameters": "time,b_gse_min_x,b_gse_min_y,b_gse_min_z",
-        "format": "csv"
+        "parameters": ",".join(parameters),
+        "format": contract["acquisition"]["response_format"],
     }
-    
-    print(f"[NVCPP-SOLAR1] Requesting HAPI stream from {start_iso} to {stop_iso}...")
-    response = requests.get(url, params=params, timeout=60)
+    response = session.get(endpoint, params=params, timeout=120)
     response.raise_for_status()
-    
-    raw_bytes = response.content
-    prov_hash = sha256_bytes(raw_bytes)
-    print(f"[NVCPP-SOLAR1] Provenance secured: SHA256 {prov_hash}")
-    
-    raw_path = out_dir / "solar1_mag_raw.csv"
-    raw_path.write_bytes(raw_bytes)
-    
-    col_names = ["time", "b_gse_min_x", "b_gse_min_y", "b_gse_min_z"]
-    expected_cols = len(col_names)
-    
-    rows = []
-    with open(raw_path, "r", encoding="utf-8") as f:
-        reader = csv.reader(f)
-        for line_num, row in enumerate(reader, start=1):
-            if not row:
-                continue
-            if len(row) != expected_cols:
-                raise SystemExit(f"[ERROR] Strict parse error at line {line_num}: expected {expected_cols} columns, got {len(row)}. Failing closed.")
-            rows.append(row)
-            
-    df = pd.DataFrame(rows, columns=col_names)
-    return df
+    raw = response.content
+    raw_path = outdir / "solar1_mag_raw.csv"
+    raw_path.write_bytes(raw)
 
-def run_solar1_pipeline(run_name: str, start_time: str, analysis_start: str, end_time: str, outdir: Path, contract_path: Path):
-    print(f"[NVCPP] Executing SOLAR-1 MAG pipeline for run: {run_name}")
-    run_output_dir = outdir / run_name
-    run_output_dir.mkdir(parents=True, exist_ok=True)
+    rows: list[list[str]] = []
+    reader = csv.reader(io.StringIO(raw.decode("utf-8-sig")))
+    for source_row, row in enumerate(reader, start=1):
+        if not row:
+            continue
+        if len(row) != len(parameters):
+            raise ValueError(
+                f"strict parse failure at source row {source_row}: "
+                f"expected {len(parameters)} fields, found {len(row)}"
+            )
+        rows.append([str(source_row), *row])
+    if not rows:
+        raise ValueError("HAPI data response contains no rows")
 
-    validate_frozen_contract(contract_path)
+    dataframe = pd.DataFrame(rows, columns=["_source_row", *parameters])
+    return dataframe, {
+        "path": raw_path,
+        "sha256": sha256_bytes(raw),
+        "size_bytes": len(raw),
+        "resolved_url": response.url,
+        "requested_parameters": parameters,
+        "content_type": response.headers.get("Content-Type"),
+    }
 
-    raw_df = fetch_solar1_hapi_data(start_time, end_time, run_output_dir)
-    raw_csv_path = run_output_dir / "solar1_mag_raw.csv"
-    raw_sha = sha256_file(raw_csv_path)
 
-    if raw_df.empty:
-        raise SystemExit("[ERROR] Retrieved SOLAR-1 telemetry is empty. Failing closed.")
+def _append_quarantine(
+    records: list[pd.DataFrame],
+    source: pd.DataFrame,
+    mask: pd.Series,
+    reason: str,
+) -> None:
+    if bool(mask.any()):
+        selected = source.loc[mask].copy()
+        selected["reason_code"] = reason
+        records.append(selected)
 
-    print(f"[NVCPP] Successfully parsed {len(raw_df)} rows from HAPI stream.")
 
-    print("[NVCPP] Converting time to UTC datetime...")
-    raw_df["time"] = pd.to_datetime(raw_df["time"], errors="coerce", utc=True)
-    invalid_time = int(raw_df["time"].isna().sum())
+def sanitize(
+    raw: pd.DataFrame,
+    contract: dict[str, Any],
+    outdir: Path,
+) -> tuple[pd.DataFrame, dict[str, Any]]:
+    time_col = contract["time"]["parameter_id"]
+    component_ids = [
+        contract["vector"]["components"][axis]["parameter_id"]
+        for axis in ("x", "y", "z")
+    ]
+    original = raw.copy()
+    parsed = raw.copy()
+    parsed[time_col] = pd.to_datetime(parsed[time_col], utc=True, errors="coerce")
+    for column in component_ids:
+        parsed[column] = pd.to_numeric(parsed[column], errors="coerce")
 
-    bx, by, bz = "b_gse_min_x", "b_gse_min_y", "b_gse_min_z"
-    print("[NVCPP] Converting magnetic vector components to numeric values...")
-    for col in (bx, by, bz):
-        raw_df[col] = pd.to_numeric(raw_df[col], errors="coerce")
+    quarantine: list[pd.DataFrame] = []
+    invalid_time = parsed[time_col].isna()
+    _append_quarantine(quarantine, original, invalid_time, "INVALID_TIMESTAMP")
 
-    quarantine_records = []
-    fill_sentinel = -9999.0
-    fill_mask = (raw_df[bx] <= fill_sentinel) | (raw_df[by] <= fill_sentinel) | (raw_df[bz] <= fill_sentinel)
-    if fill_mask.any():
-        fill_df = raw_df.loc[fill_mask].copy()
-        fill_df["reason_code"] = "PROVIDER_FILL"
-        quarantine_records.append(fill_df)
-        raw_df.loc[fill_mask, [bx, by, bz]] = np.nan
+    nonnumeric = pd.Series(False, index=parsed.index)
+    for column in component_ids:
+        nonnumeric |= parsed[column].isna()
+    nonnumeric &= ~invalid_time
+    _append_quarantine(quarantine, original, nonnumeric, "NONNUMERIC_VECTOR")
 
-    zero_mask = (raw_df[bx] == 0.0) & (raw_df[by] == 0.0) & (raw_df[bz] == 0.0)
-    if zero_mask.any():
-        zero_df = raw_df.loc[zero_mask].copy()
-        zero_df["reason_code"] = "ZERO_VECTOR_SUSPECT"
-        quarantine_records.append(zero_df)
-        raw_df.loc[zero_mask, [bx, by, bz]] = np.nan
+    fill_mask = pd.Series(False, index=parsed.index)
+    for axis, column in zip(("x", "y", "z"), component_ids):
+        fills = contract["vector"]["components"][axis]["fill_values"]
+        fill_mask |= parsed[column].isin(fills)
+    fill_mask &= ~(invalid_time | nonnumeric)
+    _append_quarantine(quarantine, original, fill_mask, "PROVIDER_FILL")
 
-    fill_count = int(fill_mask.sum())
-    zero_count = int(zero_mask.sum())
+    zero_mask = (parsed[component_ids] == 0.0).all(axis=1)
+    zero_mask &= ~(invalid_time | nonnumeric | fill_mask)
+    _append_quarantine(quarantine, original, zero_mask, "ZERO_VECTOR_SUSPECT")
 
-    quarantine_path = run_output_dir / "solar1_quarantine.csv"
-    if quarantine_records:
-        q_combined = pd.concat(quarantine_records)
-        q_combined.to_csv(quarantine_path, index=False)
-        q_sha = sha256_file(quarantine_path)
-        print(f"[NVCPP] Quarantined {len(q_combined)} anomalous record(s) to {quarantine_path}")
+    excluded = invalid_time | nonnumeric | fill_mask | zero_mask
+    candidate = parsed.loc[~excluded].copy()
+    candidate.sort_values(time_col, inplace=True)
+
+    duplicate_any = candidate[time_col].duplicated(keep=False)
+    duplicate_identical_count = 0
+    duplicate_conflict_count = 0
+    drop_indices: list[int] = []
+    if duplicate_any.any():
+        for _, group in candidate.loc[duplicate_any].groupby(time_col, sort=False):
+            vectors = group[component_ids].drop_duplicates()
+            if len(vectors) == 1:
+                duplicate_identical_count += len(group) - 1
+                duplicate_rows = group.iloc[1:]
+                original_rows = original.loc[duplicate_rows.index].copy()
+                original_rows["reason_code"] = "DUPLICATE_IDENTICAL"
+                quarantine.append(original_rows)
+                drop_indices.extend(duplicate_rows.index.tolist())
+            else:
+                duplicate_conflict_count += len(group)
+                original_rows = original.loc[group.index].copy()
+                original_rows["reason_code"] = "DUPLICATE_CONFLICT"
+                quarantine.append(original_rows)
+
+    if drop_indices:
+        candidate.drop(index=drop_indices, inplace=True)
+
+    quarantine_path = outdir / "solar1_quarantine.csv"
+    if quarantine:
+        quarantine_df = pd.concat(quarantine, ignore_index=True)
     else:
-        q_sha = None
+        quarantine_df = pd.DataFrame(columns=[*original.columns, "reason_code"])
+    quarantine_df.to_csv(quarantine_path, index=False)
+    quarantine_sha = sha256_file(quarantine_path)
 
-    valid_mask = raw_df["time"].notna() & raw_df[[bx, by, bz]].notna().all(axis=1)
-    clean_df = raw_df.loc[valid_mask].copy()
+    if duplicate_conflict_count:
+        raise ValueError(
+            f"{duplicate_conflict_count} rows have conflicting duplicate timestamps"
+        )
 
-    print(
-        f"[NVCPP] Sanitization: {len(raw_df)} parsed rows; "
-        f"{invalid_time} invalid timestamps; {fill_count} fill-value records (-9999.0); "
-        f"{zero_count} zero-vector suspect records; "
-        f"{len(clean_df)} valid physical rows."
-    )
+    candidate.reset_index(drop=True, inplace=True)
+    if candidate.empty:
+        raise ValueError("no physical rows remain after quarantine")
 
-    if clean_df.empty:
-        raise SystemExit("[ERROR] No valid timestamped SOLAR-1 magnetic vectors remain. Failing closed.")
+    diffs = candidate[time_col].diff().dt.total_seconds().dropna()
+    expected = float(contract["cadence"]["expected_seconds"])
+    cadence_deviations = int((~np.isclose(diffs, expected)).sum())
+    gap_mask = diffs > expected
+    metrics = {
+        "raw_rows": int(len(raw)),
+        "valid_rows": int(len(candidate)),
+        "invalid_timestamps": int(invalid_time.sum()),
+        "nonnumeric_vectors": int(nonnumeric.sum()),
+        "provider_fill_rows": int(fill_mask.sum()),
+        "zero_vector_suspects": int(zero_mask.sum()),
+        "duplicate_identical_quarantined": int(duplicate_identical_count),
+        "duplicate_conflicts": int(duplicate_conflict_count),
+        "cadence_deviation_intervals": cadence_deviations,
+        "gap_intervals": int(gap_mask.sum()),
+        "longest_gap_seconds": float(diffs.max()) if len(diffs) else None,
+        "actual_start_utc": candidate[time_col].min().isoformat(),
+        "actual_stop_utc": candidate[time_col].max().isoformat(),
+        "quarantine_rows": int(len(quarantine_df)),
+        "quarantine_path": quarantine_path.name,
+        "quarantine_sha256": quarantine_sha,
+    }
+    return candidate, metrics
 
-    clean_df.sort_values("time", inplace=True)
-    clean_df.reset_index(drop=True, inplace=True)
 
-    print("[NVCPP] Calculating vector magnitude component-wise...")
-    clean_df["B_mag"] = np.sqrt(
-        clean_df[bx].pow(2) + clean_df[by].pow(2) + clean_df[bz].pow(2)
-    )
+def _inventory(outdir: Path) -> list[dict[str, Any]]:
+    items = []
+    for path in sorted(outdir.iterdir()):
+        if path.is_file() and path.name != "solar1_run_manifest.json":
+            items.append(
+                {
+                    "path": path.name,
+                    "size_bytes": path.stat().st_size,
+                    "sha256": sha256_file(path),
+                }
+            )
+    return items
 
-    if not np.isfinite(clean_df["B_mag"].to_numpy()).all():
-        raise SystemExit("[ERROR] Non-finite B_mag generated from valid SOLAR-1 vectors. Failing closed.")
 
-    print(f"\n[NVCPP] Phase 2: Unclipped Physical Computation ({PROTOCOL_ID})")
-    processed_df = run_chain(clean_df, time_col="time", b_mag_col="B_mag")
+def run_solar1_pipeline(
+    run_name: str,
+    start_time: str,
+    analysis_start: str,
+    end_time: str,
+    outdir: Path,
+    contract_path: Path,
+) -> None:
+    run_output = outdir / run_name
+    run_output.mkdir(parents=True, exist_ok=True)
+    manifest_path = run_output / "solar1_run_manifest.json"
 
-    if "chi_B24M" not in processed_df.columns:
-        raise SystemExit("[ERROR] chi_B24M was not produced. Failing closed.")
-
-    analysis_df = processed_df[processed_df["time"] >= pd.to_datetime(analysis_start)].copy()
-    valid_chi = analysis_df["chi_B24M"].dropna()
-
-    if valid_chi.empty:
-        raise SystemExit("[ERROR] No valid chi_B24M values produced in analysis window. Failing closed.")
-
-    print("\n[NVCPP] Phase 3: Persisting Scientific Artifacts & Run Manifest")
-    output_csv = run_output_dir / "solar1_cline_l1_rows.csv"
-    analysis_df.to_csv(output_csv, index=False)
-    processed_sha = sha256_file(output_csv)
-
-    summary_file = run_output_dir / "solar1_cline_l1_report.md"
-    max_chi = valid_chi.max()
-    max_ratio = analysis_df["ratio_B24M"].max()
-
-    summary_text = (
-        f"# NVCPP SOLAR-1 Run: {run_name}\n\n"
-        f"- **Dataset**: sci_mag-l3_solar1\n"
-        f"- **Pre-Roll Retrieval**: {start_time} to {end_time}\n"
-        f"- **Analysis Interval**: {analysis_start} to {end_time}\n"
-        f"- **Rows retrieved/parsed**: {len(raw_df)}\n"
-        f"- **Fill values (-9999.0) rejected**: {fill_count}\n"
-        f"- **Zero-vector suspects quarantined**: {zero_count}\n"
-        f"- **Analysis rows with valid chi_B24M**: {len(valid_chi)}\n"
-        f"- **Max ratio_B24M (B/B0)**: {max_ratio:.6g}\n"
-        f"- **Max chi_B24M (|B-B0|/|B0|)**: {max_chi:.6g}\n"
-        f"- **Protocol ID**: {PROTOCOL_ID}\n"
-        f"- **Baseline Method**: Prior-Only Trailing 24-Hour Median\n"
-        f"- **Coverage Gate**: 95% minimum saturation required\n"
-        f"- **Clipping applied**: False\n"
-    )
-    summary_file.write_text(summary_text)
-    report_sha = sha256_file(summary_file)
-
-    manifest = {
+    manifest: dict[str, Any] = {
+        "manifest_version": "2.0.0",
+        "status": "STARTED",
         "run_name": run_name,
-        "timestamp_utc": datetime.now(timezone.utc).isoformat(),
-        "git_commit": get_git_commit_sha(),
-        "protocol_id": PROTOCOL_ID,
-        "protocol_version": PROTOCOL_VERSION,
+        "runner_version": RUNNER_VERSION,
+        "started_utc": utc_now(),
+        "git_commit": git_commit(),
+        "github": {
+            "run_id": os.environ.get("GITHUB_RUN_ID"),
+            "run_attempt": os.environ.get("GITHUB_RUN_ATTEMPT"),
+            "workflow": os.environ.get("GITHUB_WORKFLOW"),
+            "ref": os.environ.get("GITHUB_REF"),
+        },
+        "dependencies": dependency_versions(),
         "contract_path": str(contract_path),
-        "contract_sha256": sha256_file(contract_path),
         "retrieval_window": {"start": start_time, "end": end_time},
         "analysis_window": {"start": analysis_start, "end": end_time},
-        "metrics": {
-            "raw_rows_retrieved": len(raw_df),
-            "invalid_timestamps": invalid_time,
-            "fill_values_rejected": fill_count,
-            "zero_vectors_quarantined": zero_count,
-            "analysis_rows_valid": len(valid_chi),
-            "max_ratio_b24m": float(max_ratio),
-            "max_chi_b24m": float(max_chi)
-        },
-        "artifacts": {
-            "raw_csv": {"path": raw_csv_path.name, "sha256": raw_sha},
-            "processed_csv": {"path": output_csv.name, "sha256": processed_sha},
-            "report_md": {"path": summary_file.name, "sha256": report_sha},
-            "quarantine_csv": {"path": quarantine_path.name, "sha256": q_sha} if quarantine_records else None
-        }
     }
+    manifest_path.write_text(json.dumps(manifest, indent=2), encoding="utf-8")
 
-    manifest_path = run_output_dir / "solar1_run_manifest.json"
-    manifest_path.write_text(json.dumps(manifest, indent=2))
-    print(f"[NVCPP] SUCCESS. Production-locked manifest and artifacts written to: {run_output_dir}")
+    try:
+        contract = load_contract_or_raise(contract_path)
+        manifest["contract_sha256"] = sha256_file(contract_path)
+        manifest["protocol_id"] = PROTOCOL_ID
+        manifest["protocol_version"] = PROTOCOL_VERSION
 
-def main():
-    parser = argparse.ArgumentParser(description="NVCPP SOLAR-1 Historical Downloader")
-    parser.add_argument("--run", default="solar1_sample_2025_2026", help="Run name identifier")
-    parser.add_argument("--start", default="2026-06-01T00:00:00.000Z", help="Retrieval start with pre-roll")
-    parser.add_argument("--analysis-start", default="2026-06-02T00:00:00.000Z", help="Analysis window start")
-    parser.add_argument("--end", default="2026-06-05T00:00:00.000Z", help="Retrieval end")
-    parser.add_argument("--outdir", default="runs/historical", help="Output directory")
-    parser.add_argument("--contract", default="config/solar1_mag_contract.v1.json", help="Path to authoritative JSON contract")
-    args = parser.parse_args()
+        start = pd.to_datetime(start_time, utc=True)
+        analysis = pd.to_datetime(analysis_start, utc=True)
+        end = pd.to_datetime(end_time, utc=True)
+        pre_roll = pd.Timedelta(hours=contract["physics"]["pre_roll_hours"])
+        if not start < analysis < end:
+            raise ValueError("require retrieval start < analysis start < retrieval end")
+        if analysis - start < pre_roll:
+            raise ValueError("retrieval window does not contain the required 24-hour pre-roll")
 
-    run_solar1_pipeline(
-        run_name=args.run,
-        start_time=args.start,
-        analysis_start=args.analysis_start,
-        end_time=args.end,
-        outdir=Path(args.outdir),
-        contract_path=Path(args.contract)
+        session = requests.Session()
+        session.headers.update({"User-Agent": f"NVCPP-SOLAR1/{RUNNER_VERSION}"})
+        info_meta = request_hapi_info(session, contract, run_output)
+        raw, acquisition = request_hapi_csv(
+            session, contract, start_time, end_time, run_output
+        )
+        clean, sanitation = sanitize(raw, contract, run_output)
+
+        first_time = clean[contract["time"]["parameter_id"]].min()
+        last_time = clean[contract["time"]["parameter_id"]].max()
+        tolerance = pd.Timedelta(seconds=contract["cadence"]["expected_seconds"])
+        if first_time > start + tolerance:
+            raise ValueError("returned data do not cover the requested pre-roll start")
+        if last_time < end - tolerance:
+            raise ValueError("returned data stop before the requested end")
+
+        components = [
+            contract["vector"]["components"][axis]["parameter_id"]
+            for axis in ("x", "y", "z")
+        ]
+        clean["B_mag"] = np.sqrt(sum(clean[column].pow(2) for column in components))
+        if not np.isfinite(clean["B_mag"].to_numpy(dtype=float)).all():
+            raise ValueError("non-finite B_mag generated")
+
+        processed = run_chain(
+            clean,
+            time_col=contract["time"]["parameter_id"],
+            b_mag_col="B_mag",
+            expected_cadence_seconds=float(contract["cadence"]["expected_seconds"]),
+            window_hours=contract["physics"]["pre_roll_hours"],
+            min_coverage=contract["physics"]["minimum_baseline_coverage_fraction"],
+        )
+
+        time_col = contract["time"]["parameter_id"]
+        analysis_df = processed[
+            (processed[time_col] >= analysis) & (processed[time_col] < end)
+        ].copy()
+        valid = analysis_df["baseline_status"] == "VALID"
+        if not valid.any():
+            raise ValueError("analysis interval contains no valid canonical baseline rows")
+
+        output_csv = run_output / "solar1_cline_l1_rows.csv"
+        analysis_df.to_csv(output_csv, index=False)
+
+        valid_chi = analysis_df.loc[valid, "chi_B24M"]
+        valid_ratio = analysis_df.loc[valid, "ratio_B24M"]
+        report = run_output / "solar1_cline_l1_report.md"
+        report.write_text(
+            "\n".join(
+                [
+                    f"# NVCPP SOLAR-1 Run: {run_name}",
+                    "",
+                    f"- Dataset: `{contract['source']['product_id']}`",
+                    f"- Protocol: `{PROTOCOL_ID}` version `{PROTOCOL_VERSION}`",
+                    f"- Retrieval: {start_time} to {end_time}",
+                    f"- Analysis: {analysis_start} to {end_time}",
+                    f"- Raw rows: {len(raw):,}",
+                    f"- Valid physical rows before baseline: {len(clean):,}",
+                    f"- Quarantine rows: {sanitation['quarantine_rows']:,}",
+                    f"- Valid canonical analysis rows: {int(valid.sum()):,}",
+                    f"- Maximum ratio_B24M: {valid_ratio.max():.9g}",
+                    f"- Maximum chi_B24M: {valid_chi.max():.9g}",
+                    "- Clipping applied: **False**",
+                ]
+            )
+            + "\n",
+            encoding="utf-8",
+        )
+
+        manifest.update(
+            {
+                "status": "SUCCESS",
+                "completed_utc": utc_now(),
+                "source": {
+                    "product_id": contract["source"]["product_id"],
+                    "coordinate_frame": contract["vector"]["coordinate_frame"],
+                    "units": contract["vector"]["units"],
+                    "hapi_info_url": info_meta["resolved_url"],
+                    "hapi_info_raw_sha256": info_meta["raw_sha256"],
+                    "schema_fingerprint_sha256": info_meta[
+                        "canonical_schema_sha256"
+                    ],
+                    "data_url": acquisition["resolved_url"],
+                    "raw_sha256": acquisition["sha256"],
+                    "raw_size_bytes": acquisition["size_bytes"],
+                    "requested_parameters": acquisition["requested_parameters"],
+                },
+                "sanitation": sanitation,
+                "baseline": {
+                    "status_counts": {
+                        str(key): int(value)
+                        for key, value in analysis_df["baseline_status"]
+                        .value_counts(dropna=False)
+                        .items()
+                    },
+                    "valid_rows": int(valid.sum()),
+                    "invalid_rows": int((~valid).sum()),
+                },
+                "metrics": {
+                    "max_ratio_b24m": float(valid_ratio.max()),
+                    "max_chi_b24m": float(valid_chi.max()),
+                    "median_chi_b24m": float(valid_chi.median()),
+                    "clipping_applied": False,
+                },
+            }
+        )
+        manifest_path.write_text(json.dumps(manifest, indent=2), encoding="utf-8")
+        manifest["artifacts"] = _inventory(run_output)
+        manifest_path.write_text(json.dumps(manifest, indent=2), encoding="utf-8")
+        print(f"[NVCPP] SUCCESS: {run_output}")
+
+    except BaseException as exc:
+        manifest.update(
+            {
+                "status": "FAILED",
+                "completed_utc": utc_now(),
+                "error_type": type(exc).__name__,
+                "error": str(exc),
+                "artifacts": _inventory(run_output),
+            }
+        )
+        manifest_path.write_text(json.dumps(manifest, indent=2), encoding="utf-8")
+        raise
+
+
+def main() -> None:
+    parser = argparse.ArgumentParser(description="Audited SOLAR-1 MAG pipeline")
+    parser.add_argument("--run", required=True)
+    parser.add_argument("--start", required=True)
+    parser.add_argument("--analysis-start", required=True)
+    parser.add_argument("--end", required=True)
+    parser.add_argument("--outdir", default="runs/historical")
+    parser.add_argument(
+        "--contract",
+        default="config/solar1_mag_contract.v1.json",
     )
+    args = parser.parse_args()
+    run_solar1_pipeline(
+        args.run,
+        args.start,
+        args.analysis_start,
+        args.end,
+        Path(args.outdir),
+        Path(args.contract),
+    )
+
 
 if __name__ == "__main__":
     main()

@@ -1,111 +1,186 @@
 #!/usr/bin/env python3
+"""Discovery-only probe for SOLAR-1 SWiPS in NOAA SPOT/HAPI.
+
+A green transport response is not treated as a discovered dataset.
 """
-NVCPP SOLAR-1 SWiPS Discovery Probe
-Interrogates NOAA/NCEI Space Weather Portal REST and HAPI endpoints
-specifically for the Solar Wind Plasma Sensor (SWiPS) dataset schemas.
-"""
+
+from __future__ import annotations
 
 import argparse
-import json
 import hashlib
+import json
 from pathlib import Path
+from typing import Any
+
 import requests
 
-NCEI_API_BASE = "https://www.ncei.noaa.gov/cloud-access/space-weather-portal/api/v1"
+API_BASE = "https://www.ncei.noaa.gov/cloud-access/space-weather-portal/api/v1"
+VERSION = "2.0.0"
+ALIASES = ("SWIPS", "SWiPS", "swips", "SOLAR-1", "SOL-1", "SWFO-L1")
 
-def sha256_text(text: str) -> str:
-    return hashlib.sha256(text.encode("utf-8")).hexdigest()
 
-def probe_endpoint(session: requests.Session, endpoint_path: str, params: dict = None) -> dict:
-    url = f"{NCEI_API_BASE}{endpoint_path}"
+def sha256_bytes(value: bytes) -> str:
+    return hashlib.sha256(value).hexdigest()
+
+
+def request_json(
+    session: requests.Session,
+    endpoint: str,
+    *,
+    params: dict[str, str] | None,
+    outdir: Path,
+    filename: str,
+) -> dict[str, Any]:
+    response = session.get(f"{API_BASE}{endpoint}", params=params, timeout=60)
+    raw = response.content
+    path = outdir / filename
+    path.write_bytes(raw)
+    record = {
+        "endpoint": endpoint,
+        "params": params or {},
+        "http_code": response.status_code,
+        "resolved_url": response.url,
+        "raw_path": path.name,
+        "raw_size_bytes": len(raw),
+        "raw_sha256": sha256_bytes(raw),
+    }
     try:
-        response = session.get(url, params=params, timeout=30)
         response.raise_for_status()
-        try:
-            data = response.json()
-        except ValueError:
-            data = {"raw_text": response.text}
-        
-        raw_dump = json.dumps(data, sort_keys=True)
-        return {
-            "endpoint": endpoint_path,
-            "params": params or {},
-            "resolved_url": response.url,
-            "status": "ok",
-            "sha256": sha256_text(raw_dump),
-            "data": data
-        }
-    except Exception as e:
-        return {
-            "endpoint": endpoint_path,
-            "params": params or {},
-            "status": "failed",
-            "error": str(e)
-        }
+        record["data"] = response.json()
+        record["status"] = "OK"
+    except Exception as exc:
+        record["status"] = "FAILED"
+        record["error"] = str(exc)
+    return record
 
-def probe_solar1_swips(outdir: str = "runs/solar1/swips_probe") -> dict:
-    out_dir = Path(outdir)
-    out_dir.mkdir(parents=True, exist_ok=True)
 
-    print(f"[NVCPP-Discovery] Probing NOAA/NCEI Space Weather Portal for SOLAR-1 SWiPS...")
+def _walk_strings(value: Any):
+    if isinstance(value, dict):
+        for key, item in value.items():
+            yield str(key)
+            yield from _walk_strings(item)
+    elif isinstance(value, list):
+        for item in value:
+            yield from _walk_strings(item)
+    elif value is not None:
+        yield str(value)
+
+
+def contains_swips(value: Any) -> bool:
+    text = "\n".join(_walk_strings(value)).lower()
+    return "swips" in text or "solar wind plasma sensor" in text
+
+
+def run_probe(outdir: Path) -> dict[str, Any]:
+    outdir.mkdir(parents=True, exist_ok=True)
     session = requests.Session()
-    session.headers.update({"User-Agent": "NVCPP-DiscoveryProbe/1.0.0"})
+    session.headers.update({"User-Agent": f"NVCPP-SWiPS-HAPI/{VERSION}"})
 
-    requests_log = []
+    requests_log = [
+        request_json(
+            session,
+            "/products",
+            params={"sat": "SOLAR-1", "inst": "SWIPS"},
+            outdir=outdir,
+            filename="swips_products_filtered.json",
+        ),
+        request_json(
+            session,
+            "/products",
+            params=None,
+            outdir=outdir,
+            filename="all_products.json",
+        ),
+        request_json(
+            session,
+            "/hapi/catalog",
+            params=None,
+            outdir=outdir,
+            filename="swips_hapi_catalog.json",
+        ),
+    ]
 
-    # 1. Query filtered products for SOLAR-1 SWiPS
-    prod_result = probe_endpoint(session, "/products", params={"sat": "SOLAR-1", "inst": "SWIPS"})
-    requests_log.append(prod_result)
-    
-    candidate_datasets = []
-    if prod_result["status"] == "ok":
-        Path(out_dir / "swips_products_filtered.json").write_text(json.dumps(prod_result["data"], indent=2))
-        print("[NVCPP-Discovery] Found SWiPS products:")
-        for product in prod_result["data"].get("data", []):
-            print(f"  - {product.get('product')} ({product.get('title')})")
-            candidate_datasets.append(product.get('product'))
+    mandatory_transport_ok = all(record["status"] == "OK" for record in requests_log)
+    matching_records = []
+    for record in requests_log:
+        if record["status"] == "OK" and contains_swips(record.get("data")):
+            matching_records.append(record["endpoint"])
 
-    # 2. Query HAPI catalog for available datasets
-    hapi_cat = probe_endpoint(session, "/hapi/catalog")
-    requests_log.append(hapi_cat)
-    if hapi_cat["status"] == "ok":
-        Path(out_dir / "swips_hapi_catalog.json").write_text(json.dumps(hapi_cat["data"], indent=2))
+    candidate_ids: set[str] = set()
+    for record in requests_log:
+        if record["status"] != "OK":
+            continue
+        data = record.get("data")
+        if record["endpoint"] == "/products" and isinstance(data, dict):
+            for product in data.get("data", []):
+                if contains_swips(product):
+                    identifier = product.get("product") or product.get("id")
+                    if identifier:
+                        candidate_ids.add(str(identifier))
+        if record["endpoint"] == "/hapi/catalog" and isinstance(data, dict):
+            for item in data.get("catalog", []):
+                if contains_swips(item):
+                    identifier = item.get("id")
+                    if identifier:
+                        candidate_ids.add(str(identifier))
 
-    # 3. If we found SWiPS datasets, probe their HAPI info endpoints
-    hapi_info_records = []
-    for dataset in candidate_datasets:
-        # Check if the dataset exists in the HAPI catalog first
-        in_catalog = any(d.get("id") == dataset for d in hapi_cat.get("data", {}).get("catalog", [])) if hapi_cat["status"] == "ok" else False
-        if in_catalog or dataset.startswith("sci_swips"):
-             print(f"[NVCPP-Discovery] Probing /hapi/info for dataset: {dataset}")
-             info_res = probe_endpoint(session, "/hapi/info", params={"dataset": dataset})
-             requests_log.append(info_res)
-             if info_res["status"] == "ok":
-                 Path(out_dir / f"hapi_info_{dataset}.json").write_text(json.dumps(info_res["data"], indent=2))
-                 hapi_info_records.append(info_res["data"])
+    info_records = []
+    for dataset in sorted(candidate_ids):
+        info_records.append(
+            request_json(
+                session,
+                "/hapi/info",
+                params={"dataset": dataset},
+                outdir=outdir,
+                filename=f"hapi_info_{dataset.replace('/', '_')}.json",
+            )
+        )
+    requests_log.extend(info_records)
 
-    # Compile Discovery Manifest
+    if not mandatory_transport_ok:
+        state = "PROBE_FAILED"
+    elif candidate_ids:
+        state = "PUBLIC_SPOT_OR_HAPI_CANDIDATES_FOUND"
+    else:
+        state = "NO_PUBLIC_SPOT_OR_HAPI_SWIPS_DATASET_FOUND"
+
     manifest = {
+        "discovery_version": VERSION,
         "source": "NOAA/NCEI Space Weather Portal",
-        "api_base": NCEI_API_BASE,
+        "api_base": API_BASE,
         "mission": "SOLAR-1",
         "instrument": "SWIPS",
-        "candidate_datasets": candidate_datasets,
-        "probe_passed": True,
-        "successful_requests": sum(1 for r in requests_log if r["status"] == "ok"),
-        "requests": [{k: v for k, v in r.items() if k != "data"} for r in requests_log]
+        "probe_completed": mandatory_transport_ok,
+        "dataset_found": bool(candidate_ids),
+        "discovery_state": state,
+        "aliases_searched": list(ALIASES),
+        "candidate_datasets": sorted(candidate_ids),
+        "matching_endpoints": matching_records,
+        "requests": [
+            {key: value for key, value in record.items() if key != "data"}
+            for record in requests_log
+        ],
+        "science_computation_enabled": False,
+        "interpretation_limits": [
+            "absence from SPOT/HAPI does not establish absence from other NCEI archives",
+            "transport success is distinct from dataset discovery",
+        ],
     }
-
-    manifest_path = out_dir / "solar1_swips_discovery_manifest.json"
-    manifest_path.write_text(json.dumps(manifest, indent=2))
-    print(f"[NVCPP-Discovery] SWiPS Probe complete. Manifest written to {manifest_path}")
+    (outdir / "solar1_swips_discovery_manifest.json").write_text(
+        json.dumps(manifest, indent=2),
+        encoding="utf-8",
+    )
+    if not mandatory_transport_ok:
+        raise SystemExit("one or more mandatory SWiPS discovery endpoints failed")
     return manifest
 
-def main():
-    parser = argparse.ArgumentParser(description="SOLAR-1 SWiPS Discovery Probe")
-    parser.add_argument("--outdir", default="runs/solar1/swips_probe", help="Output directory for discovery artifacts")
+
+def main() -> None:
+    parser = argparse.ArgumentParser(description="Probe NOAA SPOT/HAPI for SWiPS")
+    parser.add_argument("--outdir", type=Path, default=Path("runs/solar1/swips_probe"))
     args = parser.parse_args()
-    probe_solar1_swips(outdir=args.outdir)
+    print(json.dumps(run_probe(args.outdir), indent=2))
+
 
 if __name__ == "__main__":
     main()

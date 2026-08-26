@@ -1,125 +1,145 @@
 # NVCPP — Non-Voxelated Computational Physics Portal
 
-NVCPP is a clean, provenance-first codebase for continuous physical telemetry and mission archive adapters. It starts from the audited CLINE L1 V1 package preserved in Google Drive and deliberately excludes the legacy `luft-portal` repository bulk.
+NVCPP is an evidence-preserving telemetry and cross-mission analysis system. It
+keeps native source bytes, mission contracts, quality exclusions, transformation
+rules, and output hashes beside every result.
+
+## Current implementation status
+
+- DSCOVR MAG historical ingestion: canonical one-minute GSE product.
+- SOLAR-1 MAG historical ingestion: canonical one-minute GSE product.
+- `CLINE-L1-B24M-TRAIL-v1`: prior-only 24-hour median with a 95% coverage gate.
+- MAG-to-MAG comparison: exact UTC overlap, no interpolation, lag uncertainty and
+  look-elsewhere controls.
+- SOLAR-1 SWiPS: discovery only; plasma physics remains disabled until a public
+  product and schema are verified.
+- Roman, JWST, and HST: separate observatory domain; never routed through L1
+  plasma equations.
 
 ## Non-negotiable rules
 
-- no clipping, capping, winsorizing, saturation, or hidden replacement of finite measurements;
-- prior-only trailing baselines for `B0`;
-- canonical observable name `chi_B24M`, never generic `chi` in the clean path;
-- explicit source identity, dataset, coordinate frame, cadence, and pairing declarations;
-- raw response bytes, descriptors, and SHA-256 provenance for historical retrievals;
-- fail-closed mission capability checks before any physics computation;
-- GitHub stores code and small audit records; heavy data products remain outside the repository.
+- No clipping, capping, winsorizing, saturation, or hidden denominator floor.
+- No generic `chi` column in the clean path.
+- `ratio_B24M`, signed `delta_B24M`, and absolute `chi_B24M` remain separate.
+- Baselines use only prior samples.
+- Source identity, units, frame, cadence, schema, and quality policy must pass
+  before physics.
+- Missing and suspect records are preserved in quarantine artifacts.
+- Correlation is evidence of similarity, not proof of propagation or mechanism.
+- GitHub stores code and compact audit records; heavy run products belong in
+  immutable Actions/Drive artifacts.
 
-The initial DSCOVR implementation preserves:
+## Canonical observable
 
-- definitive NASA CDAWeb magnetic and Faraday-cup products where the frozen inventory supports them;
-- NASA CDAWeb REST-CSV descriptors, raw-byte preservation, and SHA-256 records;
-- fail-closed rejection of generic `F`, `B`, `baseline`, or `chi` layouts;
-- independent engineering quarantine for ground-scale magnetic values;
-- proton beta, Alfvén speed, Alfvén Mach number, and dynamic pressure only when verified paired plasma exists.
+```text
+B0(t) = median{B(τ): t - 24 h < τ < t}
+ratio_B24M = B / B0
+delta_B24M = (B - B0) / B0
+chi_B24M = abs(delta_B24M)
+```
 
-The audited Drive package passed its original **23 tests** before migration. NVCPP adds source-identity, mission-capability, transition-physics, and Drive-sink tests.
-
-## Mission boundaries
-
-| Mission | Orbit/context | NVCPP domain | CLINE L1 physics |
-|---|---|---|---|
-| DSCOVR | Sun–Earth L1 | Solar-wind magnetic and plasma | Enabled when source and pairing contracts pass |
-| JWST | Sun–Earth L2 halo | MAST observatory archive and authenticated engineering context | Prohibited |
-| HST | Low-Earth orbit | MAST observatory archive and ephemeris context | Prohibited |
-| Roman | Planned Sun–Earth L2 | Early-mission/archive scaffold | Prohibited |
-
-Orbit location alone never grants permission to run a plasma equation. Mission adapters declare their capabilities, and the router rejects cross-domain calculations.
+A row is valid only after a full 24-hour warm-up, at least 95% declared-cadence
+coverage, and a finite positive baseline. Invalid baselines are named; they are
+not repaired silently.
 
 ## Repository layout
 
 ```text
-core/        audited baseline math, source guards, transition physics
-historical/  definitive DSCOVR CDAWeb downloaders and frozen epochs
-missions/    capability registry and bounded MAST archive queries
-pipelines/   command router and create-only Google Drive sink
-tests/       original audit tests plus NVCPP integrity tests
-config/      source declarations and pipeline examples
-docs/        protocols, architecture, setup, and mission-status records
-provenance/  Drive-package manifests and migration hashes
+core/        canonical baseline math and cross-mission coherence analysis
+historical/  NASA CDAWeb mission adapters
+sources/     NOAA/NCEI and other source adapters
+config/      one authoritative source contract per product
+tests/       offline unit and integrity tests
+docs/        audit decisions and operating protocols
+.github/     CI, regression, discovery, and coherence workflows
 ```
 
-## Install and test
+## Install and validate
 
 ```bash
 python -m venv .venv
-source .venv/bin/activate  # Windows: .venv\Scripts\activate
+source .venv/bin/activate        # Windows: .venv\Scripts\activate
 python -m pip install -r requirements.txt
+python -m sources.solar1.validate_contract \
+  config/solar1_mag_contract.v1.json
 python -m pytest -q
 ```
 
-## DSCOVR historical runs
-
-May 2024 remains magnetic-only under the frozen V1 source inventory:
+## SOLAR-1 MAG regression
 
 ```bash
-python -m pipelines.run_pipeline dscovr-historical \
-  --run gannon_may_2024_dscovr_mag_only \
+python -m sources.solar1.download_solar1 \
+  --run solar1_regression_june_2026 \
+  --start 2026-06-01T00:00:00.000Z \
+  --analysis-start 2026-06-02T00:00:00.000Z \
+  --end 2026-06-05T00:00:00.000Z \
   --outdir runs/historical
 ```
 
-Paired active-event validation:
+## DSCOVR historical run
 
 ```bash
-python -m pipelines.run_pipeline dscovr-historical \
-  --run september_2017_dscovr_full \
+python -m historical.download_dscovr_cdaweb \
+  --run dscovr_gannon_may_2024 \
+  --start 2024-05-09T00:00:00.000Z \
+  --analysis-start 2024-05-10T00:00:00.000Z \
+  --end 2024-05-13T00:00:00.000Z \
   --outdir runs/historical
 ```
 
-Data-selected quiet interval:
+DSCOVR native components are averaged by minute first; vector magnitude and the
+24-hour baseline are then calculated from the canonical one-minute product. The
+pipeline never averages an already-derived chi value and calls it canonical.
+
+## L1 MAG coherence audit
 
 ```bash
-python -m pipelines.run_pipeline dscovr-historical \
-  --run quiet_dscovr_scan \
-  --outdir runs/historical
+python -m core.temporal_pairing \
+  --dscovr runs/historical/dscovr_overlap/cline_l1_rows.csv \
+  --solar1 runs/historical/solar1_overlap/solar1_cline_l1_rows.csv \
+  --dscovr-manifest runs/historical/dscovr_overlap/dscovr_run_manifest.json \
+  --solar1-manifest runs/historical/solar1_overlap/solar1_run_manifest.json \
+  --outdir runs/pairing
 ```
 
-## Observatory archive adapters
-
-The supported public MAST query path is bounded and metadata-only:
-
-```bash
-python -m pipelines.run_pipeline archive-query \
-  --mission jwst \
-  --filter dataproduct_type=image \
-  --page-size 100 \
-  --out outputs/jwst_query.json
-```
-
-Roman archive querying remains disabled until a public collection is verified and enabled in `missions/registry.py`.
-
-## Google Drive data vault
-
-GitHub tracks code, tests, small configuration, and provenance records. Raw telemetry, FITS files, CSV results, reports, and plots belong in the Drive vault.
-
-The Drive sink is create-only and fail-closed. Live service-account publication requires a writable folder in a dedicated Google Shared Drive, verifies that destination before writing, creates a timestamped run folder, uploads allowlisted outputs, and never overwrites or deletes existing vault files.
-
-Dry run:
-
-```bash
-python -m pipelines.drive_sink \
-  --source runs/historical/example \
-  --folder-id example-shared-drive-folder-id \
-  --run-name example \
-  --dry-run
-```
-
-Live Actions publication requires encrypted repository secrets plus a Shared Drive destination described in `docs/DRIVE_VAULT_SETUP.md`. The existing audit folder remains a read-only migration source and is not assumed to be the output vault.
-
-## Audit source
-
-Primary migration source:
+The pairing engine uses exact one-minute inner joins with no forward fill. It
+reports zero-lag correlation, a lag scan, peak width, day-by-day stability,
+moving-block lag uncertainty, and a circular-shift null that repeats the same
+lag search. Results are classified conservatively:
 
 ```text
-LUFT_CLINE/rebuild_v1_audit/CLINE_L1_REBUILD_CLEAN_STAGE_2026-08-25.zip
-SHA-256: b9420c87780bbe0a6ded9eb7a1199cd64faa83f1a6828f0d47c14127eefa5d4a
+NO_STABLE_COHERENCE
+COHERENT_BUT_LAG_UNRESOLVED
+LAG_CANDIDATE_REQUIRES_EPHEMERIS
 ```
 
-The earlier V1 ZIP remains preserved in Drive and was not imported wholesale. Generated runs, plots, multi-megabyte CSVs, patches, and legacy audit rows were intentionally excluded from this code repository.
+## SWiPS discovery
+
+Two separate probes are maintained:
+
+```bash
+python -m sources.solar1.download_swips_discovery
+python -m sources.solar1.swips_archive_discovery_v2
+```
+
+The first checks NOAA SPOT/HAPI. The second checks the documented
+`/satellite-spaceweather` archive bucket with ListObjectsV2 pagination and raw XML
+hashes. Neither enables plasma calculations.
+
+## Provenance
+
+Every successful or failed mission run should preserve:
+
+```text
+source URL and raw SHA-256
+contract and schema fingerprint
+Git commit and Actions run identity
+requested and returned intervals
+quarantine reasons and hashes
+cadence/gap/duplicate statistics
+baseline status counts
+output inventory and SHA-256
+```
+
+Git commit objects provide repository integrity. Static whole-tree checksum files
+are not maintained because they become stale on every commit.
