@@ -117,7 +117,7 @@ def run_dscovr_pipeline(run_name: str, start_iso: str, analysis_start: str, end_
     raw_df = download_cdaweb_data("DSCOVR_H0_MAG", cdaweb_start, cdaweb_end, ["B1GSE"], out_path)
     
     # 2. Clean and Identify Columns
-    raw_df['EPOCH'] = pd.to_datetime(raw_df['EPOCH'], errors='coerce', utc=True)
+    raw_df['EPOCH'] = pd.to_datetime(raw_df['EPOCH'], dayfirst=True, errors='coerce', utc=True) 
     invalid_time = raw_df['EPOCH'].isna().sum()
     
     # NASA CDAWeb headers for B1GSE typically look like BX_(GSE), BY_(GSE), BZ_(GSE)
