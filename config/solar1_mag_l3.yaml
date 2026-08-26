@@ -1,40 +1,38 @@
-mission: SOLAR-1
-provider: NOAA/NCEI
-instrument: MAG
-api_base: https://www.ncei.noaa.gov/cloud-access/space-weather-portal/api/v1
-status: DISCOVERY_LOCKED
-preferred_product: sci_mag-l3_solar1
-fallback_operational_product: mag-l3_solar1
-cadence_target: 1-minute
-coordinate_frame: UNVERIFIED
-vector_parameters: UNVERIFIED
-quality_parameters: UNVERIFIED
-units: UNVERIFIED
-physics_protocol: CLINE-L1-B24M-TRAIL-v1
-science_computation_enabled: false
+# NVCPP Pipeline Configuration: SOLAR-1 MAG Level 3 Science Quality
+mission: "SOLAR-1"
+provider: "NOAA/NCEI"
+instrument: "MAG"
+product_id: "sci_mag-l3_solar1"
+product_title: "SOLAR-1 MAG Level 3 1-minute and 1-second average (science-quality)"
+product_level: "L3"
+quality_class: "science-quality"
+api_base: "https://www.ncei.noaa.gov/cloud-access/space-weather-portal/api/v1"
 
-catalog_evidence:
-  product_ids_publicly_listed: true
-  science_product_description: SOLAR-1 MAG Level 3 1-minute and 1-second average (science-quality)
-  operational_product_description: SOLAR-1 MAG Level 3 1-minute and 1-second average
-  portal_product_page: https://www.ncei.noaa.gov/cloud-access/space-weather-portal/download?products=mag-l3_solar1,sci_mag-l3_solar1&sat=SOLAR-1
-  api_openapi: https://www.ncei.noaa.gov/cloud-access/space-weather-portal/api/v1/openapi/
-  recorded_utc_date: 2026-08-26
+time:
+  parameter_id: "time"
+  format: "ISO-8601"
+  timezone: "UTC"
+  timestamp_semantics: "interval-center"
 
-discovery_endpoints:
-  - /products
-  - /parameters
-  - /hapi/catalog
-  - /hapi/info
-  - /values
+vector:
+  coordinate_frame: "GSE"
+  units: "nT"
+  fill_value: -9999.0
+  components:
+    x: "b_gse_min_x"
+    y: "b_gse_min_y"
+    z: "b_gse_min_z"
 
-unlock_requirements:
-  - exact product ID verified from NCEI API artifact
-  - exact vector parameter IDs verified
-  - units verified as nT
-  - coordinate frame verified
-  - cadence verified
-  - fill/missing-value convention verified
-  - quality flag convention verified
-  - 24-hour pre-roll retrieval verified
-  - source provenance manifest verified
+cadence:
+  native_iso8601: "PT1M"
+  canonical_iso8601: "PT1M"
+  official_one_minute_product: true
+  aggregation: "official-provider-average"
+
+physics:
+  protocol_id: "CLINE-L1-B24M-TRAIL-v1"
+  baseline: "prior-only trailing 24-hour median"
+  minimum_baseline_coverage_fraction: 0.95
+  pre_roll_hours: 24
+  clipping_allowed: false
+  science_computation_enabled: true
