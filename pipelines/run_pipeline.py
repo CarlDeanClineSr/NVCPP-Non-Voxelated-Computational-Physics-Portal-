@@ -34,11 +34,12 @@ def run_dscovr_historical(run_name: str, out_path: Path):
     print(f"[NVCPP] Loaded configuration from {config_file}")
     
     # Target exact May 2024 parameters for our first science run
+    # Target exact May 2024 parameters for our first science run
     if run_name == "gannon_may_2024_dscovr_mag_only":
-        dataset_id = "DSCOVR_H0_MAG"
-        start_time = "20240510T000000Z" # Move start time slightly forward into the event
-        end_time = "20240513T000000Z"   # NASA limits large queries; 3 days of high-res is safer
-        variables = ["B1F1", "B1GSE"] # Grab both magnitude and vector to ensure hits
+        dataset_id = "DSCOVR_H1_MAG" # Switch to minute-level resolution
+        start_time = "20240510T000000Z" 
+        end_time = "20240513T000000Z"   
+        variables = ["B1F1", "B1GSE"] # Request both to ensure a hit 
     else:
         print(f"[ERROR] Unknown run target: {run_name}. Failing closed.", file=sys.stderr)
         sys.exit(1)
