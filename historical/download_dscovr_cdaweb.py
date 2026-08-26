@@ -20,23 +20,39 @@ def download_cdaweb_data(dataset_id: str, start_time: str, end_time: str, variab
     out_dir.mkdir(parents=True, exist_ok=True)
     
     # Format CDAWeb REST API URL
-    # Time format expected: YYYYMMDDTHHMMSSZ
     var_string = ",".join(variables)
     url = f"https://cdaweb.gsfc.nasa.gov/WS/cdasr/1/dataviews/sp_phys/datasets/{dataset_id}/data/{start_time},{end_time}/{var_string}?format=text"
     
     print(f"[NVCPP-Historical] Requesting {dataset_id} from {start_time} to {end_time}...")
-    # FIX: Broadened Accept headers to prevent NASA 406 Not Acceptable errors
-    headers = {"Accept": "application/json, text/plain, */*"}
     
     try:
+        # Step 1: Ask NASA to generate the text file and give us the JSON pointing to it
+        headers = {"Accept": "application/json"}
         response = requests.get(url, headers=headers, timeout=60)
         response.raise_for_status()
-    except requests.exceptions.RequestException as e:
+        data_json = response.json()
+        
+        # Extract the dynamically generated file URL from the JSON structure
+        file_url = None
+        if "FileDescription" in data_json:
+            file_url = data_json["FileDescription"][0]["Name"]
+        elif "DataResult" in data_json and "FileDescription" in data_json["DataResult"]:
+            file_url = data_json["DataResult"]["FileDescription"][0]["Name"]
+            
+        if not file_url:
+            raise ValueError("Could not locate FileDescription URL in NASA's response.")
+            
+        print(f"[NVCPP-Historical] NASA generated the data at: {file_url}")
+        
+        # Step 2: Download the actual text/CSV data from the generated URL
+        data_response = requests.get(file_url, timeout=60)
+        data_response.raise_for_status()
+        raw_data = data_response.content
+        
+    except Exception as e:
         print(f"[ERROR] CDAWeb retrieval failed: {e}", file=sys.stderr)
         raise SystemExit(f"Fail-closed: Cannot retrieve telemetry for {dataset_id}")
 
-    raw_data = response.content
-    
     # 1. Provenance: Hash the raw bytes
     sha256_hash = hashlib.sha256(raw_data).hexdigest()
     
@@ -52,7 +68,8 @@ def download_cdaweb_data(dataset_id: str, start_time: str, end_time: str, variab
         "variables": variables,
         "sha256": sha256_hash,
         "bytes": len(raw_data),
-        "source_url": url
+        "source_url": url,
+        "download_url": file_url
     }
     manifest_file = out_dir / f"{dataset_id}_download_manifest.json"
     with open(manifest_file, "w") as f:
