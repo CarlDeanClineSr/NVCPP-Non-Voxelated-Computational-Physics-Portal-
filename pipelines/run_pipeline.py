@@ -58,6 +58,12 @@ def run_dscovr_historical(run_name: str, out_path: Path):
         by = [col for col in raw_df.columns if 'by' in col.lower()][0]
         bz = [col for col in raw_df.columns if 'bz' in col.lower()][0]
         
+        print("[NVCPP] Converting vectors to numerical types...")
+        # CRITICAL FIX: Force columns to numeric floats so math works
+        raw_df[bx] = pd.to_numeric(raw_df[bx], errors='coerce')
+        raw_df[by] = pd.to_numeric(raw_df[by], errors='coerce')
+        raw_df[bz] = pd.to_numeric(raw_df[bz], errors='coerce')
+        
         print("[NVCPP] Calculating vector magnitude from BX, BY, BZ components...")
         raw_df['B_mag'] = np.sqrt(raw_df[bx]**2 + raw_df[by]**2 + raw_df[bz]**2)
         b_col = 'B_mag'
