@@ -23,16 +23,24 @@ PAIRING_POLICY = {
 def load_and_align(dscovr_path: Path, solar1_path: Path):
     print(f"[NVCPP-PAIRING] Loading DSCOVR artifact: {dscovr_path.name}")
     df_d = pd.read_csv(dscovr_path)
-    # DSCOVR uses 'EPOCH', SOLAR-1 uses 'time'
-    df_d['time_utc'] = pd.to_datetime(df_d['EPOCH'], utc=True).dt.round('min')
-    df_d = df_d.set_index('time_utc')[['chi_B24M']].rename(columns={'chi_B24M': 'chi_DSCOVR'})
+    
+    # 1. Convert DSCOVR time and set as index
+    df_d['time_utc'] = pd.to_datetime(df_d['EPOCH'], utc=True)
+    df_d.set_index('time_utc', inplace=True)
+    
+    # 2. FIX: Resample the 1-second high-resolution data into strict 1-minute averages
+    print("[NVCPP-PAIRING] Resampling DSCOVR 1-second telemetry to 1-minute cadence...")
+    df_d = df_d[['chi_B24M']].resample('1min').mean()
+    df_d.rename(columns={'chi_B24M': 'chi_DSCOVR'}, inplace=True)
     
     print(f"[NVCPP-PAIRING] Loading SOLAR-1 artifact: {solar1_path.name}")
     df_s = pd.read_csv(solar1_path)
+    
+    # SOLAR-1 is already 1-minute cadence from HAPI
     df_s['time_utc'] = pd.to_datetime(df_s['time'], utc=True).dt.round('min')
     df_s = df_s.set_index('time_utc')[['chi_B24M']].rename(columns={'chi_B24M': 'chi_SOLAR1'})
     
-    # Strict alignment with 2-minute gap tolerance
+    # 3. Strict alignment with 2-minute gap tolerance
     print("[NVCPP-PAIRING] Aligning timestamps and applying missing-data policy...")
     merged = df_d.join(df_s, how='outer')
     merged = merged.ffill(limit=2).dropna()
