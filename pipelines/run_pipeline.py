@@ -36,9 +36,9 @@ def run_dscovr_historical(run_name: str, out_path: Path):
     # Target exact May 2024 parameters for our first science run
     if run_name == "gannon_may_2024_dscovr_mag_only":
         dataset_id = "DSCOVR_H0_MAG"
-        start_time = "20240501T000000Z"
-        end_time = "20240510T000000Z" # Using 10 days for the initial test speed
-        variables = ["B1F1"] # NASA CDAWeb variable for Magnetic Field Magnitude
+        start_time = "20240510T000000Z" # Move start time slightly forward into the event
+        end_time = "20240513T000000Z"   # NASA limits large queries; 3 days of high-res is safer
+        variables = ["B1F1", "B1GSE"] # Grab both magnitude and vector to ensure hits
     else:
         print(f"[ERROR] Unknown run target: {run_name}. Failing closed.", file=sys.stderr)
         sys.exit(1)
