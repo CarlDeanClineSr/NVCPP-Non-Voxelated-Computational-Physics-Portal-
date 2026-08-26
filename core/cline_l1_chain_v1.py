@@ -6,10 +6,22 @@ and unclipped canonical chi_B24M.
 
 import pandas as pd
 import numpy as np
+from dataclasses import dataclass
 
 # EXPLICIT PROTOCOL DECLARATIONS
 PROTOCOL_ID = "CLINE-L1-B24M-TRAIL-v1"
 PROTOCOL_VERSION = "1.0.0"
+
+@dataclass
+class ProtocolConfig:
+    """Immutable configuration for the CLINE-L1 canonical baseline."""
+    id: str = PROTOCOL_ID
+    version: str = PROTOCOL_VERSION
+    baseline_type: str = "trailing_median"
+    window_hours: int = 24
+    closed_boundary: str = "left"
+    min_coverage: float = 0.95
+    clipping_allowed: bool = False
 
 def calculate_trailing_median_baseline(
     df: pd.DataFrame, 
