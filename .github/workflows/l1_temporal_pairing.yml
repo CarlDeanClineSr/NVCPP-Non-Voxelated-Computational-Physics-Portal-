@@ -44,7 +44,7 @@ jobs:
 
       - name: 2. Fetch & Compute DSCOVR MAG
         run: |
-          python -m sources.dscovr.download_dscovr \
+          python historical/download_dscovr_cdaweb.py \
             --run dscovr_overlap \
             --start ${{ github.event.inputs.start_time }} \
             --analysis-start ${{ github.event.inputs.analysis_start }} \
@@ -53,7 +53,7 @@ jobs:
 
       - name: 3. Execute Temporal Pairing Engine
         run: |
-          python -m core.temporal_pairing \
+          python core/temporal_pairing.py \
             --dscovr runs/historical/dscovr_overlap/dscovr_cline_l1_rows.csv \
             --solar1 runs/historical/solar1_overlap/solar1_cline_l1_rows.csv \
             --outdir runs/pairing
