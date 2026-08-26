@@ -55,12 +55,18 @@ def validate_frozen_contract(contract_path: Path):
     if not contract_path.exists():
         raise SystemExit(f"[ERROR] Frozen contract not found at {contract_path}. Failing closed.")
     
+    def validate_frozen_contract(contract_path: Path):
+    print(f"[NVCPP-CONTRACT] Pre-validating contract at {contract_path}...")
+    if not contract_path.exists():
+        raise SystemExit(f"[ERROR] Frozen contract not found at {contract_path}. Failing closed.")
+    
     try:
-        validate_contract(str(contract_path))
+        contract_dict = json.loads(contract_path.read_text())
+        validate_contract(contract_dict) # Pass dict instead of string path if validate_contract expects data
     except Exception as e:
         raise SystemExit(f"[ERROR] Contract validation failed: {e}. Failing closed.")
     
-    print("[NVCPP-CONTRACT] Full semantic contract pre-validation PASSED.")
+    print("[NVCPP-CONTRACT] Full semantic contract pre-validation PASSED.") 
 
 def fetch_solar1_hapi_data(start_iso: str, stop_iso: str, out_dir: Path) -> pd.DataFrame:
     """
