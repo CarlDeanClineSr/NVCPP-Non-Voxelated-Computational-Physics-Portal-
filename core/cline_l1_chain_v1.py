@@ -7,6 +7,9 @@ and unclipped canonical chi_B24M.
 import pandas as pd
 import numpy as np
 
+# EXPLICIT PROTOCOL ID DECLARATION
+PROTOCOL_ID = "CLINE-L1-B24M-TRAIL-v1"
+
 def calculate_trailing_median_baseline(
     df: pd.DataFrame, 
     time_col: str, 
