@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 """
 NVCPP SOLAR-1 Historical Downloader & Ingestion Engine
-Enforces strict contract pre-validation, sanitizes fill values (-9999.0) 
-and quarantined zero-vectors, computes unclipped vector magnitudes component-wise, 
-executes CLINE-L1-B24M-TRAIL-v1, and outputs a complete machine-readable run manifest.
+Enforces full semantic contract validation, strict raw row-level column checks,
+forensic quarantine artifact generation, unclipped vector magnitude computation,
+and comprehensive pre/post run manifests.
 """
 
 import argparse
@@ -11,6 +11,7 @@ import sys
 import json
 import hashlib
 import subprocess
+import csv
 from datetime import datetime, timezone
 from pathlib import Path
 import pandas as pd
@@ -24,6 +25,15 @@ except ImportError:
     PROTOCOL_VERSION = "1.0.0"
     def run_chain(df, time_col, b_mag_col):
         raise NotImplementedError("Core math engine required.")
+
+try:
+    from sources.solar1.validate_contract import validate_contract
+except ImportError:
+    def validate_contract(contract_path):
+        print(f"[NVCPP-WARNING] Strict validator module not found; falling back to direct JSON check for {contract_path}")
+        data = json.loads(Path(contract_path).read_text())
+        if data.get("status") != "FROZEN_VERIFIED":
+            raise SystemExit("[ERROR] Contract status is not FROZEN_VERIFIED.")
 
 NCEI_API_BASE = "https://www.ncei.noaa.gov/cloud-access/space-weather-portal/api/v1"
 
@@ -41,41 +51,28 @@ def get_git_commit_sha() -> str:
         return "unknown"
 
 def validate_frozen_contract(contract_path: Path):
-    """
-    Ensures the frozen contract exists and is syntactically/semantically valid
-    before executing network I/O or physics computations.
-    """
     print(f"[NVCPP-CONTRACT] Pre-validating contract at {contract_path}...")
     if not contract_path.exists():
         raise SystemExit(f"[ERROR] Frozen contract not found at {contract_path}. Failing closed.")
     
     try:
-        if contract_path.suffix == ".json":
-            contract_data = json.loads(contract_path.read_text())
-        else:
-            # YAML fallback if yaml package is present, or parse structure
-            import yaml
-            contract_data = yaml.safe_load(contract_path.read_text())
+        validate_contract(str(contract_path))
     except Exception as e:
-        raise SystemExit(f"[ERROR] Failed to parse contract file: {e}. Failing closed.")
-
-    # Enforce frozen verification status
-    status = contract_data.get("status") or contract_data.get("quality_class")
-    if not status:
-        raise SystemExit("[ERROR] Contract lacks status/quality classification. Failing closed.")
+        raise SystemExit(f"[ERROR] Contract validation failed: {e}. Failing closed.")
     
-    print("[NVCPP-CONTRACT] Contract pre-validation PASSED successfully.")
-    return contract_data
+    print("[NVCPP-CONTRACT] Full semantic contract pre-validation PASSED.")
 
 def fetch_solar1_hapi_data(start_iso: str, stop_iso: str, out_dir: Path) -> pd.DataFrame:
     """
-    Queries NOAA/NCEI HAPI data endpoint for sci_mag-l3_solar1 with strict column checks.
+    Queries NOAA/NCEI HAPI data endpoint with strict row-level column count enforcement.
+    Explicitly requests parameters: time, b_gse_min_x, b_gse_min_y, b_gse_min_z.
     """
     url = f"{NCEI_API_BASE}/hapi/data"
     params = {
         "dataset": "sci_mag-l3_solar1",
         "start": start_iso,
         "stop": stop_iso,
+        "parameters": "time,b_gse_min_x,b_gse_min_y,b_gse_min_z",
         "format": "csv"
     }
     
@@ -90,19 +87,21 @@ def fetch_solar1_hapi_data(start_iso: str, stop_iso: str, out_dir: Path) -> pd.D
     raw_path = out_dir / "solar1_mag_raw.csv"
     raw_path.write_bytes(raw_bytes)
     
-    col_names = [
-        "time", 
-        "b_gse_min_x", "b_gse_min_y", "b_gse_min_z",
-        "b_gse_sphr_min_x", "b_gse_sphr_min_y", "b_gse_sphr_min_z",
-        "b_gsm_min_x", "b_gsm_min_y", "b_gsm_min_z",
-        "b_gsm_sphr_min_x", "b_gsm_sphr_min_y", "b_gsm_sphr_min_z"
-    ]
+    # Strict row-level column count enforcement (fail-closed, no skipping bad lines)
+    col_names = ["time", "b_gse_min_x", "b_gse_min_y", "b_gse_min_z"]
+    expected_cols = len(col_names)
     
-    # Fail-closed column enforcement: do not use on_bad_lines='skip'
-    df = pd.read_csv(raw_path, header=None, names=col_names)
-    if len(df.columns) != len(col_names):
-        raise SystemExit(f"[ERROR] Expected {len(col_names)} columns from HAPI stream, got {len(df.columns)}. Failing closed.")
-    
+    rows = []
+    with open(raw_path, "r", encoding="utf-8") as f:
+        reader = csv.reader(f)
+        for line_num, row in enumerate(reader, start=1):
+            if not row:
+                continue
+            if len(row) != expected_cols:
+                raise SystemExit(f"[ERROR] Strict parse error at line {line_num}: expected {expected_cols} columns, got {len(row)}. Failing closed.")
+            rows.append(row)
+            
+    df = pd.DataFrame(rows, columns=col_names)
     return df
 
 def run_solar1_pipeline(run_name: str, start_time: str, analysis_start: str, end_time: str, outdir: Path, contract_path: Path):
@@ -110,10 +109,10 @@ def run_solar1_pipeline(run_name: str, start_time: str, analysis_start: str, end
     run_output_dir = outdir / run_name
     run_output_dir.mkdir(parents=True, exist_ok=True)
 
-    # 1. Pre-validate contract before touching network or compute
-    contract_data = validate_frozen_contract(contract_path)
+    # 1. Pre-validate authoritative contract
+    validate_frozen_contract(contract_path)
 
-    # 2. Fetch data including 24-hour pre-roll buffer
+    # 2. Fetch data with strict parsing
     raw_df = fetch_solar1_hapi_data(start_time, end_time, run_output_dir)
     raw_csv_path = run_output_dir / "solar1_mag_raw.csv"
     raw_sha = sha256_file(raw_csv_path)
@@ -129,23 +128,42 @@ def run_solar1_pipeline(run_name: str, start_time: str, analysis_start: str, end
     invalid_time = int(raw_df["time"].isna().sum())
 
     bx, by, bz = "b_gse_min_x", "b_gse_min_y", "b_gse_min_z"
-    
     print("[NVCPP] Converting magnetic vector components to numeric values...")
     for col in (bx, by, bz):
         raw_df[col] = pd.to_numeric(raw_df[col], errors="coerce")
 
-    # 3. Strip NOAA HAPI fill value (-9999.0)
+    # 3. Classify and quarantine anomalies into separate tracking DataFrame
+    quarantine_records = []
+
+    # Fill value detection (-9999.0)
     fill_sentinel = -9999.0
     fill_mask = (raw_df[bx] <= fill_sentinel) | (raw_df[by] <= fill_sentinel) | (raw_df[bz] <= fill_sentinel)
-    fill_count = int(fill_mask.sum())
-    raw_df.loc[fill_mask, [bx, by, bz]] = np.nan
+    if fill_mask.any():
+        fill_df = raw_df.loc[fill_mask].copy()
+        fill_df["reason_code"] = "PROVIDER_FILL"
+        quarantine_records.append(fill_df)
+        raw_df.loc[fill_mask, [bx, by, bz]] = np.nan
 
-    # 4. Quarantine exact-zero vector anomalies (ZERO_VECTOR_SUSPECT)
+    # Zero-vector anomaly detection (0.0 nT)
     zero_mask = (raw_df[bx] == 0.0) & (raw_df[by] == 0.0) & (raw_df[bz] == 0.0)
-    zero_count = int(zero_mask.sum())
-    if zero_count > 0:
-        print(f"[NVCPP-WARNING] Quarantining {zero_count} ZERO_VECTOR_SUSPECT record(s) at exact 0.0 nT.")
+    if zero_mask.any():
+        zero_df = raw_df.loc[zero_mask].copy()
+        zero_df["reason_code"] = "ZERO_VECTOR_SUSPECT"
+        quarantine_records.append(zero_df)
         raw_df.loc[zero_mask, [bx, by, bz]] = np.nan
+
+    fill_count = int(fill_mask.sum())
+    zero_count = int(zero_mask.sum())
+
+    # Write standalone quarantine artifact if anomalies exist
+    quarantine_path = run_output_dir / "solar1_quarantine.csv"
+    if quarantine_records:
+        q_combined = pd.concat(quarantine_records)
+        q_combined.to_csv(quarantine_path, index=False)
+        q_sha = sha256_file(quarantine_path)
+        print(f"[NVCPP] Quarantined {len(q_combined)} anomalous record(s) to {quarantine_path}")
+    else:
+        q_sha = None
 
     valid_mask = raw_df["time"].notna() & raw_df[[bx, by, bz]].notna().all(axis=1)
     clean_df = raw_df.loc[valid_mask].copy()
@@ -213,12 +231,13 @@ def run_solar1_pipeline(run_name: str, start_time: str, analysis_start: str, end
     summary_file.write_text(summary_text)
     report_sha = sha256_file(summary_file)
 
-    # 5. Build and save machine-readable run manifest
+    # 4. Comprehensive Run Manifest
     manifest = {
         "run_name": run_name,
         "timestamp_utc": datetime.now(timezone.utc).isoformat(),
         "git_commit": get_git_commit_sha(),
         "protocol_id": PROTOCOL_ID,
+        "protocol_version": PROTOCOL_VERSION,
         "contract_path": str(contract_path),
         "contract_sha256": sha256_file(contract_path),
         "retrieval_window": {
@@ -239,24 +258,16 @@ def run_solar1_pipeline(run_name: str, start_time: str, analysis_start: str, end
             "max_chi_b24m": float(max_chi)
         },
         "artifacts": {
-            "raw_csv": {
-                "path": str(raw_csv_path.relative_name(run_output_dir) if hasattr(raw_csv_path, 'relative_name') else raw_csv_path.name),
-                "sha256": raw_sha
-            },
-            "processed_csv": {
-                "path": output_csv.name,
-                "sha256": processed_sha
-            },
-            "report_md": {
-                "path": summary_file.name,
-                "sha256": report_sha
-            }
+            "raw_csv": {"path": raw_csv_path.name, "sha256": raw_sha},
+            "processed_csv": {"path": output_csv.name, "sha256": processed_sha},
+            "report_md": {"path": summary_file.name, "sha256": report_sha},
+            "quarantine_csv": {"path": quarantine_path.name, "sha256": q_sha} if quarantine_records else None
         }
     }
 
     manifest_path = run_output_dir / "solar1_run_manifest.json"
     manifest_path.write_text(json.dumps(manifest, indent=2))
-    print(f"[NVCPP] SUCCESS. Run manifest and artifacts successfully written to: {run_output_dir}")
+    print(f"[NVCPP] SUCCESS. Production-locked manifest and artifacts written to: {run_output_dir}")
 
 def main():
     parser = argparse.ArgumentParser(description="NVCPP SOLAR-1 Historical Downloader")
@@ -265,7 +276,7 @@ def main():
     parser.add_argument("--analysis-start", default="2026-06-02T00:00:00.000Z", help="Analysis window start")
     parser.add_argument("--end", default="2026-06-05T00:00:00.000Z", help="Retrieval end")
     parser.add_argument("--outdir", default="runs/historical", help="Output directory")
-    parser.add_argument("--contract", default="config/solar1_mag_l3.yaml", help="Path to frozen contract file")
+    parser.add_argument("--contract", default="config/solar1_mag_contract.v1.json", help="Path to authoritative JSON contract")
     args = parser.parse_args()
 
     run_solar1_pipeline(
