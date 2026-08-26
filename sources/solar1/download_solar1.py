@@ -2,8 +2,9 @@
 """
 NVCPP SOLAR-1 Historical Downloader & Ingestion Engine
 Fetches science-quality MAG Level 3 data from NOAA/NCEI via HAPI,
-applies strict sanitization (-9999.0 fill rejection), computes unclipped 
-vector magnitudes component-wise, and executes the CLINE-L1-B24M-TRAIL-v1 protocol.
+applies strict sanitization (-9999.0 fill rejection and zero-vector quarantine),
+computes unclipped vector magnitudes component-wise, and executes 
+the CLINE-L1-B24M-TRAIL-v1 protocol.
 """
 
 import argparse
@@ -53,9 +54,6 @@ def fetch_solar1_hapi_data(start_iso: str, stop_iso: str, out_dir: Path) -> pd.D
     raw_path = out_dir / "solar1_mag_raw.csv"
     raw_path.write_bytes(raw_bytes)
     
-    # HAPI CSV streams return columns corresponding to parameter order:
-    # time, b_gse_min_x, b_gse_min_y, b_gse_min_z, ... (plus spherical and gsm fields depending on server output)
-    # Let's read via pandas with explicit column names matching hapi_info_sci_mag_l3.json
     col_names = [
         "time", 
         "b_gse_min_x", "b_gse_min_y", "b_gse_min_z",
@@ -92,11 +90,18 @@ def run_solar1_pipeline(run_name: str, start_time: str, analysis_start: str, end
     for col in (bx, by, bz):
         raw_df[col] = pd.to_numeric(raw_df[col], errors="coerce")
 
-    # Strip NOAA HAPI fill value (-9999.0)
+    # 1. Strip NOAA HAPI fill value (-9999.0)
     fill_sentinel = -9999.0
     fill_mask = (raw_df[bx] <= fill_sentinel) | (raw_df[by] <= fill_sentinel) | (raw_df[bz] <= fill_sentinel)
     fill_count = int(fill_mask.sum())
     raw_df.loc[fill_mask, [bx, by, bz]] = np.nan
+
+    # 2. Quarantine exact-zero vector anomalies (ZERO_VECTOR_SUSPECT)
+    zero_mask = (raw_df[bx] == 0.0) & (raw_df[by] == 0.0) & (raw_df[bz] == 0.0)
+    zero_count = int(zero_mask.sum())
+    if zero_count > 0:
+        print(f"[NVCPP-WARNING] Quarantining {zero_count} ZERO_VECTOR_SUSPECT record(s) at exact 0.0 nT.")
+        raw_df.loc[zero_mask, [bx, by, bz]] = np.nan
 
     invalid_vector = int(raw_df[[bx, by, bz]].isna().any(axis=1).sum())
     valid_mask = raw_df["time"].notna() & raw_df[[bx, by, bz]].notna().all(axis=1)
@@ -105,6 +110,7 @@ def run_solar1_pipeline(run_name: str, start_time: str, analysis_start: str, end
     print(
         f"[NVCPP] Sanitization: {len(raw_df)} parsed rows; "
         f"{invalid_time} invalid timestamps; {fill_count} fill-value records (-9999.0); "
+        f"{zero_count} zero-vector suspect records; "
         f"{len(clean_df)} valid physical rows."
     )
 
@@ -151,6 +157,7 @@ def run_solar1_pipeline(run_name: str, start_time: str, analysis_start: str, end
         f"- **Analysis Interval**: {analysis_start} to {end_time}\n"
         f"- **Rows retrieved/parsed**: {len(raw_df)}\n"
         f"- **Fill values (-9999.0) rejected**: {fill_count}\n"
+        f"- **Zero-vector suspects quarantined**: {zero_count}\n"
         f"- **Analysis rows with valid chi_B24M**: {len(valid_chi)}\n"
         f"- **Max ratio_B24M (B/B0)**: {max_ratio:.6g}\n"
         f"- **Max chi_B24M (|B-B0|/|B0|)**: {max_chi:.6g}\n"
