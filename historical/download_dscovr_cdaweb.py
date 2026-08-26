@@ -25,7 +25,8 @@ def download_cdaweb_data(dataset_id: str, start_time: str, end_time: str, variab
     url = f"https://cdaweb.gsfc.nasa.gov/WS/cdasr/1/dataviews/sp_phys/datasets/{dataset_id}/data/{start_time},{end_time}/{var_string}?format=text"
     
     print(f"[NVCPP-Historical] Requesting {dataset_id} from {start_time} to {end_time}...")
-    headers = {"Accept": "text/csv"}
+    # FIX: Broadened Accept headers to prevent NASA 406 Not Acceptable errors
+    headers = {"Accept": "application/json, text/plain, */*"}
     
     try:
         response = requests.get(url, headers=headers, timeout=60)
