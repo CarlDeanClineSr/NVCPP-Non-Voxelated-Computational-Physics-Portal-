@@ -3,7 +3,6 @@ name: NVCPP CI
 on:
   pull_request:
   push:
-    branches: [main]
     paths:
       - "core/**"
       - "historical/**"
