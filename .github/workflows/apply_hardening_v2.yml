@@ -4,7 +4,7 @@ on:
   push:
     branches: [hardening-v2-audit]
     paths:
-      - "staging/hardening_v2_payload.b64"
+      - "staging/READY"
 
 permissions:
   contents: write
@@ -29,7 +29,7 @@ jobs:
         with:
           python-version: "3.12"
 
-      - name: Decode, verify, and safely extract payload
+      - name: Reassemble, verify, and safely extract payload
         run: |
           python - <<'PY'
           import base64
@@ -38,7 +38,10 @@ jobs:
           import tarfile
           from pathlib import Path
 
-          encoded = Path("staging/hardening_v2_payload.b64").read_text().strip()
+          parts = sorted(Path("staging").glob("hardening_v2_payload.part*"))
+          if not parts:
+              raise SystemExit("no payload chunks found")
+          encoded = "".join(part.read_text().strip() for part in parts)
           payload = base64.b64decode(encoded, validate=True)
           actual = hashlib.sha256(payload).hexdigest()
           expected = os.environ["EXPECTED_PAYLOAD_SHA256"]
@@ -54,7 +57,7 @@ jobs:
                   if root not in destination.parents and destination != root:
                       raise SystemExit(f"unsafe archive path: {member.name}")
               tf.extractall(root)
-          print(f"verified payload {actual}")
+          print(f"verified {len(parts)} chunks; payload {actual}")
           PY
 
       - name: Remove superseded contracts and staging transport
@@ -62,6 +65,8 @@ jobs:
           rm -f config/solar1_mag_contract.template.json
           rm -f config/solar1_mag_l3.yaml
           rm -f staging/hardening_v2_payload.b64
+          rm -f staging/hardening_v2_payload.part*
+          rm -f staging/READY
           rm -f .github/workflows/apply_hardening_v2.yml
           rmdir staging 2>/dev/null || true
 
