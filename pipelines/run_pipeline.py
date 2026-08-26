@@ -12,7 +12,6 @@ from pathlib import Path
 import pandas as pd
 import numpy as np
 
-# Import the NVCPP core and historical modules we just added
 try:
     from core.cline_l1_chain_v1 import run_chain
     from historical.download_dscovr_cdaweb import download_cdaweb_data
@@ -26,7 +25,6 @@ def run_dscovr_historical(run_name: str, out_path: Path):
     run_output_dir = out_path / run_name
     run_output_dir.mkdir(parents=True, exist_ok=True)
     
-    # Load configuration
     config_file = Path("config/dscovr_h0_mag.yaml")
     if not config_file.exists():
         print(f"[ERROR] Missing config: {config_file}", file=sys.stderr)
@@ -34,7 +32,6 @@ def run_dscovr_historical(run_name: str, out_path: Path):
         
     print(f"[NVCPP] Loaded configuration from {config_file}")
     
-    # Target exact May 2024 parameters for our first science run
     if run_name == "gannon_may_2024_dscovr_mag_only":
         dataset_id = "DSCOVR_H0_MAG"
         start_time = "20240510T000000Z" 
@@ -44,17 +41,18 @@ def run_dscovr_historical(run_name: str, out_path: Path):
         print(f"[ERROR] Unknown run target: {run_name}. Failing closed.", file=sys.stderr)
         sys.exit(1)
 
-    # 1. Acquire raw data via CDAWeb
     print("\n[NVCPP] Phase 1: Telemetry Acquisition")
     raw_df = download_cdaweb_data(dataset_id, start_time, end_time, variables, run_output_dir)
     
     if raw_df.empty:
         raise SystemExit("[ERROR] Retrieved telemetry is empty. Failing closed.")
         
-    # Dynamically find the exact column names CDAWeb returned
     time_col = [col for col in raw_df.columns if 'epoch' in col.lower()][0]
     
-    # Extract Vector Components and Calculate Magnitude
+    # CRITICAL FIX: Convert string times to real Datetime objects for the rolling math engine
+    print(f"[NVCPP] Converting {time_col} to Datetime index...")
+    raw_df[time_col] = pd.to_datetime(raw_df[time_col], errors='coerce')
+    
     try:
         bx = [col for col in raw_df.columns if 'bx' in col.lower()][0]
         by = [col for col in raw_df.columns if 'by' in col.lower()][0]
@@ -67,11 +65,9 @@ def run_dscovr_historical(run_name: str, out_path: Path):
         print(f"[ERROR] Could not find expected magnetic field components. Available columns: {list(raw_df.columns)}", file=sys.stderr)
         sys.exit(1)
 
-    # 2. Execute CLINE L1 Math (Unclipped Trailing B0 & Chi_B24M)
     print("\n[NVCPP] Phase 2: Unclipped Physical Computation")
     processed_df = run_chain(raw_df, time_col=time_col, b_mag_col=b_col)
     
-    # 3. Save Scientific Evidence
     print("\n[NVCPP] Phase 3: Persisting Scientific Artifacts")
     output_csv = run_output_dir / "cline_l1_rows.csv"
     processed_df.to_csv(output_csv, index=False)
