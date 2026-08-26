@@ -1,0 +1,58 @@
+name: NVCPP SOLAR-1 Historical Pipeline Run
+
+on:
+  workflow_dispatch:
+    inputs:
+      run_name:
+        description: "Run identifier"
+        required: true
+        default: "solar1_scheduled_run"
+  schedule:
+    # Runs automatically every day at 04:00 UTC (adjust cron frequency as desired)
+    - cron: '0 4 * * *'
+  push:
+    branches: [main]
+    paths:
+      - "sources/solar1/**"
+      - ".github/workflows/solar1_run.yml"
+
+permissions:
+  contents: read
+
+env:
+  PYTHONUNBUFFERED: "1"
+
+jobs:
+  run-solar1-pipeline:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install pipeline dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install requests pandas numpy
+
+      - name: Execute SOLAR-1 Ingestion & Engine Run
+        run: |
+          python -m sources.solar1.download_solar1 \
+            --run "${{ github.event.inputs.run_name || 'solar1_automated_test' }}" \
+            --start "2026-06-01T00:00:00.000Z" \
+            --analysis-start "2026-06-02T00:00:00.000Z" \
+            --end "2026-06-05T00:00:00.000Z" \
+            --outdir runs/historical
+
+      - name: Upload Pipeline Artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: solar1-pipeline-run-${{ github.run_id }}
+          path: runs/historical/
+          if-no-files-found: error
+          retention-days: 30
