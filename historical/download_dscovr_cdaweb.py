@@ -83,7 +83,7 @@ def download_cdaweb_data(dataset_id: str, start_time: str, end_time: str, variab
     
     # 4. Parse with explicit headers (Fail-closed on bad layout)
     try:
-        df = pd.read_csv(StringIO(raw_data.decode('utf-8')), comment='#')
+        df = pd.read_csv(StringIO(raw_data.decode('utf-8')), comment='#', sep=r'\s+') 
     except Exception as e:
         raise SystemExit(f"[ERROR] Strict header parsing failed: {e}")
         
