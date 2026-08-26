@@ -42,9 +42,6 @@ def run_dscovr_historical(run_name: str, out_path: Path):
         variables = ["B1GSE"] 
     else:
         print(f"[ERROR] Unknown run target: {run_name}. Failing closed.", file=sys.stderr)
-        sys.exit(1) 
-    else:
-        print(f"[ERROR] Unknown run target: {run_name}. Failing closed.", file=sys.stderr)
         sys.exit(1)
 
     # 1. Acquire raw data via CDAWeb
@@ -56,7 +53,13 @@ def run_dscovr_historical(run_name: str, out_path: Path):
         
     # Dynamically find the exact column names CDAWeb returned
     time_col = [col for col in raw_df.columns if 'epoch' in col.lower()][0]
-    b_col = [col for col in raw_df.columns if 'b1f1' in col.lower()][0]
+    
+    # Find the magnetic column whether NASA named it b1f1 or b1gse
+    try:
+        b_col = [col for col in raw_df.columns if 'b1f1' in col.lower() or 'b1gse' in col.lower()][0]
+    except IndexError:
+        print(f"[ERROR] Could not find expected magnetic field column in NASA's response. Available columns: {list(raw_df.columns)}", file=sys.stderr)
+        sys.exit(1)
 
     # 2. Execute CLINE L1 Math (Unclipped Trailing B0 & Chi_B24M)
     print("\n[NVCPP] Phase 2: Unclipped Physical Computation")
