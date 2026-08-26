@@ -26,21 +26,25 @@ def download_cdaweb_data(dataset_id: str, start_time: str, end_time: str, variab
     print(f"[NVCPP-Historical] Requesting {dataset_id} from {start_time} to {end_time}...")
     
     try:
-        # Step 1: Ask NASA to generate the text file and give us the JSON pointing to it
         headers = {"Accept": "application/json"}
         response = requests.get(url, headers=headers, timeout=60)
         response.raise_for_status()
         data_json = response.json()
         
+        # --- DIAGNOSTIC PRINT: Force NASA to show us what they sent ---
+        print("\n[NASA CDAWeb Raw Response]:")
+        print(json.dumps(data_json, indent=2))
+        print("-" * 40 + "\n")
+        
         # Extract the dynamically generated file URL from the JSON structure
         file_url = None
         if "FileDescription" in data_json:
-            file_url = data_json["FileDescription"][0]["Name"]
+            file_url = data_json["FileDescription"][0].get("Name")
         elif "DataResult" in data_json and "FileDescription" in data_json["DataResult"]:
-            file_url = data_json["DataResult"]["FileDescription"][0]["Name"]
+            file_url = data_json["DataResult"]["FileDescription"][0].get("Name")
             
         if not file_url:
-            raise ValueError("Could not locate FileDescription URL in NASA's response.")
+            raise ValueError("Could not locate FileDescription URL in NASA's response. See JSON above.")
             
         print(f"[NVCPP-Historical] NASA generated the data at: {file_url}")
         
@@ -78,7 +82,6 @@ def download_cdaweb_data(dataset_id: str, start_time: str, end_time: str, variab
     print(f"[NVCPP-Historical] Provenance secured: SHA256 {sha256_hash}")
     
     # 4. Parse with explicit headers (Fail-closed on bad layout)
-    # CDAWeb text outputs often have '#' comment preamble lines
     try:
         df = pd.read_csv(StringIO(raw_data.decode('utf-8')), comment='#')
     except Exception as e:
