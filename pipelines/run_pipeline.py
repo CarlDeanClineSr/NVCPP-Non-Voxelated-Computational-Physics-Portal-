@@ -1,177 +1,141 @@
 #!/usr/bin/env python3
+"""NVCPP command router for audited, implemented pipelines only.
+
+The router contains no duplicate physics. It delegates to the same mission
+runners used by GitHub Actions and rejects unknown or unsupported targets.
 """
-NVCPP Pipeline Command Router
-Executes historical DSCOVR and observatory telemetry runs with strict source guards
-and unclipped physical baseline preservation.
-"""
+
+from __future__ import annotations
 
 import argparse
-import sys
-import yaml
 from pathlib import Path
-import pandas as pd
-import numpy as np
 
-try:
-    from core.cline_l1_chain_v1 import run_chain
-    from historical.download_dscovr_cdaweb import download_cdaweb_data
-except ImportError as e:
-    print(f"[ERROR] Failed to import NVCPP modules. {e}", file=sys.stderr)
-    sys.exit(1)
+from core.temporal_pairing import run_pairing_engine
+from historical.download_dscovr_cdaweb import run_pipeline as run_dscovr
+from sources.solar1.download_solar1 import run_solar1_pipeline
 
 
-def run_dscovr_historical(run_name: str, out_path: Path):
-    print(f"[NVCPP] Executing unclipped DSCOVR baseline analysis for epoch: {run_name}")
+DSCOVR_EPOCHS = {
+    "gannon_may_2024_dscovr_mag_only": {
+        "start": "2024-05-09T00:00:00.000Z",
+        "analysis_start": "2024-05-10T00:00:00.000Z",
+        "end": "2024-05-13T00:00:00.000Z",
+    },
+    "dscovr_overlap_june_2026": {
+        "start": "2026-06-01T00:00:00.000Z",
+        "analysis_start": "2026-06-02T00:00:00.000Z",
+        "end": "2026-06-05T00:00:00.000Z",
+    },
+}
 
-    run_output_dir = out_path / run_name
-    run_output_dir.mkdir(parents=True, exist_ok=True)
+SOLAR1_EPOCHS = {
+    "solar1_regression_june_2026": {
+        "start": "2026-06-01T00:00:00.000Z",
+        "analysis_start": "2026-06-02T00:00:00.000Z",
+        "end": "2026-06-05T00:00:00.000Z",
+    }
+}
 
-    config_file = Path("config/dscovr_h0_mag.yaml")
-    if not config_file.exists():
-        print(f"[ERROR] Missing config: {config_file}", file=sys.stderr)
-        sys.exit(1)
 
-    print(f"[NVCPP] Loaded configuration from {config_file}")
-
-    if run_name == "gannon_may_2024_dscovr_mag_only":
-        dataset_id = "DSCOVR_H0_MAG"
-        # 24-HOUR PRE-ROLL: We pull from May 9th to saturate the 24h trailing baseline
-        start_time = "20240509T000000Z"
-        analysis_start = "2024-05-10T00:00:00Z"
-        end_time = "20240513T000000Z"
-        variables = ["B1GSE"]
-    else:
-        print(f"[ERROR] Unknown run target: {run_name}. Failing closed.", file=sys.stderr)
-        sys.exit(1)
-
-    print("\n[NVCPP] Phase 1: Telemetry Acquisition")
-    raw_df = download_cdaweb_data(dataset_id, start_time, end_time, variables, run_output_dir)
-
-    if raw_df.empty:
-        raise SystemExit("[ERROR] Retrieved telemetry is empty. Failing closed.")
-
-    epoch_cols = [col for col in raw_df.columns if "epoch" in col.lower()]
-    bx_cols = [col for col in raw_df.columns if "bx" in col.lower()]
-    by_cols = [col for col in raw_df.columns if "by" in col.lower()]
-    bz_cols = [col for col in raw_df.columns if "bz" in col.lower()]
-
-    if not epoch_cols or not bx_cols or not by_cols or not bz_cols:
+def _epoch(
+    table: dict[str, dict[str, str]],
+    run_name: str,
+    start: str | None,
+    analysis_start: str | None,
+    end: str | None,
+) -> tuple[str, str, str]:
+    supplied = (start, analysis_start, end)
+    if any(value is not None for value in supplied):
+        if not all(value is not None for value in supplied):
+            raise SystemExit(
+                "custom intervals require --start, --analysis-start, and --end together"
+            )
+        return start, analysis_start, end  # type: ignore[return-value]
+    if run_name not in table:
         raise SystemExit(
-            "[ERROR] Required DSCOVR EPOCH/BX/BY/BZ columns were not found. "
-            f"Available columns: {list(raw_df.columns)}"
+            f"unknown run {run_name!r}; available frozen runs: {sorted(table)}"
         )
+    epoch = table[run_name]
+    return epoch["start"], epoch["analysis_start"], epoch["end"]
 
-    time_col = epoch_cols[0]
-    bx, by, bz = bx_cols[0], by_cols[0], bz_cols[0]
 
-    print(f"[NVCPP] Converting {time_col} to datetime...")
-    parsed_time = pd.to_datetime(
-        raw_df[time_col].astype(str).str.strip(),
-        format="%Y%m%dT%H%M%S.%fZ",
-        errors="coerce",
-        utc=True,
-    )
-    fallback_mask = parsed_time.isna()
-    if fallback_mask.any():
-        parsed_time = pd.to_datetime(
-            raw_df[time_col].astype(str).str.strip(),
-            errors="coerce",
-            utc=True,
-            format="mixed"
-        )
-    raw_df[time_col] = parsed_time
+def build_parser() -> argparse.ArgumentParser:
+    parser = argparse.ArgumentParser(description="NVCPP audited pipeline router")
+    subparsers = parser.add_subparsers(dest="pipeline", required=True)
 
-    print("[NVCPP] Converting magnetic vectors to numeric values...")
-    for col in (bx, by, bz):
-        raw_df[col] = pd.to_numeric(raw_df[col], errors="coerce")
-
-    invalid_time = int(raw_df[time_col].isna().sum())
-    
-    # Strip NASA missing-data sentinels (-1.0E31) before checking for NaN
-    for col in (bx, by, bz):
-        raw_df.loc[raw_df[col] <= -1.0e30, col] = np.nan
-
-    invalid_vector = int(raw_df[[bx, by, bz]].isna().any(axis=1).sum())
-    valid_mask = raw_df[time_col].notna() & raw_df[[bx, by, bz]].notna().all(axis=1)
-    clean_df = raw_df.loc[valid_mask].copy()
-
-    print(
-        f"[NVCPP] Sanitization: {len(raw_df)} parsed rows; "
-        f"{invalid_time} invalid timestamps; {invalid_vector} invalid vector/fill rows; "
-        f"{len(clean_df)} valid physical rows."
+    for name in ("dscovr-historical", "solar1-historical"):
+        command = subparsers.add_parser(name)
+        command.add_argument("--run", required=True)
+        command.add_argument("--start")
+        command.add_argument("--analysis-start")
+        command.add_argument("--end")
+        command.add_argument("--outdir", type=Path, default=Path("runs/historical"))
+    subparsers.choices["solar1-historical"].add_argument(
+        "--contract",
+        type=Path,
+        default=Path("config/solar1_mag_contract.v1.json"),
     )
 
-    if clean_df.empty:
-        raise SystemExit("[ERROR] No valid timestamped magnetic vectors remain. Failing closed.")
+    pair = subparsers.add_parser("pair-mag")
+    pair.add_argument("--dscovr", type=Path, required=True)
+    pair.add_argument("--solar1", type=Path, required=True)
+    pair.add_argument("--dscovr-manifest", type=Path, required=True)
+    pair.add_argument("--solar1-manifest", type=Path, required=True)
+    pair.add_argument("--outdir", type=Path, default=Path("runs/pairing"))
+    pair.add_argument("--max-lag", type=int, default=60)
+    pair.add_argument("--bootstrap-iterations", type=int, default=300)
+    pair.add_argument("--null-iterations", type=int, default=300)
+    return parser
 
-    clean_df.sort_values(time_col, inplace=True)
-    clean_df.reset_index(drop=True, inplace=True)
 
-    if clean_df[time_col].isna().any():
-        raise SystemExit("[ERROR] NaT remained after timestamp sanitization. Failing closed.")
-    if not clean_df[time_col].is_monotonic_increasing:
-        raise SystemExit("[ERROR] DSCOVR timestamps are not monotonic after sorting. Failing closed.")
-
-    print("[NVCPP] Calculating vector magnitude from BX, BY, BZ components...")
-    clean_df["B_mag"] = np.sqrt(
-        clean_df[bx].pow(2) + clean_df[by].pow(2) + clean_df[bz].pow(2)
-    )
-
-    if not np.isfinite(clean_df["B_mag"].to_numpy()).all():
-        raise SystemExit("[ERROR] Non-finite B_mag generated from valid vectors. Failing closed.")
-
-    print("\n[NVCPP] Phase 2: Unclipped Physical Computation (CLINE-L1-B24M-TRAIL-v1)")
-    processed_df = run_chain(clean_df, time_col=time_col, b_mag_col="B_mag")
-
-    if "chi_B24M" not in processed_df.columns:
-        raise SystemExit("[ERROR] chi_B24M was not produced. Failing closed.")
-
-    # Slice the dataframe to isolate only the intended analysis window (dropping the 24h pre-roll)
-    analysis_df = processed_df[processed_df[time_col] >= pd.to_datetime(analysis_start)].copy()
-    valid_chi = analysis_df["chi_B24M"].dropna()
-    
-    if valid_chi.empty:
-        raise SystemExit("[ERROR] No valid chi_B24M values were produced in the analysis window. Failing closed.")
-
-    print("\n[NVCPP] Phase 3: Persisting Scientific Artifacts")
-    output_csv = run_output_dir / "cline_l1_rows.csv"
-    analysis_df.to_csv(output_csv, index=False)
-
-    summary_file = run_output_dir / "cline_l1_report.md"
-    max_chi = valid_chi.max()
-    max_ratio = analysis_df["ratio_B24M"].max()
-
-    summary_file.write_text(
-        f"# NVCPP Historical Run: {run_name}\n\n"
-        f"- **Dataset**: {dataset_id}\n"
-        f"- **Pre-Roll Retrieval**: {start_time} to {end_time}\n"
-        f"- **Analysis Interval**: {analysis_start} to {end_time}\n"
-        f"- **Rows retrieved/parsed**: {len(raw_df)}\n"
-        f"- **Invalid timestamps rejected**: {invalid_time}\n"
-        f"- **CDAWeb fill / invalid vectors rejected**: {invalid_vector}\n"
-        f"- **Analysis rows with valid chi_B24M**: {len(valid_chi)}\n"
-        f"- **Max ratio_B24M (B/B0)**: {max_ratio:.6g}\n"
-        f"- **Max chi_B24M (|B-B0|/|B0|)**: {max_chi:.6g}\n"
-        f"- **Baseline Method**: Prior-Only Trailing 24-Hour Median\n"
-        f"- **Coverage Gate**: 95% minimum saturation required\n"
-        f"- **Clipping applied**: False\n"
-    )
-    print(f"[NVCPP] SUCCESS. Run artifacts generated at: {run_output_dir}")
-
-def main():
-    parser = argparse.ArgumentParser(description="NVCPP Pipeline Execution Router")
-    parser.add_argument("pipeline", choices=["dscovr-historical", "archive-query"], help="Target pipeline")
-    parser.add_argument("--run", required=True, help="Specific run name")
-    parser.add_argument("--outdir", default="runs/historical", help="Local output directory")
-    args = parser.parse_args()
-
-    out_path = Path(args.outdir)
-    out_path.mkdir(parents=True, exist_ok=True)
+def main() -> None:
+    args = build_parser().parse_args()
 
     if args.pipeline == "dscovr-historical":
-        run_dscovr_historical(args.run, out_path)
-    elif args.pipeline == "archive-query":
-        print("[NVCPP] Executing bounded observatory archive query...")
+        start, analysis_start, end = _epoch(
+            DSCOVR_EPOCHS,
+            args.run,
+            args.start,
+            args.analysis_start,
+            args.end,
+        )
+        run_dscovr(args.run, start, analysis_start, end, args.outdir)
+        return
+
+    if args.pipeline == "solar1-historical":
+        start, analysis_start, end = _epoch(
+            SOLAR1_EPOCHS,
+            args.run,
+            args.start,
+            args.analysis_start,
+            args.end,
+        )
+        run_solar1_pipeline(
+            args.run,
+            start,
+            analysis_start,
+            end,
+            args.outdir,
+            args.contract,
+        )
+        return
+
+    if args.pipeline == "pair-mag":
+        manifest = run_pairing_engine(
+            args.dscovr,
+            args.solar1,
+            args.dscovr_manifest,
+            args.solar1_manifest,
+            args.outdir,
+            max_lag=args.max_lag,
+            bootstrap_iterations=args.bootstrap_iterations,
+            null_iterations=args.null_iterations,
+        )
+        print(manifest["interpretation"])
+        return
+
+    raise SystemExit(f"unsupported pipeline: {args.pipeline}")
+
 
 if __name__ == "__main__":
     main()
