@@ -1,0 +1,66 @@
+name: NVCPP L1 Temporal Pairing (DSCOVR ↔ SOLAR-1)
+
+on:
+  workflow_dispatch:
+    inputs:
+      start_time:
+        description: 'Pre-Roll Start Time (UTC)'
+        default: '2026-06-01T00:00:00.000Z'
+        required: true
+      analysis_start:
+        description: 'Analysis Start Time (UTC)'
+        default: '2026-06-02T00:00:00.000Z'
+        required: true
+      end_time:
+        description: 'End Time (UTC)'
+        default: '2026-06-05T00:00:00.000Z'
+        required: true
+
+jobs:
+  mag-to-mag-pairing:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install NVCPP Core Dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install requests pandas numpy
+
+      - name: 1. Fetch & Compute SOLAR-1 MAG
+        run: |
+          python -m sources.solar1.download_solar1 \
+            --run solar1_overlap \
+            --start ${{ github.event.inputs.start_time }} \
+            --analysis-start ${{ github.event.inputs.analysis_start }} \
+            --end ${{ github.event.inputs.end_time }} \
+            --outdir runs/historical
+
+      - name: 2. Fetch & Compute DSCOVR MAG
+        run: |
+          python -m sources.dscovr.download_dscovr \
+            --run dscovr_overlap \
+            --start ${{ github.event.inputs.start_time }} \
+            --analysis-start ${{ github.event.inputs.analysis_start }} \
+            --end ${{ github.event.inputs.end_time }} \
+            --outdir runs/historical
+
+      - name: 3. Execute Temporal Pairing Engine
+        run: |
+          python -m core.temporal_pairing \
+            --dscovr runs/historical/dscovr_overlap/dscovr_cline_l1_rows.csv \
+            --solar1 runs/historical/solar1_overlap/solar1_cline_l1_rows.csv \
+            --outdir runs/pairing
+
+      - name: Archive Coherence Artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: l1-mag-paired-artifacts-${{ github.run_id }}
+          path: runs/pairing/
