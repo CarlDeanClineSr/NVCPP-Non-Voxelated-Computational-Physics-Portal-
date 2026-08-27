@@ -1,11 +1,11 @@
 #!/usr/bin/env python3
 """Fail-closed NOAA SWPC operational real-time solar-wind ingestion.
 
-The endpoint is used to catch current solar-wind events and evaluate magnetic
-and plasma state. It is deliberately labeled an operational L1 composite,
-because the endpoint can represent whichever upstream spacecraft NOAA has
-selected. It must not be used as independent mission proof unless the source
-identity is separately resolved.
+The current SWPC Real-Time Solar Wind JSON feeds are provider-selected
+operational L1 products. They may contain DSCOVR, ACE, SOLAR-1, or another
+provider-selected upstream spacecraft. NVCPP therefore preserves the per-row
+``source`` and ``active`` fields when supplied and never represents this stream
+as independent mission-specific evidence unless identity is separately proven.
 """
 
 from __future__ import annotations
@@ -18,7 +18,7 @@ import platform
 import sys
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any
+from typing import Any, Iterable
 
 import numpy as np
 import pandas as pd
@@ -26,9 +26,11 @@ import requests
 
 from core.cline_l1_chain_v1 import PROTOCOL_ID, PROTOCOL_VERSION, run_chain
 
-PIPELINE_VERSION = "1.0.0"
-MAG_URL = "https://services.swpc.noaa.gov/products/solar-wind/mag-7-day.json"
-PLASMA_URL = "https://services.swpc.noaa.gov/products/solar-wind/plasma-7-day.json"
+PIPELINE_VERSION = "1.1.0"
+MAG_URL = "https://services.swpc.noaa.gov/json/rtsw/rtsw_mag_1m.json"
+PLASMA_URL = "https://services.swpc.noaa.gov/json/rtsw/rtsw_wind_1m.json"
+CADENCE_SECONDS = 60.0
+CURRENT_FRESHNESS_MINUTES = 20.0
 MU0 = 4.0e-7 * np.pi
 PROTON_MASS_KG = 1.67262192369e-27
 BOLTZMANN_J_K = 1.380649e-23
@@ -51,14 +53,25 @@ def _sha256_file(path: Path) -> str:
 
 
 def _write_json(path: Path, value: Any) -> None:
-    path.write_text(json.dumps(value, indent=2, sort_keys=True, default=str), encoding="utf-8")
+    path.write_text(
+        json.dumps(value, indent=2, sort_keys=True, default=str, allow_nan=False),
+        encoding="utf-8",
+    )
 
 
 def _artifact(path: Path) -> dict[str, Any]:
-    return {"path": path.name, "size_bytes": path.stat().st_size, "sha256": _sha256_file(path)}
+    return {
+        "path": path.name,
+        "size_bytes": path.stat().st_size,
+        "sha256": _sha256_file(path),
+    }
 
 
-def _download_json(session: requests.Session, url: str, path: Path) -> tuple[Any, dict[str, Any]]:
+def _download_json(
+    session: requests.Session,
+    url: str,
+    path: Path,
+) -> tuple[Any, dict[str, Any]]:
     response = session.get(url, timeout=90)
     response.raise_for_status()
     raw = response.content
@@ -80,29 +93,114 @@ def _download_json(session: requests.Session, url: str, path: Path) -> tuple[Any
 
 
 def _table(payload: Any, *, required: list[str], source_name: str) -> pd.DataFrame:
-    if not isinstance(payload, list) or len(payload) < 2:
-        raise NoaaRealtimeError(f"{source_name} payload is not a header-plus-rows array")
-    header = payload[0]
-    if not isinstance(header, list) or not all(isinstance(value, str) for value in header):
-        raise NoaaRealtimeError(f"{source_name} header is invalid")
-    if len(header) != len(set(header)):
-        raise NoaaRealtimeError(f"{source_name} header contains duplicate names")
-    missing = [name for name in required if name not in header]
-    if missing:
-        raise NoaaRealtimeError(f"{source_name} is missing required columns: {missing}")
+    """Parse either the current list-of-objects schema or legacy header rows.
 
-    rows: list[list[Any]] = []
-    for source_row, row in enumerate(payload[1:], start=2):
-        if not isinstance(row, list) or len(row) != len(header):
+    Column matching is always by name. The legacy form remains supported only
+    to keep historical fixtures reproducible; production currently uses the
+    list-of-objects form.
+    """
+
+    if not isinstance(payload, list) or not payload:
+        raise NoaaRealtimeError(f"{source_name} payload is not a nonempty array")
+
+    if all(isinstance(row, dict) for row in payload):
+        headers: list[str] = []
+        seen: set[str] = set()
+        for row in payload:
+            for key in row:
+                if not isinstance(key, str):
+                    raise NoaaRealtimeError(f"{source_name} contains a non-string key")
+                if key not in seen:
+                    seen.add(key)
+                    headers.append(key)
+        missing = [name for name in required if name not in seen]
+        if missing:
+            raise NoaaRealtimeError(f"{source_name} is missing required columns: {missing}")
+        records: list[dict[str, Any]] = []
+        for source_row, row in enumerate(payload, start=1):
+            absent = [name for name in required if name not in row]
+            if absent:
+                raise NoaaRealtimeError(
+                    f"{source_name} object {source_row} is missing required keys: {absent}"
+                )
+            records.append({"_source_row": source_row, **row})
+        frame = pd.DataFrame.from_records(records, columns=["_source_row", *headers])
+    else:
+        if len(payload) < 2:
             raise NoaaRealtimeError(
-                f"{source_name} row {source_row} has "
-                f"{len(row) if isinstance(row, list) else 'non-list'} fields; expected {len(header)}"
+                f"{source_name} legacy payload is not a header-plus-rows array"
             )
-        rows.append([source_row, *row])
-    frame = pd.DataFrame(rows, columns=["_source_row", *header])
+        header = payload[0]
+        if not isinstance(header, list) or not all(isinstance(value, str) for value in header):
+            raise NoaaRealtimeError(f"{source_name} header is invalid")
+        if len(header) != len(set(header)):
+            raise NoaaRealtimeError(f"{source_name} header contains duplicate names")
+        missing = [name for name in required if name not in header]
+        if missing:
+            raise NoaaRealtimeError(f"{source_name} is missing required columns: {missing}")
+        rows: list[list[Any]] = []
+        for source_row, row in enumerate(payload[1:], start=2):
+            if not isinstance(row, list) or len(row) != len(header):
+                raise NoaaRealtimeError(
+                    f"{source_name} row {source_row} has "
+                    f"{len(row) if isinstance(row, list) else 'non-list'} fields; "
+                    f"expected {len(header)}"
+                )
+            rows.append([source_row, *row])
+        frame = pd.DataFrame(rows, columns=["_source_row", *header])
+
     if frame.empty:
         raise NoaaRealtimeError(f"{source_name} contains no data rows")
     return frame
+
+
+def _first_present(frame: pd.DataFrame, names: Iterable[str]) -> str | None:
+    return next((name for name in names if name in frame.columns), None)
+
+
+def _normalize_magnetic_columns(frame: pd.DataFrame) -> tuple[pd.DataFrame, str]:
+    result = frame.copy()
+    time = _first_present(result, ("time_tag", "time"))
+    bt = _first_present(result, ("bt", "b_total", "b_mag"))
+    component_sets = [
+        ("GSM", ("bx_gsm", "by_gsm", "bz_gsm")),
+        ("GSE", ("bx_gse", "by_gse", "bz_gse")),
+    ]
+    chosen: tuple[str, tuple[str, str, str]] | None = None
+    for coordinate_frame, names in component_sets:
+        if all(name in result.columns for name in names):
+            chosen = (coordinate_frame, names)
+            break
+    if time is None or bt is None or chosen is None:
+        raise NoaaRealtimeError(
+            "NOAA magnetic schema lacks a supported time, total-field, or "
+            "complete GSM/GSE vector set"
+        )
+    coordinate_frame, (bx, by, bz) = chosen
+    rename = {time: "time_tag", bt: "bt", bx: "bx_gsm", by: "by_gsm", bz: "bz_gsm"}
+    result.rename(columns=rename, inplace=True)
+    return result, coordinate_frame
+
+
+def _normalize_plasma_columns(frame: pd.DataFrame) -> pd.DataFrame:
+    result = frame.copy()
+    mapping = {
+        "time_tag": ("time_tag", "time"),
+        "density": ("proton_density", "density"),
+        "speed": ("proton_speed", "speed"),
+        "temperature": ("proton_temperature", "temperature"),
+    }
+    rename: dict[str, str] = {}
+    for target, candidates in mapping.items():
+        source = _first_present(result, candidates)
+        if source is None:
+            if target == "temperature":
+                result[target] = np.nan
+                continue
+            raise NoaaRealtimeError(f"NOAA wind schema lacks required field {target!r}")
+        rename[source] = target
+    result.rename(columns=rename, inplace=True)
+    return result
 
 
 def _append_quarantine(
@@ -149,9 +247,13 @@ def _deduplicate(
     return frame.drop(index=drop_indices) if drop_indices else frame
 
 
-def _sanitize_magnetic(raw: pd.DataFrame, quarantine: list[pd.DataFrame]) -> pd.DataFrame:
-    original = raw.copy()
-    parsed = raw.copy()
+def _sanitize_magnetic(
+    raw: pd.DataFrame,
+    quarantine: list[pd.DataFrame],
+) -> tuple[pd.DataFrame, str]:
+    normalized, coordinate_frame = _normalize_magnetic_columns(raw)
+    original = normalized.copy()
+    parsed = normalized.copy()
     parsed["time"] = pd.to_datetime(parsed["time_tag"], utc=True, errors="coerce")
     for column in ("bx_gsm", "by_gsm", "bz_gsm", "bt"):
         parsed[column] = pd.to_numeric(parsed[column], errors="coerce")
@@ -169,10 +271,11 @@ def _sanitize_magnetic(raw: pd.DataFrame, quarantine: list[pd.DataFrame]) -> pd.
     mismatch = (parsed["bt"] - vector_magnitude).abs() > tolerance
     mismatch &= ~(invalid_time | nonnumeric | zero)
 
-    _append_quarantine(quarantine, original, invalid_time, "INVALID_TIMESTAMP", "NOAA_SWPC_MAG_7_DAY")
-    _append_quarantine(quarantine, original, nonnumeric, "NONNUMERIC_VECTOR", "NOAA_SWPC_MAG_7_DAY")
-    _append_quarantine(quarantine, original, zero, "ZERO_VECTOR_SUSPECT", "NOAA_SWPC_MAG_7_DAY")
-    _append_quarantine(quarantine, original, mismatch, "BT_VECTOR_MISMATCH", "NOAA_SWPC_MAG_7_DAY")
+    product = "NOAA_SWPC_RTSW_MAG_1M"
+    _append_quarantine(quarantine, original, invalid_time, "INVALID_TIMESTAMP", product)
+    _append_quarantine(quarantine, original, nonnumeric, "NONNUMERIC_VECTOR", product)
+    _append_quarantine(quarantine, original, zero, "ZERO_VECTOR_SUSPECT", product)
+    _append_quarantine(quarantine, original, mismatch, "BT_VECTOR_MISMATCH", product)
 
     admitted = parsed.loc[~(invalid_time | nonnumeric | zero | mismatch)].copy()
     admitted["B_mag"] = vector_magnitude.loc[admitted.index]
@@ -181,42 +284,49 @@ def _sanitize_magnetic(raw: pd.DataFrame, quarantine: list[pd.DataFrame]) -> pd.
         original,
         ["bx_gsm", "by_gsm", "bz_gsm", "bt"],
         quarantine,
-        "NOAA_SWPC_MAG_7_DAY",
+        product,
     )
     admitted.sort_values("time", inplace=True)
     if admitted.empty:
         raise NoaaRealtimeError("no NOAA SWPC magnetic rows remain after quarantine")
-    return admitted
+    return admitted, coordinate_frame
 
 
 def _sanitize_plasma(raw: pd.DataFrame, quarantine: list[pd.DataFrame]) -> pd.DataFrame:
-    original = raw.copy()
-    parsed = raw.copy()
+    normalized = _normalize_plasma_columns(raw)
+    original = normalized.copy()
+    parsed = normalized.copy()
     parsed["time"] = pd.to_datetime(parsed["time_tag"], utc=True, errors="coerce")
     for column in ("density", "speed", "temperature"):
         parsed[column] = pd.to_numeric(parsed[column], errors="coerce")
 
     invalid_time = parsed["time"].isna()
-    nonnumeric = parsed[["density", "speed", "temperature"]].isna().any(axis=1)
-    nonnumeric &= ~invalid_time
-    nonphysical = (
-        (parsed["density"] <= 0)
-        | (parsed["speed"] <= 0)
-        | (parsed["temperature"] <= 0)
+    missing_required = parsed[["density", "speed"]].isna().any(axis=1)
+    missing_required &= ~invalid_time
+    nonpositive_required = (parsed["density"] <= 0) | (parsed["speed"] <= 0)
+    nonpositive_required &= ~(invalid_time | missing_required)
+    bad_temperature = parsed["temperature"].notna() & (parsed["temperature"] <= 0)
+    bad_temperature &= ~(invalid_time | missing_required | nonpositive_required)
+
+    product = "NOAA_SWPC_RTSW_WIND_1M"
+    _append_quarantine(quarantine, original, invalid_time, "INVALID_TIMESTAMP", product)
+    _append_quarantine(quarantine, original, missing_required, "NONNUMERIC_PLASMA", product)
+    _append_quarantine(
+        quarantine, original, nonpositive_required, "NONPOSITIVE_PLASMA", product
     )
-    nonphysical &= ~(invalid_time | nonnumeric)
+    _append_quarantine(
+        quarantine, original, bad_temperature, "NONPOSITIVE_TEMPERATURE", product
+    )
 
-    _append_quarantine(quarantine, original, invalid_time, "INVALID_TIMESTAMP", "NOAA_SWPC_PLASMA_7_DAY")
-    _append_quarantine(quarantine, original, nonnumeric, "NONNUMERIC_PLASMA", "NOAA_SWPC_PLASMA_7_DAY")
-    _append_quarantine(quarantine, original, nonphysical, "NONPOSITIVE_PLASMA", "NOAA_SWPC_PLASMA_7_DAY")
-
-    admitted = parsed.loc[~(invalid_time | nonnumeric | nonphysical)].copy()
+    excluded = invalid_time | missing_required | nonpositive_required
+    admitted = parsed.loc[~excluded].copy()
+    admitted.loc[bad_temperature.loc[admitted.index], "temperature"] = np.nan
     admitted = _deduplicate(
         admitted,
         original,
         ["density", "speed", "temperature"],
         quarantine,
-        "NOAA_SWPC_PLASMA_7_DAY",
+        product,
     )
     admitted.sort_values("time", inplace=True)
     if admitted.empty:
@@ -239,15 +349,28 @@ def _add_plasma_physics(frame: pd.DataFrame) -> pd.DataFrame:
         2.0 * MU0 * density_m3 * BOLTZMANN_J_K * result["temperature"]
     ) / magnetic_t.pow(2)
 
-    finite_columns = [
+    for column in (
         "dynamic_pressure_nPa",
         "alfven_speed_km_s",
         "alfven_mach",
         "proton_beta",
-    ]
-    for column in finite_columns:
+    ):
         result.loc[~np.isfinite(result[column]), column] = np.nan
     return result
+
+
+def _to_utc(value: str) -> pd.Timestamp:
+    timestamp = pd.Timestamp(value)
+    return timestamp.tz_localize("UTC") if timestamp.tzinfo is None else timestamp.tz_convert("UTC")
+
+
+def _source_counts(frame: pd.DataFrame) -> dict[str, int]:
+    if "source" not in frame.columns:
+        return {}
+    return {
+        str(key): int(value)
+        for key, value in frame["source"].fillna("UNKNOWN").value_counts().to_dict().items()
+    }
 
 
 def run_noaa_realtime_pipeline(
@@ -262,8 +385,13 @@ def run_noaa_realtime_pipeline(
     run_dir = outdir / run_name
     run_dir.mkdir(parents=True, exist_ok=True)
     manifest_path = run_dir / "noaa_realtime_run_manifest.json"
+    requested_start = _to_utc(retrieval_start)
+    requested_analysis_start = _to_utc(analysis_start)
+    requested_end = _to_utc(analysis_end)
+    retrieval_duration = requested_end - requested_start
+    analysis_duration = requested_end - requested_analysis_start
     manifest: dict[str, Any] = {
-        "manifest_version": "1.0.0",
+        "manifest_version": "1.1.0",
         "pipeline_version": PIPELINE_VERSION,
         "status": "STARTED",
         "started_utc": _utc_now(),
@@ -271,19 +399,18 @@ def run_noaa_realtime_pipeline(
         "runtime": {"python": platform.python_version()},
         "source": {
             "provider": "NOAA/SWPC",
-            "product": "Real-Time Solar Wind 7-day operational feed",
-            "coordinate_frame": "GSM",
+            "product": "Real-Time Solar Wind 1-minute operational JSON",
             "spacecraft_identity": "PROVIDER_SELECTED_ACTIVE_UPSTREAM_SPACECRAFT",
             "mission_specific": False,
             "interpretation_limit": (
-                "This endpoint is operational L1 context and is not independent "
+                "This provider-selected operational L1 stream is not independent "
                 "mission proof unless spacecraft identity is separately resolved."
             ),
         },
         "protocol_id": PROTOCOL_ID,
         "protocol_version": PROTOCOL_VERSION,
-        "retrieval_window": {"start": retrieval_start, "end": analysis_end},
-        "analysis_window": {"start": analysis_start, "end": analysis_end},
+        "requested_retrieval_window": {"start": retrieval_start, "end": analysis_end},
+        "requested_analysis_window": {"start": analysis_start, "end": analysis_end},
         "artifacts": [],
     }
     _write_json(manifest_path, manifest)
@@ -291,45 +418,43 @@ def run_noaa_realtime_pipeline(
     try:
         session = session or requests.Session()
         session.headers.update({"User-Agent": f"NVCPP-NOAA-RT/{PIPELINE_VERSION}"})
-        mag_payload, mag_meta = _download_json(session, MAG_URL, run_dir / "mag_7_day_raw.json")
+        mag_payload, mag_meta = _download_json(
+            session, MAG_URL, run_dir / "rtsw_mag_1m_raw.json"
+        )
         plasma_payload, plasma_meta = _download_json(
-            session, PLASMA_URL, run_dir / "plasma_7_day_raw.json"
+            session, PLASMA_URL, run_dir / "rtsw_wind_1m_raw.json"
         )
-        mag_raw = _table(
-            mag_payload,
-            required=["time_tag", "bx_gsm", "by_gsm", "bz_gsm", "bt"],
-            source_name="NOAA SWPC magnetic",
-        )
+        # Current production feeds are lists of objects. Legacy header fixtures
+        # are also accepted by _table for reproducibility.
+        mag_raw = _table(mag_payload, required=["time_tag"], source_name="NOAA SWPC magnetic")
         plasma_raw = _table(
-            plasma_payload,
-            required=["time_tag", "density", "speed", "temperature"],
-            source_name="NOAA SWPC plasma",
+            plasma_payload, required=["time_tag"], source_name="NOAA SWPC plasma"
         )
 
         quarantine_records: list[pd.DataFrame] = []
-        mag = _sanitize_magnetic(mag_raw, quarantine_records)
-        plasma = _sanitize_plasma(plasma_raw, quarantine_records)
-        start = pd.Timestamp(retrieval_start)
-        start = start.tz_localize("UTC") if start.tzinfo is None else start.tz_convert("UTC")
-        analysis_start_ts = pd.Timestamp(analysis_start)
-        analysis_start_ts = (
-            analysis_start_ts.tz_localize("UTC")
-            if analysis_start_ts.tzinfo is None
-            else analysis_start_ts.tz_convert("UTC")
-        )
-        end = pd.Timestamp(analysis_end)
-        end = end.tz_localize("UTC") if end.tzinfo is None else end.tz_convert("UTC")
+        mag_all, coordinate_frame = _sanitize_magnetic(mag_raw, quarantine_records)
+        plasma_all = _sanitize_plasma(plasma_raw, quarantine_records)
 
-        mag = mag.loc[(mag["time"] >= start) & (mag["time"] < end)].copy()
-        plasma = plasma.loc[(plasma["time"] >= start) & (plasma["time"] < end)].copy()
+        latest_mag = mag_all["time"].max()
+        effective_end = min(requested_end, latest_mag + pd.Timedelta(seconds=CADENCE_SECONDS))
+        effective_start = effective_end - retrieval_duration
+        effective_analysis_start = effective_end - analysis_duration
+        mag = mag_all.loc[
+            (mag_all["time"] >= effective_start) & (mag_all["time"] < effective_end)
+        ].copy()
+        plasma = plasma_all.loc[
+            (plasma_all["time"] >= effective_start) & (plasma_all["time"] < effective_end)
+        ].copy()
         if mag.empty:
-            raise NoaaRealtimeError("NOAA SWPC magnetic data do not overlap the requested window")
+            raise NoaaRealtimeError("NOAA SWPC magnetic data contain no usable provider window")
+        if mag["time"].min() > effective_start + pd.Timedelta(seconds=CADENCE_SECONDS):
+            raise NoaaRealtimeError("NOAA SWPC magnetic feed lacks the required 30-hour pre-roll")
 
         processed = run_chain(
             mag,
             time_col="time",
             b_mag_col="B_mag",
-            expected_cadence_seconds=60.0,
+            expected_cadence_seconds=CADENCE_SECONDS,
         )
         canonical = processed.merge(
             plasma[["time", "density", "speed", "temperature"]],
@@ -339,11 +464,12 @@ def run_noaa_realtime_pipeline(
         )
         canonical = _add_plasma_physics(canonical)
         analysis = canonical.loc[
-            (canonical["time"] >= analysis_start_ts) & (canonical["time"] < end)
+            (canonical["time"] >= effective_analysis_start)
+            & (canonical["time"] < effective_end)
         ].copy()
         valid = analysis["chi_B24M"].notna()
         if not valid.any():
-            raise NoaaRealtimeError("no baseline-valid NOAA real-time rows in analysis window")
+            raise NoaaRealtimeError("no baseline-valid NOAA real-time rows in provider window")
 
         quarantine = (
             pd.concat(quarantine_records, ignore_index=True, sort=False)
@@ -356,8 +482,12 @@ def run_noaa_realtime_pipeline(
         analysis.to_csv(canonical_path, index=False)
 
         latest_time = analysis.loc[valid, "time"].max()
-        freshness_minutes = max(0.0, (end - latest_time).total_seconds() / 60.0)
-        source_state = "CURRENT" if freshness_minutes <= 20 else "STALE"
+        freshness_minutes = max(
+            0.0, (requested_end - latest_time).total_seconds() / 60.0
+        )
+        source_state = (
+            "CURRENT" if freshness_minutes <= CURRENT_FRESHNESS_MINUTES else "STALE"
+        )
         report_path = run_dir / "noaa_realtime_report.md"
         report_path.write_text(
             "\n".join(
@@ -365,8 +495,10 @@ def run_noaa_realtime_pipeline(
                     f"# NOAA SWPC Operational L1 Run: {run_name}",
                     "",
                     f"- Source state: **{source_state}**",
+                    f"- Selected vector frame: **{coordinate_frame}**",
                     f"- Latest admitted time: `{latest_time.isoformat()}`",
-                    f"- Freshness at analysis end: **{freshness_minutes:.1f} minutes**",
+                    f"- Freshness at requested analysis end: **{freshness_minutes:.1f} minutes**",
+                    f"- Effective provider analysis: {effective_analysis_start.isoformat()} to {effective_end.isoformat()}",
                     f"- Analysis rows: **{len(analysis):,}**",
                     f"- Baseline-valid rows: **{int(valid.sum()):,}**",
                     f"- Plasma-paired rows: **{int(analysis['density'].notna().sum()):,}**",
@@ -376,8 +508,7 @@ def run_noaa_realtime_pipeline(
                     f"- Quarantined source rows: **{len(quarantine):,}**",
                     "- Clipping applied: **False**",
                     "",
-                    "This is an operational provider-selected L1 feed. It is not "
-                    "treated as an independently identified DSCOVR or ACE record.",
+                    "A stale state is a provider-latency observation, not a current solar event.",
                 ]
             )
             + "\n",
@@ -390,12 +521,27 @@ def run_noaa_realtime_pipeline(
                 "completed_utc": _utc_now(),
                 "source_state": source_state,
                 "freshness_minutes": freshness_minutes,
+                "effective_retrieval_window": {
+                    "start": effective_start.isoformat(),
+                    "end": effective_end.isoformat(),
+                },
+                "effective_analysis_window": {
+                    "start": effective_analysis_start.isoformat(),
+                    "end": effective_end.isoformat(),
+                },
+                "source": {
+                    **manifest["source"],
+                    "coordinate_frame": coordinate_frame,
+                    "source_identity_counts": _source_counts(mag_all),
+                },
                 "downloads": {"magnetic": mag_meta, "plasma": plasma_meta},
                 "sanitization": {
                     "quarantine_rows": int(len(quarantine)),
                     "reason_counts": {
                         str(key): int(value)
-                        for key, value in quarantine.get("reason_code", pd.Series(dtype=str))
+                        for key, value in quarantine.get(
+                            "reason_code", pd.Series(dtype=str)
+                        )
                         .value_counts()
                         .to_dict()
                         .items()
@@ -410,8 +556,8 @@ def run_noaa_realtime_pipeline(
                     "max_delta_b24m": float(analysis["delta_B24M"].max()),
                 },
                 "artifacts": [
-                    _artifact(run_dir / "mag_7_day_raw.json"),
-                    _artifact(run_dir / "plasma_7_day_raw.json"),
+                    _artifact(run_dir / "rtsw_mag_1m_raw.json"),
+                    _artifact(run_dir / "rtsw_wind_1m_raw.json"),
                     _artifact(quarantine_path),
                     _artifact(canonical_path),
                     _artifact(report_path),
