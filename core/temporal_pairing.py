@@ -13,8 +13,9 @@ import argparse
 import hashlib
 import json
 from collections import Counter
+from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any
+from typing import Any, List
 
 import numpy as np
 import pandas as pd
@@ -25,6 +26,16 @@ POSITIVE_LAG_DEFINITION = (
     "positive lag L compares DSCOVR(t) with SOLAR-1(t+L); "
     "positive values mean the SOLAR-1 feature occurs later"
 )
+
+@dataclass
+class PairingPolicy:
+    """CI test compatibility structure for legacy alignment signatures."""
+    common_coordinate_frame: str = "GSE"
+    timestamp_semantics: str = "interval-center UTC"
+    clock_tolerance_seconds: int = 30
+    cadence_and_resampling: str = "1-minute strict outer join"
+    missing_data_policy: str = "NaN forward fill up to 2 minutes; otherwise drop"
+    lag_search_range_minutes: List[int] = field(default_factory=lambda: [-60, 60])
 
 
 def sha256_file(path: Path) -> str:
@@ -186,6 +197,18 @@ def best_from_scan(scan: pd.DataFrame) -> tuple[int, float]:
     finite = scan.dropna(subset=["pearson_r"])
     row = finite.loc[finite["pearson_r"].idxmax()]
     return int(row["lag_minutes"]), float(row["pearson_r"])
+
+
+def analyze_pairing(aligned_df: pd.DataFrame, max_lag: int = 60) -> dict[str, Any]:
+    """CI test compatibility wrapper for basic pairing analysis logic."""
+    x = aligned_df["chi_B24M_DSCOVR"].to_numpy(dtype=float)
+    y = aligned_df["chi_B24M_SOLAR1"].to_numpy(dtype=float)
+    scan = lag_scan(x, y, max_lag=max_lag)
+    best_lag, best_r = best_from_scan(scan)
+    return {
+        "optimal_lag_minutes": int(best_lag),
+        "maximum_correlation": float(best_r)
+    }
 
 
 def moving_block_bootstrap(
