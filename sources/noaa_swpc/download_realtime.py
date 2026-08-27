@@ -154,6 +154,50 @@ def _table(payload: Any, *, required: list[str], source_name: str) -> pd.DataFra
     return frame
 
 
+
+def _select_active_operational_rows(
+    frame: pd.DataFrame,
+    *,
+    source_name: str,
+) -> pd.DataFrame:
+    """Select NOAA's provider-designated active upstream stream.
+
+    Current RTSW products can include simultaneous rows from SOLAR1, IMAP,
+    ACE, or another upstream spacecraft. Those are independent provider rows,
+    not duplicate measurements to average together. When the ``active`` field
+    exists, only rows explicitly designated active enter the operational
+    canonical stream. All rows remain preserved in the raw response.
+    """
+
+    if "active" not in frame.columns:
+        return frame.copy()
+
+    def parse_active(value: Any) -> bool:
+        if isinstance(value, (bool, np.bool_)):
+            return bool(value)
+        if pd.isna(value):
+            raise NoaaRealtimeError(f"{source_name} contains a missing active flag")
+        if isinstance(value, (int, np.integer, float, np.floating)):
+            if float(value) in (0.0, 1.0):
+                return bool(int(value))
+        if isinstance(value, str):
+            normalized = value.strip().lower()
+            if normalized in {"true", "1", "yes", "active"}:
+                return True
+            if normalized in {"false", "0", "no", "inactive"}:
+                return False
+        raise NoaaRealtimeError(
+            f"{source_name} contains an unrecognized active flag: {value!r}"
+        )
+
+    active_mask = frame["active"].map(parse_active)
+    selected = frame.loc[active_mask].copy()
+    if selected.empty:
+        raise NoaaRealtimeError(
+            f"{source_name} exposes an active field but designates no active rows"
+        )
+    return selected
+
 def _first_present(frame: pd.DataFrame, names: Iterable[str]) -> str | None:
     return next((name for name in names if name in frame.columns), None)
 
@@ -432,8 +476,14 @@ def run_noaa_realtime_pipeline(
         )
 
         quarantine_records: list[pd.DataFrame] = []
-        mag_all, coordinate_frame = _sanitize_magnetic(mag_raw, quarantine_records)
-        plasma_all = _sanitize_plasma(plasma_raw, quarantine_records)
+        mag_active = _select_active_operational_rows(
+            mag_raw, source_name="NOAA SWPC magnetic"
+        )
+        plasma_active = _select_active_operational_rows(
+            plasma_raw, source_name="NOAA SWPC plasma"
+        )
+        mag_all, coordinate_frame = _sanitize_magnetic(mag_active, quarantine_records)
+        plasma_all = _sanitize_plasma(plasma_active, quarantine_records)
 
         latest_mag = mag_all["time"].max()
         effective_end = min(requested_end, latest_mag + pd.Timedelta(seconds=CADENCE_SECONDS))
@@ -532,6 +582,8 @@ def run_noaa_realtime_pipeline(
                 "source": {
                     **manifest["source"],
                     "coordinate_frame": coordinate_frame,
+                    "available_source_identity_counts": _source_counts(mag_raw),
+                    "active_source_identity_counts": _source_counts(mag_all),
                     "source_identity_counts": _source_counts(mag_all),
                 },
                 "downloads": {"magnetic": mag_meta, "plasma": plasma_meta},

@@ -6,6 +6,7 @@ from sources.noaa_swpc.download_realtime import (
     _add_plasma_physics,
     _sanitize_magnetic,
     _sanitize_plasma,
+    _select_active_operational_rows,
     _table,
 )
 
@@ -209,3 +210,55 @@ def test_stale_provider_window_is_preserved_and_labeled(tmp_path):
     assert manifest["freshness_minutes"] > 20
     assert manifest["source"]["source_identity_counts"] == {"DSCOVR": 1800}
     assert manifest["effective_analysis_window"]["end"].startswith("2026-01-02T06:00:00")
+
+
+
+def test_multi_spacecraft_operational_rows_use_provider_active_selection():
+    magnetic = [
+        {
+            "time_tag": "2026-01-01T00:00:00Z",
+            "source": "SOLAR1",
+            "active": True,
+            "bx_gsm": 3.0,
+            "by_gsm": 4.0,
+            "bz_gsm": 0.0,
+            "bt": 5.0,
+        },
+        {
+            "time_tag": "2026-01-01T00:00:00Z",
+            "source": "ACE",
+            "active": False,
+            "bx_gsm": 9.0,
+            "by_gsm": 0.0,
+            "bz_gsm": 0.0,
+            "bt": 9.0,
+        },
+        {
+            "time_tag": "2026-01-01T00:01:00Z",
+            "source": "SOLAR1",
+            "active": "true",
+            "bx_gsm": 0.0,
+            "by_gsm": 6.0,
+            "bz_gsm": 8.0,
+            "bt": 10.0,
+        },
+        {
+            "time_tag": "2026-01-01T00:01:00Z",
+            "source": "IMAP",
+            "active": "false",
+            "bx_gsm": 12.0,
+            "by_gsm": 0.0,
+            "bz_gsm": 0.0,
+            "bt": 12.0,
+        },
+    ]
+    raw = _table(magnetic, required=["time_tag"], source_name="mag")
+    selected = _select_active_operational_rows(raw, source_name="mag")
+    assert selected["source"].tolist() == ["SOLAR1", "SOLAR1"]
+    assert selected["time_tag"].is_unique
+
+    quarantine = []
+    clean, coordinate_frame = _sanitize_magnetic(selected, quarantine)
+    assert coordinate_frame == "GSM"
+    assert clean["B_mag"].tolist() == pytest.approx([5.0, 10.0])
+    assert quarantine == []
