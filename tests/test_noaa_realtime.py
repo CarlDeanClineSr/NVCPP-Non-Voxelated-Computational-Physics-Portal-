@@ -21,7 +21,8 @@ def test_header_mapping_is_by_name_not_position():
         source_name="test",
     )
     quarantine = []
-    clean = _sanitize_magnetic(frame, quarantine)
+    clean, frame_name = _sanitize_magnetic(frame, quarantine)
+    assert frame_name == "GSM"
     assert clean.iloc[0]["B_mag"] == pytest.approx(5.0)
     assert quarantine == []
 
@@ -39,7 +40,8 @@ def test_zero_vector_and_bt_mismatch_are_quarantined():
         source_name="test",
     )
     quarantine = []
-    clean = _sanitize_magnetic(frame, quarantine)
+    clean, frame_name = _sanitize_magnetic(frame, quarantine)
+    assert frame_name == "GSM"
     reasons = set(pd.concat(quarantine)["reason_code"])
     assert reasons == {"ZERO_VECTOR_SUSPECT", "BT_VECTOR_MISMATCH"}
     assert len(clean) == 1
@@ -76,6 +78,41 @@ def test_plasma_nonpositive_values_are_quarantined():
     assert len(clean) == 1
     assert pd.concat(quarantine).iloc[0]["reason_code"] == "NONPOSITIVE_PLASMA"
 
+
+def test_current_object_schema_and_proton_names_are_normalized():
+    magnetic = [
+        {
+            "time_tag": "2026-01-01T00:00:00Z",
+            "source": "SOLAR-1",
+            "active": True,
+            "bx_gsm": 3.0,
+            "by_gsm": 4.0,
+            "bz_gsm": 0.0,
+            "bt": 5.0,
+        }
+    ]
+    plasma = [
+        {
+            "time_tag": "2026-01-01T00:00:00Z",
+            "source": "SOLAR-1",
+            "active": True,
+            "proton_density": 5.0,
+            "proton_speed": 400.0,
+            "proton_temperature": 100000.0,
+        }
+    ]
+    mag_frame = _table(magnetic, required=["time_tag"], source_name="mag")
+    wind_frame = _table(plasma, required=["time_tag"], source_name="wind")
+    quarantine = []
+    clean_mag, frame_name = _sanitize_magnetic(mag_frame, quarantine)
+    clean_wind = _sanitize_plasma(wind_frame, quarantine)
+    assert frame_name == "GSM"
+    assert clean_mag.iloc[0]["B_mag"] == pytest.approx(5.0)
+    assert clean_wind.iloc[0]["density"] == pytest.approx(5.0)
+    assert clean_wind.iloc[0]["speed"] == pytest.approx(400.0)
+    assert clean_wind.iloc[0]["temperature"] == pytest.approx(100000.0)
+    assert quarantine == []
+
 class FakeResponse:
     def __init__(self, payload, url):
         import json
@@ -99,7 +136,7 @@ class FakeSession:
         self.headers = {}
 
     def get(self, url, timeout=None):
-        return FakeResponse(self.magnetic if "mag-7-day" in url else self.plasma, url)
+        return FakeResponse(self.magnetic if "mag" in url else self.plasma, url)
 
 
 def test_end_to_end_operational_pipeline_preserves_unclipped_state(tmp_path):
@@ -127,3 +164,48 @@ def test_end_to_end_operational_pipeline_preserves_unclipped_state(tmp_path):
     canonical = pd.read_csv(tmp_path / "fixture" / "noaa_realtime_canonical.csv")
     assert canonical["chi_B24M"].max() == pytest.approx(1.0)
     assert canonical["proton_beta"].notna().all()
+
+
+def test_stale_provider_window_is_preserved_and_labeled(tmp_path):
+    from sources.noaa_swpc.download_realtime import run_noaa_realtime_pipeline
+
+    times = pd.date_range("2026-01-01T00:00:00Z", periods=1800, freq="1min")
+    mag = []
+    plasma = []
+    for time in times:
+        stamp = time.isoformat().replace("+00:00", "Z")
+        mag.append(
+            {
+                "time_tag": stamp,
+                "source": "DSCOVR",
+                "active": True,
+                "bx_gsm": 5.0,
+                "by_gsm": 0.0,
+                "bz_gsm": 0.0,
+                "bt": 5.0,
+            }
+        )
+        plasma.append(
+            {
+                "time_tag": stamp,
+                "source": "DSCOVR",
+                "active": True,
+                "proton_density": 5.0,
+                "proton_speed": 400.0,
+                "proton_temperature": 100000.0,
+            }
+        )
+
+    manifest = run_noaa_realtime_pipeline(
+        run_name="stale-fixture",
+        retrieval_start="2026-01-02T00:00:00Z",
+        analysis_start="2026-01-03T00:00:00Z",
+        analysis_end="2026-01-03T06:00:00Z",
+        outdir=tmp_path,
+        session=FakeSession(mag, plasma),
+    )
+    assert manifest["status"] == "SUCCESS"
+    assert manifest["source_state"] == "STALE"
+    assert manifest["freshness_minutes"] > 20
+    assert manifest["source"]["source_identity_counts"] == {"DSCOVR": 1800}
+    assert manifest["effective_analysis_window"]["end"].startswith("2026-01-02T06:00:00")

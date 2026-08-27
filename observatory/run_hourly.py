@@ -13,6 +13,7 @@ from pathlib import Path
 from typing import Any, Callable
 
 import pandas as pd
+import requests
 
 from core.event_detection import CanonicalColumns, EventThresholds, detect_events
 from observatory.capsules import write_event_capsules, write_run_lesson
@@ -21,6 +22,12 @@ from observatory.status import inventory, write_latest_status
 from observatory.time_windows import ObservatoryWindow, build_hourly_window
 from sources.noaa_swpc.download_realtime import run_noaa_realtime_pipeline
 from sources.solar1.download_solar1 import run_solar1_pipeline
+try:
+    from sources.solar1.validate_contract import load_contract_or_raise
+except ImportError:  # compatibility with the pre-merge Hardening V2 fixture
+    from sources.solar1.validate_contract import (
+        load_and_validate_contract as load_contract_or_raise,
+    )
 
 OBSERVATORY_VERSION = "1.0.0"
 
@@ -62,6 +69,90 @@ def _quarantine_rows(path: Path) -> int:
         return 0
 
 
+
+def _solar1_hourly_runner(
+    *,
+    window: ObservatoryWindow,
+    mission_root: Path,
+    contract_path: Path,
+) -> dict[str, Any]:
+    """Run the latest provider-complete SOLAR-1 science window.
+
+    The science-quality HAPI product can lag real time. Historical pipeline
+    semantics stay strict; this hourly wrapper reads provider availability,
+    selects the latest complete 30-hour/6-hour window, and labels it DELAYED
+    rather than representing delayed science as a current event stream.
+    """
+
+    contract = load_contract_or_raise(contract_path)
+    endpoint = f'{contract["source"]["api_base"]}/hapi/info'
+    response = requests.get(
+        endpoint,
+        params={"dataset": contract["source"]["hapi_dataset_id"]},
+        timeout=60,
+        headers={"User-Agent": f"NVCPP-HOURLY/{OBSERVATORY_VERSION}"},
+    )
+    response.raise_for_status()
+    info = response.json()
+    if info.get("status", {}).get("code") != 1200:
+        raise ObservatoryError(f"SOLAR-1 HAPI info status is not 1200: {info.get('status')}")
+
+    provider_start = pd.to_datetime(info.get("startDate"), utc=True, errors="coerce")
+    provider_stop = pd.to_datetime(info.get("stopDate"), utc=True, errors="coerce")
+    if pd.isna(provider_start) or pd.isna(provider_stop):
+        raise ObservatoryError("SOLAR-1 HAPI info lacks valid startDate/stopDate")
+
+    cadence = pd.Timedelta(seconds=float(contract["cadence"]["expected_seconds"]))
+    provider_end = provider_stop + cadence
+    effective_end = min(window.analysis_end, provider_end)
+    retrieval_duration = window.analysis_end - window.retrieval_start
+    analysis_duration = window.analysis_end - window.analysis_start
+    effective_start = effective_end - retrieval_duration
+    effective_analysis = effective_end - analysis_duration
+    if effective_start < provider_start:
+        raise ObservatoryError("SOLAR-1 provider history lacks the required pre-roll")
+
+    run_solar1_pipeline(
+        run_name="solar1_mag",
+        start_time=_iso(effective_start),
+        analysis_start=_iso(effective_analysis),
+        end_time=_iso(effective_end),
+        outdir=mission_root,
+        contract_path=contract_path,
+    )
+
+    manifest_path = mission_root / "solar1_mag" / "solar1_run_manifest.json"
+    manifest = _read_json(manifest_path)
+    freshness_minutes = max(
+        0.0, (window.analysis_end - provider_stop).total_seconds() / 60.0
+    )
+    source_state = "CURRENT" if freshness_minutes <= 20.0 else "DELAYED"
+    manifest.update(
+        {
+            "source_state": source_state,
+            "freshness_minutes": freshness_minutes,
+            "hourly_requested_window": window.as_dict(),
+            "provider_availability": {
+                "start": provider_start.isoformat(),
+                "stop": provider_stop.isoformat(),
+            },
+            "hourly_effective_window": {
+                "retrieval_start": effective_start.isoformat(),
+                "analysis_start": effective_analysis.isoformat(),
+                "analysis_end": effective_end.isoformat(),
+            },
+            "interpretation_limit": (
+                "DELAYED SOLAR-1 science is an independent confirmation stream, "
+                "not a current-hour solar-event alert."
+            ),
+        }
+    )
+    manifest_path.write_text(
+        json.dumps(manifest, indent=2, sort_keys=True, default=str),
+        encoding="utf-8",
+    )
+    return manifest
+
 def _mission_analyze(
     *,
     mission: str,
@@ -71,18 +162,27 @@ def _mission_analyze(
     columns: CanonicalColumns,
     thresholds: EventThresholds,
     focus_start: pd.Timestamp,
+    focus_minutes: int,
     outdir: Path,
 ) -> dict[str, Any]:
     frame = pd.read_csv(canonical_path)
     frame[columns.time] = pd.to_datetime(frame[columns.time], utc=True, errors="coerce")
+    manifest = _read_json(manifest_path)
+    source_state = str(manifest.get("source_state", "RETRIEVED")).upper()
+    event_focus_start = focus_start
+    if source_state != "CURRENT" and frame[columns.time].notna().any():
+        latest_provider_time = frame[columns.time].max()
+        event_focus_start = latest_provider_time - pd.Timedelta(minutes=focus_minutes)
     prepared, events, metrics = detect_events(
         frame,
         mission=mission,
         columns=columns,
         thresholds=thresholds,
-        focus_start=focus_start,
+        focus_start=event_focus_start,
     )
-    manifest = _read_json(manifest_path)
+    for event in events:
+        event["source_state"] = source_state
+        event["current_event"] = source_state == "CURRENT"
     chart_dir = outdir / "charts"
     chart_paths = generate_mission_charts(
         prepared,
@@ -110,7 +210,7 @@ def _mission_analyze(
 
     summary = {
         "status": "SUCCESS",
-        "source_state": manifest.get("source_state", "RETRIEVED"),
+        "source_state": source_state,
         "event_count": len(events),
         "watch_rows": metrics["watch_rows"],
         "candidate_rows": metrics["candidate_rows"],
@@ -243,12 +343,9 @@ def run_hourly_observatory(
         source_specs.append(
             {
                 "name": "SOLAR1_MAG",
-                "runner": lambda: run_solar1_pipeline(
-                    run_name="solar1_mag",
-                    start_time=_iso(window.retrieval_start),
-                    analysis_start=_iso(window.analysis_start),
-                    end_time=_iso(window.analysis_end),
-                    outdir=mission_root,
+                "runner": lambda: _solar1_hourly_runner(
+                    window=window,
+                    mission_root=mission_root,
                     contract_path=Path(config["sources"]["solar1_mag"]["contract"]),
                 ),
                 "canonical": mission_root / "solar1_mag" / "solar1_cline_l1_rows.csv",
@@ -276,6 +373,7 @@ def run_hourly_observatory(
                 columns=spec["columns"],
                 thresholds=thresholds,
                 focus_start=window.focus_start,
+                focus_minutes=int(timing["event_focus_minutes"]),
                 outdir=spec["output"],
             )
             mission_summaries[name] = summary
@@ -296,9 +394,21 @@ def run_hourly_observatory(
                 "error": errors[name],
             }
 
-    success_count = sum(summary.get("status") == "SUCCESS" for summary in mission_summaries.values())
-    overall_status = "SUCCESS" if success_count == len(source_specs) else (
-        "DEGRADED" if success_count > 0 else "FAILED"
+    success_count = sum(
+        summary.get("status") == "SUCCESS"
+        for summary in mission_summaries.values()
+    )
+    current_count = sum(
+        summary.get("status") == "SUCCESS"
+        and str(summary.get("source_state", "")).upper() == "CURRENT"
+        for summary in mission_summaries.values()
+    )
+    overall_status = (
+        "FAILED"
+        if success_count == 0
+        else "SUCCESS"
+        if success_count == len(source_specs) and current_count == len(source_specs)
+        else "DEGRADED"
     )
     observatory_manifest["status"] = overall_status
     observatory_manifest["completed_utc"] = utc_now()
