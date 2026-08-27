@@ -1,0 +1,84 @@
+name: Install verified NOAA rolling-state source
+
+on:
+  push:
+    branches:
+      - feature/noaa-rolling-state-v1
+    paths:
+      - ".github/workflows/install_noaa_rolling_state.yml"
+      - ".noaa_rolling_state_payload/**"
+
+permissions:
+  contents: write
+
+concurrency:
+  group: install-noaa-rolling-state-v1
+  cancel-in-progress: false
+
+jobs:
+  install:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Check out feature branch
+        uses: actions/checkout@v4
+        with:
+          ref: feature/noaa-rolling-state-v1
+          fetch-depth: 0
+
+      - name: Reassemble and verify source package
+        shell: bash
+        run: |
+          set -euo pipefail
+          base64 --decode .noaa_rolling_state_payload/payload.txt > /tmp/noaa_rolling_state.zip
+          echo "0fe574d13f2310ce7a775b920a1c27cc1cb0b3a2be820613e07ead21c988e56b  /tmp/noaa_rolling_state.zip" | sha256sum --check --strict
+
+      - name: Extract only audited source and test
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          from pathlib import Path
+          import zipfile
+
+          expected = {
+              "sources/noaa_swpc/download_realtime.py",
+              "tests/test_noaa_realtime.py",
+          }
+          root = Path.cwd().resolve()
+          with zipfile.ZipFile("/tmp/noaa_rolling_state.zip") as archive:
+              names = set(archive.namelist())
+              if names != expected:
+                  raise SystemExit(
+                      f"package inventory mismatch; missing={sorted(expected-names)}, "
+                      f"unexpected={sorted(names-expected)}"
+                  )
+              for name in sorted(names):
+                  target = (root / name).resolve()
+                  if root not in target.parents:
+                      raise SystemExit(f"unsafe archive path: {name}")
+                  target.parent.mkdir(parents=True, exist_ok=True)
+                  target.write_bytes(archive.read(name))
+          print(f"Installed {len(expected)} audited files")
+          PY
+
+      - name: Install dependencies
+        run: python -m pip install -r requirements.txt
+
+      - name: Compile, validate, and test
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m compileall -q core historical observatory pipelines sources tests
+          python -m sources.solar1.validate_contract config/solar1_mag_contract.v1.json
+          python -m pytest -q
+
+      - name: Commit tested source
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "NVCPP Audit Installer"
+          git config user.email "actions@users.noreply.github.com"
+          git add sources/noaa_swpc/download_realtime.py tests/test_noaa_realtime.py
+          git commit -m "feat: add rolling NOAA operational state cache"
+          git push origin HEAD:feature/noaa-rolling-state-v1
