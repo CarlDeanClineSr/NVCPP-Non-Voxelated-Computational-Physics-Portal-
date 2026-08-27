@@ -1,0 +1,109 @@
+name: Install verified NVCPP hourly observatory payload
+
+on:
+  push:
+    branches:
+      - feature/hourly-observatory-v1
+    paths:
+      - ".github/workflows/install_hourly_payload.yml"
+      - ".nvcpp_hourly_payload/**"
+
+permissions:
+  contents: write
+
+concurrency:
+  group: install-hourly-observatory-v1
+  cancel-in-progress: false
+
+jobs:
+  install:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Check out review branch
+        uses: actions/checkout@v4
+        with:
+          ref: feature/hourly-observatory-v1
+          fetch-depth: 0
+
+      - name: Reassemble and verify payload
+        shell: bash
+        run: |
+          set -euo pipefail
+          cat .nvcpp_hourly_payload/chunk_*.txt | base64 --decode > /tmp/nvcpp_hourly_payload.zip
+          echo "43f8149475e648ad74b9b99b3a3d099297dfca65979b0fc3118d7c7b899278e6  /tmp/nvcpp_hourly_payload.zip" | sha256sum --check --strict
+
+      - name: Extract only audited paths
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          from pathlib import Path
+          import zipfile
+
+          expected = {
+              "observatory/__init__.py",
+              "observatory/time_windows.py",
+              "core/event_detection.py",
+              "observatory/charts.py",
+              "observatory/capsules.py",
+              "observatory/status.py",
+              "sources/noaa_swpc/__init__.py",
+              "sources/noaa_swpc/download_realtime.py",
+              "observatory/run_hourly.py",
+              "pipelines/__init__.py",
+              "pipelines/drive_vault.py",
+              "config/hourly_observatory.v1.json",
+              ".github/workflows/hourly_observatory.yml",
+              "docs/HOURLY_OBSERVATORY.md",
+              "docs/DRIVE_VAULT_SETUP.md",
+              "docs/TEACHING_ENGINE.md",
+              "tests/test_observatory_window.py",
+              "tests/test_event_detection.py",
+              "tests/test_noaa_realtime.py",
+              "tests/test_drive_vault.py",
+              "tests/test_hourly_orchestrator.py",
+              ".github/workflows/ci.yml",
+              "requirements.txt",
+              "README.md",
+          }
+          root = Path.cwd().resolve()
+          with zipfile.ZipFile("/tmp/nvcpp_hourly_payload.zip") as archive:
+              names = set(archive.namelist())
+              if names != expected:
+                  raise SystemExit(
+                      f"payload inventory mismatch; missing={sorted(expected-names)}, "
+                      f"unexpected={sorted(names-expected)}"
+                  )
+              for name in sorted(names):
+                  target = (root / name).resolve()
+                  if root not in target.parents:
+                      raise SystemExit(f"unsafe archive path: {name}")
+                  target.parent.mkdir(parents=True, exist_ok=True)
+                  target.write_bytes(archive.read(name))
+          print(f"Installed {len(expected)} audited source files")
+          PY
+
+      - name: Install locked dependencies
+        run: python -m pip install -r requirements.txt
+
+      - name: Compile and validate
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m compileall -q core historical observatory pipelines sources tests
+          python -m sources.solar1.validate_contract config/solar1_mag_contract.v1.json
+          python -m json.tool config/hourly_observatory.v1.json >/dev/null
+          python -m pytest -q
+
+      - name: Replace staging commits with reviewed source commit
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -rf .nvcpp_hourly_payload
+          rm -f .github/workflows/install_hourly_payload.yml
+          git config user.name "NVCPP Audit Installer"
+          git config user.email "actions@users.noreply.github.com"
+          git add -A
+          git commit -m "feat: add hourly evidence-preserving L1 observatory"
+          git push origin HEAD:feature/hourly-observatory-v1
