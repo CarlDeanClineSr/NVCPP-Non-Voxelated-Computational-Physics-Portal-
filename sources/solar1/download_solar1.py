@@ -12,7 +12,6 @@ import json
 import os
 import platform
 import subprocess
-import tempfile
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
@@ -326,27 +325,6 @@ def _inventory(outdir: Path) -> list[dict[str, Any]]:
                 }
             )
     return items
-
-
-def sanitize_rows(df: pd.DataFrame, contract: dict[str, Any] | None = None) -> tuple[pd.DataFrame, pd.DataFrame]:
-    """CI test compatibility wrapper mapping tests to the new sanitize architecture."""
-    if contract is None:
-        contract = {
-            "time": {"parameter_id": "time"},
-            "vector": {"components": {
-                "x": {"parameter_id": "bx_gse", "fill_values": [-9999.0]},
-                "y": {"parameter_id": "by_gse", "fill_values": [-9999.0]},
-                "z": {"parameter_id": "bz_gse", "fill_values": [-9999.0]}
-            }},
-            "cadence": {"expected_seconds": 60}
-        }
-    dummy_outdir = Path(tempfile.gettempdir())
-    clean, _ = sanitize(df, contract, dummy_outdir)
-    try:
-        quarantine = pd.read_csv(dummy_outdir / "solar1_quarantine.csv")
-    except Exception:
-        quarantine = pd.DataFrame()
-    return clean, quarantine
 
 
 def run_solar1_pipeline(
