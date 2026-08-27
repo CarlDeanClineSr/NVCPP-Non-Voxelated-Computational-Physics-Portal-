@@ -84,6 +84,32 @@ jobs:
           print(f"Installed {len(expected)} audited source files")
           PY
 
+      - name: Align NOAA hourly adapter with the live frozen core API
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          from pathlib import Path
+
+          path = Path("sources/noaa_swpc/download_realtime.py")
+          text = path.read_text(encoding="utf-8")
+          old_import = (
+              "from core.cline_l1_chain_v1 import "
+              "PROTOCOL_ID, PROTOCOL_VERSION, ProtocolConfig, run_chain"
+          )
+          new_import = (
+              "from core.cline_l1_chain_v1 import "
+              "PROTOCOL_ID, PROTOCOL_VERSION, run_chain"
+          )
+          old_call = "            config=ProtocolConfig(expected_cadence_seconds=60.0),"
+          new_call = "            expected_cadence_seconds=60.0,"
+          if text.count(old_import) != 1 or text.count(old_call) != 1:
+              raise SystemExit("live-core compatibility patch did not match exactly once")
+          text = text.replace(old_import, new_import).replace(old_call, new_call)
+          path.write_text(text, encoding="utf-8")
+          print("Aligned hourly adapter to run_chain(expected_cadence_seconds=60.0)")
+          PY
+
       - name: Install locked dependencies
         run: python -m pip install -r requirements.txt
 
