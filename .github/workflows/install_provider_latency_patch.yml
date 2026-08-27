@@ -6,7 +6,7 @@ on:
       - repair/hourly-provider-latency-v1
     paths:
       - ".github/workflows/install_provider_latency_patch.yml"
-      - ".provider_latency_patch/**"
+      - ".provider_latency_patch_v2/**"
 
 permissions:
   contents: write
@@ -30,7 +30,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          cat .provider_latency_patch/chunk_*.txt | base64 --decode > /tmp/provider_latency_patch.zip
+          cat .provider_latency_patch_v2/part_*.txt | base64 --decode > /tmp/provider_latency_patch.zip
           echo "5ca8c89b94b3115db6aadfd540be39e4bd9342839dfab736f00467ad376ee7f4  /tmp/provider_latency_patch.zip" | sha256sum --check --strict
 
       - name: Extract only audited files
