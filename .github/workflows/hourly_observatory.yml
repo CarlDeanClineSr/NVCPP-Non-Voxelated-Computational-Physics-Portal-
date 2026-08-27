@@ -7,6 +7,18 @@ on:
         description: Optional deterministic UTC time for a replay, e.g. 2026-08-26T20:37:00Z
         required: false
         type: string
+  push:
+    branches:
+      - main
+    paths:
+      - "observatory/**"
+      - "core/event_detection.py"
+      - "sources/noaa_swpc/**"
+      - "sources/solar1/**"
+      - "pipelines/drive_vault.py"
+      - "config/hourly_observatory.v1.json"
+      - "requirements.txt"
+      - ".github/workflows/hourly_observatory.yml"
   schedule:
     - cron: "17 * * * *"
 
