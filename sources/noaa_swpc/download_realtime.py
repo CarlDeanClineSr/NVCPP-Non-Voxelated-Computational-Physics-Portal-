@@ -26,7 +26,7 @@ import requests
 
 from core.cline_l1_chain_v1 import PROTOCOL_ID, PROTOCOL_VERSION, run_chain
 
-PIPELINE_VERSION = "1.1.0"
+PIPELINE_VERSION = "1.2.0"
 MAG_URL = "https://services.swpc.noaa.gov/json/rtsw/rtsw_mag_1m.json"
 PLASMA_URL = "https://services.swpc.noaa.gov/json/rtsw/rtsw_wind_1m.json"
 CADENCE_SECONDS = 60.0
@@ -417,6 +417,151 @@ def _source_counts(frame: pd.DataFrame) -> dict[str, int]:
     }
 
 
+STATE_RETENTION_HOURS = 36.0
+MAG_STATE_FILE = "noaa_mag_active_history.csv"
+PLASMA_STATE_FILE = "noaa_plasma_active_history.csv"
+
+
+def _state_path(state_dir: Path, filename: str) -> Path:
+    state_dir.mkdir(parents=True, exist_ok=True)
+    return state_dir / filename
+
+
+def _read_state_frame(path: Path, *, required: list[str]) -> pd.DataFrame:
+    if not path.exists() or path.stat().st_size == 0:
+        return pd.DataFrame(columns=required)
+    frame = pd.read_csv(path)
+    missing = [name for name in required if name not in frame.columns]
+    if missing:
+        raise NoaaRealtimeError(f"state file {path} is missing columns: {missing}")
+    frame["time"] = pd.to_datetime(frame["time"], utc=True, errors="coerce")
+    if frame["time"].isna().any():
+        raise NoaaRealtimeError(f"state file {path} contains invalid timestamps")
+    if frame["time"].duplicated().any():
+        raise NoaaRealtimeError(f"state file {path} contains duplicate timestamps")
+    return frame.sort_values("time").reset_index(drop=True)
+
+
+def _bootstrap_state_from_raw(
+    state_dir: Path,
+) -> tuple[pd.DataFrame, pd.DataFrame, dict[str, Any]]:
+    bootstrap = state_dir / "bootstrap"
+    mag_path = bootstrap / "rtsw_mag_1m_raw.json"
+    plasma_path = bootstrap / "rtsw_wind_1m_raw.json"
+    if not mag_path.exists() or not plasma_path.exists():
+        return pd.DataFrame(), pd.DataFrame(), {"used": False}
+
+    mag_payload = json.loads(mag_path.read_text(encoding="utf-8"))
+    plasma_payload = json.loads(plasma_path.read_text(encoding="utf-8"))
+    mag_raw = _table(
+        mag_payload, required=["time_tag"], source_name="NOAA cached magnetic bootstrap"
+    )
+    plasma_raw = _table(
+        plasma_payload, required=["time_tag"], source_name="NOAA cached plasma bootstrap"
+    )
+    mag_active = _select_active_operational_rows(
+        mag_raw, source_name="NOAA cached magnetic bootstrap"
+    )
+    plasma_active = _select_active_operational_rows(
+        plasma_raw, source_name="NOAA cached plasma bootstrap"
+    )
+    ignored_quarantine: list[pd.DataFrame] = []
+    magnetic, _ = _sanitize_magnetic(mag_active, ignored_quarantine)
+    plasma = _sanitize_plasma(plasma_active, ignored_quarantine)
+    return magnetic, plasma, {
+        "used": True,
+        "magnetic_path": str(mag_path),
+        "plasma_path": str(plasma_path),
+        "magnetic_sha256": _sha256_file(mag_path),
+        "plasma_sha256": _sha256_file(plasma_path),
+        "magnetic_rows": int(len(magnetic)),
+        "plasma_rows": int(len(plasma)),
+    }
+
+
+def _merge_operational_history(
+    cached: pd.DataFrame,
+    current: pd.DataFrame,
+    *,
+    compare_columns: list[str],
+    retention_hours: float = STATE_RETENTION_HOURS,
+) -> tuple[pd.DataFrame, dict[str, int]]:
+    """Merge an operational cache with the newest provider response.
+
+    The newest response wins at overlapping timestamps because operational
+    providers can revise recent rows. Revisions are counted, not hidden. Raw
+    responses remain independently preserved in each immutable run package.
+    """
+
+    cached = cached.copy()
+    current = current.copy()
+    for frame, name in ((cached, "cached"), (current, "current")):
+        if frame.empty:
+            continue
+        frame["time"] = pd.to_datetime(frame["time"], utc=True, errors="coerce")
+        if frame["time"].isna().any():
+            raise NoaaRealtimeError(f"{name} operational history contains invalid time")
+        if frame["time"].duplicated().any():
+            raise NoaaRealtimeError(f"{name} operational history contains duplicate time")
+
+    revised = 0
+    identical_overlap = 0
+    if not cached.empty and not current.empty:
+        left = cached.set_index("time")
+        right = current.set_index("time")
+        common = left.index.intersection(right.index)
+        if len(common):
+            left_values = left.loc[common, compare_columns].sort_index()
+            right_values = right.loc[common, compare_columns].sort_index()
+            equal = (
+                left_values.eq(right_values)
+                | (left_values.isna() & right_values.isna())
+            ).all(axis=1)
+            identical_overlap = int(equal.sum())
+            revised = int((~equal).sum())
+            cached = cached.loc[~cached["time"].isin(common)].copy()
+
+    merged = pd.concat([cached, current], ignore_index=True, sort=False)
+    if merged.empty:
+        return merged, {
+            "cached_rows": 0,
+            "current_rows": 0,
+            "merged_rows": 0,
+            "identical_overlap_rows": 0,
+            "revised_overlap_rows": 0,
+        }
+    merged.sort_values("time", inplace=True)
+    if merged["time"].duplicated().any():
+        raise NoaaRealtimeError("merged operational history contains duplicate timestamps")
+    latest = merged["time"].max()
+    cutoff = latest - pd.Timedelta(hours=float(retention_hours))
+    merged = merged.loc[merged["time"] >= cutoff].reset_index(drop=True)
+    return merged, {
+        "cached_rows": int(len(cached) + identical_overlap + revised),
+        "current_rows": int(len(current)),
+        "merged_rows": int(len(merged)),
+        "identical_overlap_rows": identical_overlap,
+        "revised_overlap_rows": revised,
+    }
+
+
+def _write_state_frame(path: Path, frame: pd.DataFrame) -> dict[str, Any]:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    output = frame.copy()
+    output["time"] = pd.to_datetime(output["time"], utc=True).map(
+        lambda value: value.isoformat()
+    )
+    output.to_csv(path, index=False)
+    return {
+        "path": str(path),
+        "rows": int(len(output)),
+        "start": frame["time"].min().isoformat() if len(frame) else None,
+        "end": frame["time"].max().isoformat() if len(frame) else None,
+        "sha256": _sha256_file(path),
+        "size_bytes": path.stat().st_size,
+    }
+
+
 def run_noaa_realtime_pipeline(
     *,
     run_name: str,
@@ -425,6 +570,7 @@ def run_noaa_realtime_pipeline(
     analysis_end: str,
     outdir: Path,
     session: requests.Session | None = None,
+    state_dir: Path | None = None,
 ) -> dict[str, Any]:
     run_dir = outdir / run_name
     run_dir.mkdir(parents=True, exist_ok=True)
@@ -435,7 +581,7 @@ def run_noaa_realtime_pipeline(
     retrieval_duration = requested_end - requested_start
     analysis_duration = requested_end - requested_analysis_start
     manifest: dict[str, Any] = {
-        "manifest_version": "1.1.0",
+        "manifest_version": "1.2.0",
         "pipeline_version": PIPELINE_VERSION,
         "status": "STARTED",
         "started_utc": _utc_now(),
@@ -482,10 +628,63 @@ def run_noaa_realtime_pipeline(
         plasma_active = _select_active_operational_rows(
             plasma_raw, source_name="NOAA SWPC plasma"
         )
-        mag_all, coordinate_frame = _sanitize_magnetic(mag_active, quarantine_records)
-        plasma_all = _sanitize_plasma(plasma_active, quarantine_records)
+        mag_current, coordinate_frame = _sanitize_magnetic(
+            mag_active, quarantine_records
+        )
+        plasma_current = _sanitize_plasma(plasma_active, quarantine_records)
 
-        latest_mag = mag_all["time"].max()
+        configured_state = state_dir
+        if configured_state is None:
+            state_text = os.environ.get("NVCPP_NOAA_STATE_DIR", "").strip()
+            configured_state = Path(state_text) if state_text else None
+
+        cache_meta: dict[str, Any] = {"configured": configured_state is not None}
+        if configured_state is not None:
+            configured_state.mkdir(parents=True, exist_ok=True)
+            mag_state_path = _state_path(configured_state, MAG_STATE_FILE)
+            plasma_state_path = _state_path(configured_state, PLASMA_STATE_FILE)
+            cached_mag = _read_state_frame(
+                mag_state_path,
+                required=["time", "bx_gsm", "by_gsm", "bz_gsm", "bt", "B_mag"],
+            )
+            cached_plasma = _read_state_frame(
+                plasma_state_path,
+                required=["time", "density", "speed", "temperature"],
+            )
+            bootstrap_meta = {"used": False}
+            if cached_mag.empty or cached_plasma.empty:
+                bootstrap_mag, bootstrap_plasma, bootstrap_meta = _bootstrap_state_from_raw(
+                    configured_state
+                )
+                if cached_mag.empty and not bootstrap_mag.empty:
+                    cached_mag = bootstrap_mag
+                if cached_plasma.empty and not bootstrap_plasma.empty:
+                    cached_plasma = bootstrap_plasma
+
+            mag_all, mag_merge = _merge_operational_history(
+                cached_mag,
+                mag_current,
+                compare_columns=["source", "bx_gsm", "by_gsm", "bz_gsm", "bt", "B_mag"],
+            )
+            plasma_all, plasma_merge = _merge_operational_history(
+                cached_plasma,
+                plasma_current,
+                compare_columns=["source", "density", "speed", "temperature"],
+            )
+            cache_meta.update(
+                {
+                    "bootstrap": bootstrap_meta,
+                    "magnetic_merge": mag_merge,
+                    "plasma_merge": plasma_merge,
+                    "magnetic_state": _write_state_frame(mag_state_path, mag_all),
+                    "plasma_state": _write_state_frame(plasma_state_path, plasma_all),
+                }
+            )
+        else:
+            mag_all = mag_current
+            plasma_all = plasma_current
+
+        latest_mag = mag_current["time"].max()
         effective_end = min(requested_end, latest_mag + pd.Timedelta(seconds=CADENCE_SECONDS))
         effective_start = effective_end - retrieval_duration
         effective_analysis_start = effective_end - analysis_duration
@@ -497,8 +696,11 @@ def run_noaa_realtime_pipeline(
         ].copy()
         if mag.empty:
             raise NoaaRealtimeError("NOAA SWPC magnetic data contain no usable provider window")
-        if mag["time"].min() > effective_start + pd.Timedelta(seconds=CADENCE_SECONDS):
-            raise NoaaRealtimeError("NOAA SWPC magnetic feed lacks the required 30-hour pre-roll")
+
+        magnetic_input_path = run_dir / "noaa_realtime_baseline_input.csv"
+        plasma_input_path = run_dir / "noaa_realtime_plasma_input.csv"
+        mag.to_csv(magnetic_input_path, index=False)
+        plasma.to_csv(plasma_input_path, index=False)
 
         processed = run_chain(
             mag,
@@ -519,7 +721,10 @@ def run_noaa_realtime_pipeline(
         ].copy()
         valid = analysis["chi_B24M"].notna()
         if not valid.any():
-            raise NoaaRealtimeError("no baseline-valid NOAA real-time rows in provider window")
+            raise NoaaRealtimeError(
+                "NOAA rolling state is still warming up; no row yet has a complete "
+                "prior 24-hour baseline"
+            )
 
         quarantine = (
             pd.concat(quarantine_records, ignore_index=True, sort=False)
@@ -583,10 +788,11 @@ def run_noaa_realtime_pipeline(
                     **manifest["source"],
                     "coordinate_frame": coordinate_frame,
                     "available_source_identity_counts": _source_counts(mag_raw),
-                    "active_source_identity_counts": _source_counts(mag_all),
-                    "source_identity_counts": _source_counts(mag_all),
+                    "active_source_identity_counts": _source_counts(mag_current),
+                    "source_identity_counts": _source_counts(mag_current),
                 },
                 "downloads": {"magnetic": mag_meta, "plasma": plasma_meta},
+                "rolling_state": cache_meta,
                 "sanitization": {
                     "quarantine_rows": int(len(quarantine)),
                     "reason_counts": {
@@ -610,6 +816,8 @@ def run_noaa_realtime_pipeline(
                 "artifacts": [
                     _artifact(run_dir / "rtsw_mag_1m_raw.json"),
                     _artifact(run_dir / "rtsw_wind_1m_raw.json"),
+                    _artifact(magnetic_input_path),
+                    _artifact(plasma_input_path),
                     _artifact(quarantine_path),
                     _artifact(canonical_path),
                     _artifact(report_path),
@@ -643,6 +851,7 @@ def main() -> None:
     parser.add_argument("--analysis-start", required=True)
     parser.add_argument("--analysis-end", required=True)
     parser.add_argument("--outdir", default="runs/hourly")
+    parser.add_argument("--state-dir", default=None)
     args = parser.parse_args()
     try:
         run_noaa_realtime_pipeline(
@@ -651,6 +860,7 @@ def main() -> None:
             analysis_start=args.analysis_start,
             analysis_end=args.analysis_end,
             outdir=Path(args.outdir),
+            state_dir=Path(args.state_dir) if args.state_dir else None,
         )
     except (NoaaRealtimeError, requests.RequestException, ValueError) as exc:
         print(f"[NVCPP-ERROR] {exc}", file=sys.stderr)
