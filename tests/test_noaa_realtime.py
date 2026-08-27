@@ -5,6 +5,7 @@ import pytest
 from sources.noaa_swpc.download_realtime import (
     _add_plasma_physics,
     _sanitize_magnetic,
+    _merge_operational_history,
     _sanitize_plasma,
     _select_active_operational_rows,
     _table,
@@ -214,51 +215,119 @@ def test_stale_provider_window_is_preserved_and_labeled(tmp_path):
 
 
 def test_multi_spacecraft_operational_rows_use_provider_active_selection():
-    magnetic = [
+    frame = pd.DataFrame(
+        [
+            {"time_tag": "2026-01-01T00:00:00Z", "source": "SOLAR1", "active": True},
+            {"time_tag": "2026-01-01T00:00:00Z", "source": "ACE", "active": False},
+            {"time_tag": "2026-01-01T00:01:00Z", "source": "SOLAR1", "active": "true"},
+            {"time_tag": "2026-01-01T00:01:00Z", "source": "IMAP", "active": "false"},
+        ]
+    )
+    selected = _select_active_operational_rows(frame, source_name="test")
+    assert selected["source"].tolist() == ["SOLAR1", "SOLAR1"]
+
+
+def test_operational_history_current_response_supersedes_revision():
+    cached = pd.DataFrame(
         {
-            "time_tag": "2026-01-01T00:00:00Z",
+            "time": pd.to_datetime(["2026-01-01T00:00:00Z"]),
+            "source": ["SOLAR1"],
+            "B_mag": [5.0],
+        }
+    )
+    current = pd.DataFrame(
+        {
+            "time": pd.to_datetime(["2026-01-01T00:00:00Z", "2026-01-01T00:01:00Z"]),
+            "source": ["SOLAR1", "SOLAR1"],
+            "B_mag": [6.0, 7.0],
+        }
+    )
+    merged, metrics = _merge_operational_history(
+        cached, current, compare_columns=["source", "B_mag"]
+    )
+    assert merged["B_mag"].tolist() == [6.0, 7.0]
+    assert metrics["revised_overlap_rows"] == 1
+    assert metrics["identical_overlap_rows"] == 0
+
+
+def test_rolling_state_supplies_full_prior_baseline(tmp_path):
+    from sources.noaa_swpc.download_realtime import run_noaa_realtime_pipeline
+
+    state_dir = tmp_path / "state"
+    state_dir.mkdir()
+    current_start = pd.Timestamp("2026-01-01T06:00:00Z")
+    cached_times = pd.date_range(
+        current_start - pd.Timedelta(hours=6),
+        periods=360,
+        freq="1min",
+    )
+    current_times = pd.date_range(current_start, periods=1434, freq="1min")
+
+    pd.DataFrame(
+        {
+            "time": cached_times,
+            "time_tag": [value.isoformat().replace("+00:00", "Z") for value in cached_times],
             "source": "SOLAR1",
             "active": True,
-            "bx_gsm": 3.0,
-            "by_gsm": 4.0,
+            "bx_gsm": 5.0,
+            "by_gsm": 0.0,
             "bz_gsm": 0.0,
             "bt": 5.0,
-        },
+            "B_mag": 5.0,
+        }
+    ).to_csv(state_dir / "noaa_mag_active_history.csv", index=False)
+    pd.DataFrame(
         {
-            "time_tag": "2026-01-01T00:00:00Z",
-            "source": "ACE",
-            "active": False,
-            "bx_gsm": 9.0,
-            "by_gsm": 0.0,
-            "bz_gsm": 0.0,
-            "bt": 9.0,
-        },
-        {
-            "time_tag": "2026-01-01T00:01:00Z",
+            "time": cached_times,
+            "time_tag": [value.isoformat().replace("+00:00", "Z") for value in cached_times],
             "source": "SOLAR1",
-            "active": "true",
-            "bx_gsm": 0.0,
-            "by_gsm": 6.0,
-            "bz_gsm": 8.0,
-            "bt": 10.0,
-        },
-        {
-            "time_tag": "2026-01-01T00:01:00Z",
-            "source": "IMAP",
-            "active": "false",
-            "bx_gsm": 12.0,
-            "by_gsm": 0.0,
-            "bz_gsm": 0.0,
-            "bt": 12.0,
-        },
-    ]
-    raw = _table(magnetic, required=["time_tag"], source_name="mag")
-    selected = _select_active_operational_rows(raw, source_name="mag")
-    assert selected["source"].tolist() == ["SOLAR1", "SOLAR1"]
-    assert selected["time_tag"].is_unique
+            "active": True,
+            "density": 5.0,
+            "speed": 400.0,
+            "temperature": 100000.0,
+        }
+    ).to_csv(state_dir / "noaa_plasma_active_history.csv", index=False)
 
-    quarantine = []
-    clean, coordinate_frame = _sanitize_magnetic(selected, quarantine)
-    assert coordinate_frame == "GSM"
-    assert clean["B_mag"].tolist() == pytest.approx([5.0, 10.0])
-    assert quarantine == []
+    magnetic = []
+    plasma = []
+    for index, value in enumerate(current_times):
+        stamp = value.isoformat().replace("+00:00", "Z")
+        field = 10.0 if index >= 1374 else 5.0
+        magnetic.append(
+            {
+                "time_tag": stamp,
+                "source": "SOLAR1",
+                "active": True,
+                "bx_gsm": field,
+                "by_gsm": 0.0,
+                "bz_gsm": 0.0,
+                "bt": field,
+            }
+        )
+        plasma.append(
+            {
+                "time_tag": stamp,
+                "source": "SOLAR1",
+                "active": True,
+                "proton_density": 5.0,
+                "proton_speed": 400.0,
+                "proton_temperature": 100000.0,
+            }
+        )
+
+    effective_end = current_times[-1] + pd.Timedelta(minutes=1)
+    manifest = run_noaa_realtime_pipeline(
+        run_name="cached-fixture",
+        retrieval_start=(effective_end - pd.Timedelta(hours=30)).isoformat(),
+        analysis_start=(effective_end - pd.Timedelta(hours=6)).isoformat(),
+        analysis_end=effective_end.isoformat(),
+        outdir=tmp_path,
+        state_dir=state_dir,
+        session=FakeSession(magnetic, plasma),
+    )
+    assert manifest["status"] == "SUCCESS"
+    assert manifest["analysis"]["baseline_valid_rows"] > 0
+    assert manifest["rolling_state"]["magnetic_merge"]["cached_rows"] == 360
+    assert (tmp_path / "cached-fixture" / "noaa_realtime_baseline_input.csv").exists()
+    canonical = pd.read_csv(tmp_path / "cached-fixture" / "noaa_realtime_canonical.csv")
+    assert canonical["chi_B24M"].max() == pytest.approx(1.0)
