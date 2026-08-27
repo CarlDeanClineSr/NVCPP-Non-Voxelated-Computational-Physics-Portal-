@@ -20,6 +20,8 @@ import requests
 
 DISCOVERY_VERSION = "2.1.0"
 BUCKET_URL = "https://archive.data.noaa.gov/satellite-spaceweather"
+BUCKET_NAME = BUCKET_URL  # CI test compatibility alias
+
 PREFIX_PROBES = [
     ("swfo_root", "SWFO/"),
     ("solar1_root", "SWFO/SOLAR-1/"),
@@ -85,6 +87,13 @@ def parse_list_objects(xml_bytes: bytes) -> dict[str, Any]:
         "is_truncated": is_truncated,
         "next_continuation_token": next_token,
     }
+
+
+def parse_s3_listing(xml_bytes: bytes | str) -> list[dict[str, Any]]:
+    """CI test compatibility wrapper for parsing S3 XML listings directly into objects."""
+    if isinstance(xml_bytes, str):
+        xml_bytes = xml_bytes.encode('utf-8')
+    return parse_list_objects(xml_bytes)["objects"]
 
 
 def safe_label(value: str) -> str:
