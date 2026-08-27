@@ -31,6 +31,7 @@ concurrency:
 
 env:
   PYTHONUNBUFFERED: "1"
+  NVCPP_NOAA_STATE_DIR: .nvcpp_state/noaa
   NVCPP_GOOGLE_AUTH_B64: ${{ secrets.NVCPP_GOOGLE_AUTH_B64 }}
   NVCPP_DRIVE_PARENT_FOLDER_ID: ${{ secrets.NVCPP_DRIVE_PARENT_FOLDER_ID }}
 
@@ -47,6 +48,14 @@ jobs:
         with:
           python-version: "3.12"
           cache: pip
+
+      - name: Restore NOAA rolling state
+        uses: actions/cache@v4
+        with:
+          path: ${{ env.NVCPP_NOAA_STATE_DIR }}
+          key: nvcpp-noaa-state-v1-${{ github.run_id }}-${{ github.run_attempt }}
+          restore-keys: |
+            nvcpp-noaa-state-v1-
 
       - name: Install locked dependencies
         run: python -m pip install -r requirements.txt
