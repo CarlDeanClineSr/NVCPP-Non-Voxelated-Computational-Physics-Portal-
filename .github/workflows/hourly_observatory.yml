@@ -1,0 +1,135 @@
+name: NVCPP Hourly Observatory
+
+on:
+  workflow_dispatch:
+    inputs:
+      now_utc:
+        description: Optional deterministic UTC time for a replay, e.g. 2026-08-26T20:37:00Z
+        required: false
+        type: string
+  schedule:
+    - cron: "17 * * * *"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: nvcpp-hourly-observatory
+  cancel-in-progress: false
+
+env:
+  PYTHONUNBUFFERED: "1"
+  NVCPP_GOOGLE_AUTH_B64: ${{ secrets.NVCPP_GOOGLE_AUTH_B64 }}
+  NVCPP_DRIVE_PARENT_FOLDER_ID: ${{ secrets.NVCPP_DRIVE_PARENT_FOLDER_ID }}
+
+jobs:
+  observe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - name: Check out NVCPP
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Install locked dependencies
+        run: python -m pip install -r requirements.txt
+
+      - name: Run hourly observatory
+        id: observatory
+        shell: bash
+        run: |
+          set +e
+          NOW_ARG=""
+          if [[ -n "${{ inputs.now_utc }}" ]]; then
+            NOW_ARG="--now ${{ inputs.now_utc }}"
+          fi
+          python -m observatory.run_hourly \
+            --config config/hourly_observatory.v1.json \
+            --outdir runs/hourly \
+            $NOW_ARG 2>&1 | tee hourly_observatory.log
+          OBS_RC=${PIPESTATUS[0]}
+          RUN_MANIFEST=$(find runs/hourly -name observatory_run_manifest.json -type f | sort | tail -n 1)
+          if [[ -n "$RUN_MANIFEST" ]]; then
+            RUN_ROOT=$(dirname "$RUN_MANIFEST")
+            RUN_NAME=$(basename "$RUN_ROOT")
+            echo "run_root=$RUN_ROOT" >> "$GITHUB_OUTPUT"
+            echo "run_name=$RUN_NAME" >> "$GITHUB_OUTPUT"
+            echo "run_manifest=$RUN_MANIFEST" >> "$GITHUB_OUTPUT"
+          fi
+          echo "exit_code=$OBS_RC" >> "$GITHUB_OUTPUT"
+          exit 0
+
+      - name: Publish immutable package to Google Drive
+        id: drive
+        if: >-
+          ${{ always() && steps.observatory.outputs.run_root != '' &&
+              env.NVCPP_GOOGLE_AUTH_B64 != '' &&
+              env.NVCPP_DRIVE_PARENT_FOLDER_ID != '' }}
+        continue-on-error: true
+        run: |
+          python -m pipelines.drive_vault \
+            --source "${{ steps.observatory.outputs.run_root }}" \
+            --run-name "${{ steps.observatory.outputs.run_name }}"
+
+      - name: Record Drive-not-configured state
+        if: >-
+          ${{ always() && steps.observatory.outputs.run_root != '' &&
+              (env.NVCPP_GOOGLE_AUTH_B64 == '' || env.NVCPP_DRIVE_PARENT_FOLDER_ID == '') }}
+        run: |
+          python -m pipelines.drive_vault \
+            --source "${{ steps.observatory.outputs.run_root }}" \
+            --run-name "${{ steps.observatory.outputs.run_name }}" \
+            --parent-folder-id "${NVCPP_DRIVE_PARENT_FOLDER_ID:-1hpgY8SYPpp6_rFv7PV61cuqUSUwTZC20}" \
+            --dry-run
+
+      - name: Upload temporary GitHub evidence package
+        if: ${{ always() && steps.observatory.outputs.run_root != '' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ steps.observatory.outputs.run_name }}
+          path: ${{ steps.observatory.outputs.run_root }}
+          if-no-files-found: error
+          retention-days: 90
+          compression-level: 6
+
+      - name: Write Actions summary
+        if: ${{ always() && steps.observatory.outputs.run_root != '' }}
+        run: |
+          if [[ -f "${{ steps.observatory.outputs.run_root }}/status/LATEST.md" ]]; then
+            cat "${{ steps.observatory.outputs.run_root }}/status/LATEST.md" >> "$GITHUB_STEP_SUMMARY"
+          fi
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          echo "Temporary GitHub artifacts are retained for 90 days; durable retention requires the Drive vault secrets." >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Enforce observatory and configured-vault result
+        if: always()
+        env:
+          RUN_ROOT: ${{ steps.observatory.outputs.run_root }}
+          OBS_EXIT_CODE: ${{ steps.observatory.outputs.exit_code }}
+          DRIVE_STEP_OUTCOME: ${{ steps.drive.outcome }}
+        run: |
+          python - <<'PY'
+          import json
+          import os
+          from pathlib import Path
+
+          root_text = os.environ.get("RUN_ROOT", "")
+          if not root_text:
+              raise SystemExit("hourly observatory produced no evidence directory")
+          root = Path(root_text)
+          manifest = json.loads((root / "observatory_run_manifest.json").read_text())
+          if manifest.get("status") == "FAILED":
+              raise SystemExit("all configured observatory sources failed")
+
+          credentials_configured = bool(os.environ.get("NVCPP_GOOGLE_AUTH_B64")) and bool(
+              os.environ.get("NVCPP_DRIVE_PARENT_FOLDER_ID")
+          )
+          if credentials_configured and os.environ.get("DRIVE_STEP_OUTCOME") != "success":
+              raise SystemExit("Google Drive vault was configured but publication failed")
+          print(f"NVCPP hourly observatory completed with state {manifest.get('status')}")
+          PY

@@ -1,0 +1,53 @@
+{
+  "config_version": "1.0.0",
+  "name": "NVCPP Hourly Observatory",
+  "timing": {
+    "cron": "17 * * * *",
+    "safety_lag_minutes": 20,
+    "retrieval_hours": 30,
+    "analysis_hours": 6,
+    "event_focus_minutes": 60
+  },
+  "sources": {
+    "noaa_operational_l1": {
+      "enabled": true,
+      "role": "operational_event_detection_and_plasma_context",
+      "identity_limit": "provider-selected active upstream spacecraft; not mission-specific"
+    },
+    "solar1_mag": {
+      "enabled": true,
+      "role": "independently identified SOLAR-1 magnetic telemetry",
+      "contract": "config/solar1_mag_contract.v1.json"
+    },
+    "dscovr_definitive": {
+      "enabled_hourly": false,
+      "role": "daily definitive replication and cross-mission audit"
+    },
+    "solar1_swips": {
+      "enabled": false,
+      "state": "DISCOVERY_ONLY_UNTIL_SCHEMA_AND_PUBLIC_OBJECT_ACCESS_ARE_VERIFIED"
+    },
+    "telescopes": {
+      "enabled_hourly": false,
+      "role": "response and observation context only; never L1 plasma input",
+      "missions": ["JWST", "HST", "ROMAN"]
+    }
+  },
+  "event_detection": {
+    "research_watch_chi": 0.15,
+    "significant_chi": 0.5,
+    "severe_chi": 1.0,
+    "rotation_degrees": 45.0,
+    "severe_rotation_degrees": 120.0,
+    "minute_relative_magnitude_change": 0.25,
+    "minimum_field_nT_for_rotation": 0.1,
+    "merge_gap_minutes": 2
+  },
+  "storage": {
+    "policy": "immutable run directories",
+    "github_role": "code, tests, small status, temporary run artifact",
+    "drive_role": "durable raw, canonical, quarantine, charts, capsules, manifests",
+    "drive_parent_folder_id": "1hpgY8SYPpp6_rFv7PV61cuqUSUwTZC20",
+    "drive_folder_name": "NVCPP_DATA_VAULT"
+  }
+}

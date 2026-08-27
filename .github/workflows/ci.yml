@@ -6,11 +6,14 @@ on:
     paths:
       - "core/**"
       - "historical/**"
+      - "observatory/**"
+      - "pipelines/**"
       - "sources/**"
       - "config/**"
       - "tests/**"
       - "requirements.txt"
       - ".github/workflows/ci.yml"
+      - ".github/workflows/hourly_observatory.yml"
 
 permissions:
   contents: read
@@ -22,7 +25,7 @@ concurrency:
 jobs:
   audit:
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -32,8 +35,10 @@ jobs:
       - name: Install locked dependencies
         run: python -m pip install -r requirements.txt
       - name: Compile
-        run: python -m compileall -q core historical sources tests
+        run: python -m compileall -q core historical observatory pipelines sources tests
       - name: Validate authoritative SOLAR-1 contract
         run: python -m sources.solar1.validate_contract config/solar1_mag_contract.v1.json
+      - name: Validate hourly observatory configuration
+        run: python -m json.tool config/hourly_observatory.v1.json >/dev/null
       - name: Test
         run: python -m pytest -q

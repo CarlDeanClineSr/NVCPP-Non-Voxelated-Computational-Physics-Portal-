@@ -6,8 +6,12 @@ rules, and output hashes beside every result.
 
 ## Current implementation status
 
+- Hourly observatory: scheduled solar-wind acquisition, physics evaluation,
+  candidate-event detection, charts, capsules, status, and immutable run packages.
+- NOAA SWPC operational L1 feed: near-real-time magnetic and plasma context,
+  explicitly labeled provider-selected rather than mission-specific.
 - DSCOVR MAG historical ingestion: canonical one-minute GSE product.
-- SOLAR-1 MAG historical ingestion: canonical one-minute GSE product.
+- SOLAR-1 MAG historical and hourly ingestion: canonical one-minute GSE product.
 - `CLINE-L1-B24M-TRAIL-v1`: prior-only 24-hour median with a 95% coverage gate.
 - MAG-to-MAG comparison: exact UTC overlap, no interpolation, lag uncertainty and
   look-elsewhere controls.
@@ -45,13 +49,16 @@ not repaired silently.
 ## Repository layout
 
 ```text
-core/        canonical baseline math and cross-mission coherence analysis
-historical/  NASA CDAWeb mission adapters
-sources/     NOAA/NCEI and other source adapters
-config/      one authoritative source contract per product
-tests/       offline unit and integrity tests
+core/        canonical baseline math, event detection, and coherence analysis
+historical/  NASA CDAWeb historical acquisition
+sources/     NOAA/NCEI, NOAA/SWPC, and mission-specific adapters
+observatory/ hourly orchestration, charts, capsules, status, and run lessons
+pipelines/   command routing and create-only Google Drive publication
+config/      one authoritative source/observatory contract per product
+capsules/    compact evidence-first lessons when committed deliberately
+tests/       offline unit, integration, contract, and integrity tests
 docs/        audit decisions and operating protocols
-.github/     CI, regression, discovery, and coherence workflows
+.github/     CI, hourly, regression, discovery, and coherence workflows
 ```
 
 ## Install and validate
@@ -64,6 +71,47 @@ python -m sources.solar1.validate_contract \
   config/solar1_mag_contract.v1.json
 python -m pytest -q
 ```
+
+## Hourly observatory
+
+The scheduled workflow runs at minute 17 of every UTC hour. It retrieves enough
+history to rebuild the 24-hour baseline without depending on the prior runner,
+then evaluates the latest six hours and focuses candidate detection on the most
+recent hour.
+
+Manual local run:
+
+```bash
+python -m observatory.run_hourly \
+  --config config/hourly_observatory.v1.json \
+  --outdir runs/hourly
+```
+
+Each immutable run can preserve:
+
+```text
+raw provider responses
+canonical magnetic/plasma rows
+quarantine records and reason codes
+run and source manifests
+signed-departure, magnitude, vector, and plasma charts
+candidate-event JSON/CSV
+teaching capsules
+latest status JSON/Markdown
+result index
+Drive publication receipt
+```
+
+The NOAA operational source is intentionally labeled as a provider-selected L1
+feed. It can catch current events and compute plasma context, but it is not
+counted as an independently identified DSCOVR or ACE measurement unless source
+identity is resolved separately.
+
+See:
+
+- `docs/HOURLY_OBSERVATORY.md`
+- `docs/TEACHING_ENGINE.md`
+- `docs/DRIVE_VAULT_SETUP.md`
 
 ## SOLAR-1 MAG regression
 
