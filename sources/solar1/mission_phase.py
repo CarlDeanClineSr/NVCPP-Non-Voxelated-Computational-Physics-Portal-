@@ -5,22 +5,31 @@ The fixed June 1-5 regression is useful as a deterministic integration fixture,
 but it precedes NOAA's declared operational date of 2026-06-10.  This module
 adds that fact to the machine-readable run manifest and human-readable report;
 it does not reject or relabel the provider's science-quality product.
+
+When a report is changed, its artifact size and SHA-256 are refreshed in the
+same manifest before the manifest is rewritten.  Phase labeling therefore
+cannot leave a stale provenance record behind.
 """
 
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 from pathlib import Path
 from typing import Any
 
 import pandas as pd
 
-MISSION_PHASE_VERSION = "1.0.0"
+MISSION_PHASE_VERSION = "1.0.1"
 SOLAR1_OPERATIONAL_START_UTC = pd.Timestamp("2026-06-10T00:00:00Z")
 OPERATIONAL_STATUS_SOURCE = (
     "https://www.ospo.noaa.gov/data/messages/2026/06/MSG_20260610_2105.html"
 )
+
+
+def _sha256(path: Path) -> str:
+    return hashlib.sha256(path.read_bytes()).hexdigest()
 
 
 def classify_solar1_interval(
@@ -67,6 +76,35 @@ def classify_solar1_interval(
     }
 
 
+def _refresh_artifact_record(
+    manifest: dict[str, Any],
+    path: Path,
+) -> None:
+    """Refresh an existing artifact record after a deliberate file mutation.
+
+    The source pipeline stores artifacts as a list of dictionaries.  A missing
+    record is treated as a provenance error rather than silently appending a new
+    path that the source runner did not originally inventory.
+    """
+
+    artifacts = manifest.get("artifacts")
+    if not isinstance(artifacts, list):
+        raise ValueError("SOLAR-1 manifest artifacts must be a list")
+
+    matches = [
+        artifact
+        for artifact in artifacts
+        if isinstance(artifact, dict) and artifact.get("path") == path.name
+    ]
+    if len(matches) != 1:
+        raise ValueError(
+            f"expected exactly one artifact record for {path.name!r}; found {len(matches)}"
+        )
+    record = matches[0]
+    record["size_bytes"] = path.stat().st_size
+    record["sha256"] = _sha256(path)
+
+
 def apply_phase_label(manifest_path: Path, report_path: Path | None = None) -> dict[str, Any]:
     manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
     analysis_window = manifest.get("analysis_window", {})
@@ -77,7 +115,6 @@ def apply_phase_label(manifest_path: Path, report_path: Path | None = None) -> d
 
     phase = classify_solar1_interval(start, end)
     manifest["mission_phase"] = phase
-    manifest_path.write_text(json.dumps(manifest, indent=2), encoding="utf-8")
 
     if report_path is not None and report_path.exists():
         original = report_path.read_text(encoding="utf-8")
@@ -94,7 +131,13 @@ def apply_phase_label(manifest_path: Path, report_path: Path | None = None) -> d
             ]
         )
         if "## Mission phase" not in original:
-            report_path.write_text(original.rstrip() + "\n" + phase_lines + "\n", encoding="utf-8")
+            report_path.write_text(
+                original.rstrip() + "\n" + phase_lines + "\n",
+                encoding="utf-8",
+            )
+        _refresh_artifact_record(manifest, report_path)
+
+    manifest_path.write_text(json.dumps(manifest, indent=2), encoding="utf-8")
     return phase
 
 
