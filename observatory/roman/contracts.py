@@ -104,6 +104,27 @@ def validate_contract(contract: dict[str, Any]) -> list[str]:
         if not isinstance(fixture.get("source_count"), int) or fixture["source_count"] < 1:
             errors.append("synthetic_fixture.source_count must be positive")
 
+    benchmark = contract.get("truth_benchmark")
+    if not isinstance(benchmark, dict):
+        errors.append("truth_benchmark must be an object")
+    else:
+        detection_sigma = benchmark.get("detection_sigma")
+        if not isinstance(detection_sigma, (int, float)) or detection_sigma <= 0:
+            errors.append("truth_benchmark.detection_sigma must be positive")
+        match_radius = benchmark.get("match_radius_pixels")
+        if not isinstance(match_radius, (int, float)) or not (0 < match_radius <= 20):
+            errors.append("truth_benchmark.match_radius_pixels must be in (0, 20]")
+        minimum_pixels = benchmark.get("minimum_component_pixels")
+        if not isinstance(minimum_pixels, int) or not (1 <= minimum_pixels <= 100):
+            errors.append(
+                "truth_benchmark.minimum_component_pixels must be from 1 to 100"
+            )
+        use_limit = benchmark.get("use_limit")
+        if not isinstance(use_limit, str) or "not Roman flight performance" not in use_limit:
+            errors.append(
+                "truth_benchmark.use_limit must explicitly reject Roman flight-performance interpretation"
+            )
+
     return errors
 
 

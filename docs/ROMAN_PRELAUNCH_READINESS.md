@@ -2,17 +2,18 @@
 
 ## Purpose
 
-NVCPP now has a separate Roman observatory-readiness path. It does not treat the
+NVCPP has a separate Roman observatory-readiness path. It does not treat the
 Nancy Grace Roman Space Telescope as an L1 solar-wind monitor and it does not
 route detector products through `CLINE-L1-B24M-TRAIL-v1`.
 
-The readiness path has four immediate jobs:
+The readiness path has five immediate jobs:
 
 1. monitor the public MAST mission list and bounded Roman CAOM queries;
 2. preserve exact hashes for official NASA/STScI readiness pages;
 3. exercise a deterministic image-domain fixture through NVCPP's artifact,
    anomaly, and chart machinery;
-4. define the intake boundary for Roman Research Nexus and Roman I-Sim exports.
+4. score that fixture against its known injected truth;
+5. define the intake boundary for Roman Research Nexus and Roman I-Sim exports.
 
 ## Launch posture
 
@@ -23,8 +24,15 @@ The frozen readiness contract records the scheduled launch time as:
 ```
 
 The timestamp is operational metadata, not a guarantee. NASA remains the source
-of truth for launch updates. The workflow records page hashes but does not infer
-mission success from page wording.
+of truth for launch updates. Crossing the scheduled time changes NVCPP to:
+
+```text
+SCHEDULED_LAUNCH_WINDOW_UNVERIFIED
+```
+
+It does not declare launch, deployment, commissioning, or mission success from
+the clock alone. Later states remain unverified until an authoritative source or
+archive transition supports them.
 
 ## Public MAST path
 
@@ -94,7 +102,7 @@ DQ
 ```
 
 It contains a seeded background, PSF-like sources, and flagged cosmic-ray-like
-pixels. The analysis records:
+pixels. The first-pass analysis records:
 
 ```text
 background median
@@ -108,24 +116,50 @@ clipping_applied = false
 ```
 
 This fixture proves the local orchestration, chart, anomaly, and evidence path.
-It is **not**:
+It is **not** Roman flight data, an official Roman datamodel, Roman I-Sim output,
+a MAST observation, or evidence about Roman performance.
 
-- Roman flight data;
-- an official Roman datamodel;
-- Roman I-Sim output;
-- a MAST observation;
-- evidence about Roman performance.
+## Truth-recovery benchmark
+
+A pipeline can run without crashing and still recover the scene poorly. The
+truth benchmark therefore compares detected components with the known injected
+source catalog using one-to-one nearest matches within a frozen pixel radius.
+
+It records:
+
+```text
+injected source count
+detected component count
+matched source count
+completeness
+purity
+false-positive count
+unmatched source IDs
+unmatched detection IDs
+centroid-error median, RMS, and maximum
+cosmic-ray detection leakage
+```
+
+The overlay chart marks injected positions and detected centroids separately.
+Completeness below one may indicate threshold loss, source blending, or the
+limitations of the deliberately simple detector. It must not be interpreted as
+Roman flight performance.
+
+The benchmark is useful because the answer is known before the code runs. If a
+future code change alters the score while the fixture seed and contract remain
+unchanged, the change is a regression or a deliberate algorithm change that
+requires explanation.
 
 Roman I-Sim remains the preferred high-fidelity simulator for WFI L1/L2 products.
 Its outputs should enter NVCPP through a separately frozen intake contract.
 
 ## Immediate experiments
 
-### 1. Transient injection and recovery
+### 1. Flux and blend recovery
 
-Inject sources with known positions, fluxes, and time profiles into simulated
-images. Measure completeness, false detections, recovered flux, centroid error,
-and saturation behavior without tuning against the answer.
+Extend the truth score with isolated-source aperture photometry and explicit
+blend classification. Keep blended and isolated populations separate rather
+than averaging them into one misleading error number.
 
 ### 2. Detector-anomaly fingerprints
 
@@ -188,7 +222,9 @@ Run the offline readiness tests:
 python -m pytest -q \
   tests/test_roman_mast.py \
   tests/test_roman_synthetic_fixture.py \
-  tests/test_roman_prelaunch_probe.py
+  tests/test_roman_truth_benchmark.py \
+  tests/test_roman_prelaunch_probe.py \
+  tests/test_roman_intake.py
 ```
 
 Run the live public probe:
@@ -216,8 +252,11 @@ synthetic_fixture/roman_synthetic_l2_like_fixture.npz
 synthetic_fixture/roman_synthetic_truth.json
 synthetic_fixture/roman_synthetic_metrics.json
 synthetic_fixture/roman_synthetic_preview.png
+truth_benchmark/roman_truth_benchmark.json
+truth_benchmark/roman_detection_catalog.csv
+truth_benchmark/roman_truth_matches.csv
+truth_benchmark/roman_truth_recovery_overlay.png
 ```
-
 
 ## Import a Roman Research Nexus or Roman I-Sim export
 

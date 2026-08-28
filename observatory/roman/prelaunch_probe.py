@@ -3,13 +3,14 @@
 The probe asks only bounded, public questions:
 
 * Is Roman registered in the MAST CAOM mission list?
-* Do any configured Roman collection names currently return public rows?
-* Are the official NASA/STScI readiness pages reachable?
-* Can NVCPP's image-domain fixture and analysis path execute deterministically?
+* Do configured Roman collection names currently return public rows?
+* Are official NASA/STScI readiness pages reachable?
+* Can NVCPP's image-domain fixture execute deterministically?
+* How much of the known synthetic truth does the current detector recover?
 
-No Roman product is routed through L1 plasma equations, and absence from MAST
-before science operations is treated as a normal readiness state rather than a
-failure or a negative scientific result.
+No Roman product is routed through L1 plasma equations. Absence from MAST before
+science operations is a normal readiness state, and crossing a scheduled launch
+time is never interpreted as proof that launch or commissioning succeeded.
 """
 
 from __future__ import annotations
@@ -33,6 +34,7 @@ from .mast_client import (
     safe_slug,
 )
 from .synthetic_fixture import generate_fixture
+from .truth_benchmark import run_truth_benchmark
 
 
 def _sha256(path: Path) -> str:
@@ -51,12 +53,21 @@ def _write_json(path: Path, payload: Any) -> Path:
 def _parse_now(value: str | None) -> datetime:
     if value is None:
         return datetime.now(timezone.utc)
-    parsed = parse_utc(value)
-    return parsed.astimezone(timezone.utc)
+    return parse_utc(value).astimezone(timezone.utc)
 
 
 def _hours_to_launch(now: datetime, launch: datetime) -> float:
     return (launch - now).total_seconds() / 3600.0
+
+
+def _mission_phase(hours_to_launch: float) -> str:
+    if hours_to_launch > 0:
+        return "PRELAUNCH"
+    if hours_to_launch > -72:
+        return "SCHEDULED_LAUNCH_WINDOW_UNVERIFIED"
+    if hours_to_launch > -24 * 30:
+        return "POSTLAUNCH_STATUS_UNVERIFIED"
+    return "POSTLAUNCH_ARCHIVE_WATCH"
 
 
 def _archive_report(
@@ -120,6 +131,7 @@ def run_probe(
     raw_dir = outdir / "raw"
     reports_dir = outdir / "reports"
     fixture_dir = outdir / "synthetic_fixture"
+    benchmark_dir = outdir / "truth_benchmark"
     raw_dir.mkdir(exist_ok=True)
     reports_dir.mkdir(exist_ok=True)
 
@@ -201,14 +213,25 @@ def run_probe(
         config=contract["synthetic_fixture"],
         outdir=fixture_dir,
     )
+    benchmark_config = contract.get("truth_benchmark", {})
+    benchmark = run_truth_benchmark(
+        data_path=fixture.data_path,
+        truth_path=fixture.truth_path,
+        outdir=benchmark_dir,
+        detection_sigma=float(
+            benchmark_config.get(
+                "detection_sigma",
+                contract["synthetic_fixture"].get("detection_sigma", 5.0),
+            )
+        ),
+        match_radius_pixels=float(
+            benchmark_config.get("match_radius_pixels", 4.0)
+        ),
+        minimum_pixels=int(benchmark_config.get("minimum_component_pixels", 2)),
+    )
 
     hours_to_launch = _hours_to_launch(now, launch)
-    if hours_to_launch > 0:
-        mission_phase = "PRELAUNCH"
-    elif hours_to_launch > -24 * 30:
-        mission_phase = "LAUNCH_OR_COMMISSIONING_WINDOW"
-    else:
-        mission_phase = "POSTLAUNCH_ARCHIVE_WATCH"
+    mission_phase = _mission_phase(hours_to_launch)
 
     transport_ok = mission_response_summary is not None or bool(
         collection_response_summaries
@@ -220,7 +243,7 @@ def run_probe(
         overall_status = "PARTIAL"
 
     manifest: dict[str, Any] = {
-        "manifest_version": "1.0.0",
+        "manifest_version": "1.1.0",
         "status": overall_status,
         "mission": "ROMAN",
         "domain": "ASTRONOMICAL_OBSERVATORY",
@@ -266,17 +289,32 @@ def run_probe(
                 "chart": str(fixture.chart_path.relative_to(outdir)),
             },
         },
+        "truth_recovery_benchmark": {
+            "status": "RECORDED",
+            "benchmark_class": benchmark.benchmark["benchmark_class"],
+            "official_roman_data": False,
+            "metrics": benchmark.benchmark,
+            "products": {
+                "benchmark": str(benchmark.benchmark_path.relative_to(outdir)),
+                "detections": str(benchmark.detections_path.relative_to(outdir)),
+                "matches": str(benchmark.matches_path.relative_to(outdir)),
+                "chart": str(benchmark.chart_path.relative_to(outdir)),
+            },
+        },
         "next_state_triggers": [
             "Roman appears in Mast.Missions.List",
             "a configured Roman obs_collection returns one or more CAOM rows",
             "an authenticated Roman Research Nexus export is supplied to NVCPP",
             "an official Roman public product contract is frozen",
+            "truth-recovery metrics change under an unchanged deterministic fixture",
         ],
         "interpretation_limits": [
             "Roman is an L2 astronomical observatory and is never an L1 plasma source.",
             "The local deterministic fixture is not Roman I-Sim output or flight data.",
             "No MAST archive result establishes launch or commissioning success.",
+            "Crossing the scheduled launch time does not establish that launch occurred.",
             "No absence from MAST is interpreted as an instrument failure.",
+            "Truth-recovery scores measure this simple fixture detector, not Roman performance.",
         ],
     }
 
@@ -287,6 +325,7 @@ def run_probe(
         encoding="utf-8",
     )
 
+    benchmark_metrics = benchmark.benchmark
     report = [
         "# NVCPP Roman Readiness Watch",
         "",
@@ -299,6 +338,11 @@ def run_probe(
         f"- **MAST transport available:** {transport_ok}",
         f"- **Official page successes:** {len(page_summaries)}",
         f"- **Synthetic fixture:** `{fixture.metrics['fixture_class']}`",
+        f"- **Injected sources:** {benchmark_metrics['injected_source_count']}",
+        f"- **Matched sources:** {benchmark_metrics['matched_source_count']}",
+        f"- **Truth completeness:** {benchmark_metrics['completeness']:.3f}",
+        f"- **Detection purity:** {benchmark_metrics['purity']:.3f}",
+        f"- **Cosmic-ray leakage detections:** {benchmark_metrics['cosmic_ray_detection_leakage_count']}",
         "",
         "## What ran",
         "",
@@ -307,12 +351,14 @@ def run_probe(
         "3. Bounded metadata sampling only when public Roman rows exist.",
         "4. Official NASA/STScI page reachability and exact response hashing.",
         "5. A deterministic Roman-like image fixture through NVCPP's image checks.",
+        "6. One-to-one truth/detection matching with completeness, purity, and centroid errors.",
         "",
         "## What did not run",
         "",
         "- No authenticated scraping of the Roman Research Nexus.",
         "- No bulk WFI detector-test download.",
         "- No Roman flight-data calibration.",
+        "- No inference that scheduled launch time equals confirmed launch.",
         "- No L1 plasma equations or `chi_B24M` labeling.",
         "",
         "See `roman_readiness_manifest.json` for machine-readable evidence.",
@@ -378,16 +424,21 @@ def main() -> None:
     except (RomanContractError, MastError, ValueError) as exc:
         print(f"[NVCPP-ROMAN-ERROR] {exc}", file=sys.stderr)
         raise SystemExit(2) from exc
-    print(json.dumps(
-        {
-            "status": manifest["status"],
-            "mission_phase": manifest["mission_phase"],
-            "archive_state": manifest["archive_state"],
-            "hours_to_launch": manifest["hours_to_launch"],
-        },
-        indent=2,
-        sort_keys=True,
-    ))
+    print(
+        json.dumps(
+            {
+                "status": manifest["status"],
+                "mission_phase": manifest["mission_phase"],
+                "archive_state": manifest["archive_state"],
+                "hours_to_launch": manifest["hours_to_launch"],
+                "truth_completeness": manifest["truth_recovery_benchmark"][
+                    "metrics"
+                ]["completeness"],
+            },
+            indent=2,
+            sort_keys=True,
+        )
+    )
 
 
 if __name__ == "__main__":
