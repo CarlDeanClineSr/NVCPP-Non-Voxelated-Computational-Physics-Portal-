@@ -36,9 +36,9 @@ class FakeSession:
         return response
 
 
-def test_prelaunch_probe_treats_zero_roman_rows_as_readiness_state(tmp_path):
-    config = {
-        "contract_version": "1.0.0",
+def _config():
+    return {
+        "contract_version": "1.1.0",
         "status": "PRELAUNCH_READINESS",
         "mission": "ROMAN",
         "official_name": "Nancy Grace Roman Space Telescope",
@@ -70,12 +70,19 @@ def test_prelaunch_probe_treats_zero_roman_rows_as_readiness_state(tmp_path):
             "shape": [64, 64],
             "seed": 7,
             "source_count": 5,
+            "detection_sigma": 5.0,
+        },
+        "truth_benchmark": {
+            "detection_sigma": 5.0,
+            "match_radius_pixels": 4.0,
+            "minimum_component_pixels": 2,
+            "use_limit": "Engineering readiness only; not Roman flight performance.",
         },
     }
-    config_path = tmp_path / "roman.json"
-    config_path.write_text(json.dumps(config))
 
-    session = FakeSession(
+
+def _session():
+    return FakeSession(
         posts=[
             FakeResponse(
                 {
@@ -101,11 +108,16 @@ def test_prelaunch_probe_treats_zero_roman_rows_as_readiness_state(tmp_path):
         ],
     )
 
+
+def test_prelaunch_probe_treats_zero_roman_rows_as_readiness_state(tmp_path):
+    config_path = tmp_path / "roman.json"
+    config_path.write_text(json.dumps(_config()))
+
     manifest = run_probe(
         config_path=config_path,
         outdir=tmp_path / "run",
         now_value="2026-08-28T12:00:00Z",
-        session=session,
+        session=_session(),
     )
 
     assert manifest["status"] == "READY"
@@ -114,5 +126,29 @@ def test_prelaunch_probe_treats_zero_roman_rows_as_readiness_state(tmp_path):
     assert manifest["flight_science_data_processed"] is False
     assert manifest["l1_plasma_physics_allowed"] is False
     assert manifest["synthetic_fixture"]["status"] == "SUCCESS"
+    assert manifest["truth_recovery_benchmark"]["status"] == "RECORDED"
+    assert 0.0 <= manifest["truth_recovery_benchmark"]["metrics"]["completeness"] <= 1.0
     assert (tmp_path / "run" / "roman_readiness_manifest.json").exists()
     assert (tmp_path / "run" / "reports" / "ROMAN_READINESS.md").exists()
+    assert (
+        tmp_path / "run" / "truth_benchmark" / "roman_truth_benchmark.json"
+    ).exists()
+
+
+def test_scheduled_launch_time_does_not_claim_launch_success(tmp_path):
+    config_path = tmp_path / "roman.json"
+    config_path.write_text(json.dumps(_config()))
+
+    manifest = run_probe(
+        config_path=config_path,
+        outdir=tmp_path / "run_after_time",
+        now_value="2026-08-30T12:00:00Z",
+        session=_session(),
+    )
+
+    assert manifest["mission_phase"] == "SCHEDULED_LAUNCH_WINDOW_UNVERIFIED"
+    assert manifest["flight_science_data_processed"] is False
+    assert any(
+        "does not establish that launch occurred" in item
+        for item in manifest["interpretation_limits"]
+    )
