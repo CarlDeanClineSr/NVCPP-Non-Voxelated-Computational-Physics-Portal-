@@ -1,0 +1,101 @@
+name: Install verified Roman readiness payload
+
+on:
+  push:
+    branches:
+      - feature/roman-prelaunch-readiness-v1
+    paths:
+      - ".roman_readiness_payload/**"
+      - ".github/workflows/install_roman_readiness_payload.yml"
+
+permissions:
+  contents: write
+
+concurrency:
+  group: install-roman-readiness-v1
+  cancel-in-progress: false
+
+jobs:
+  install:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Check out Roman review branch
+        uses: actions/checkout@v4
+        with:
+          ref: feature/roman-prelaunch-readiness-v1
+          fetch-depth: 0
+
+      - name: Reassemble and verify payload
+        shell: bash
+        run: |
+          set -euo pipefail
+          cat .roman_readiness_payload/chunk_*.txt | base64 --decode > /tmp/roman_readiness_payload.zip
+          echo "6f03c2dd93772b27d696fc5363af4914b4711d157edbf91358a90c8828c53a1f  /tmp/roman_readiness_payload.zip" | sha256sum --check --strict
+
+      - name: Extract only audited source paths
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          from pathlib import Path
+          import zipfile
+
+          expected = {
+              "observatory/roman/__init__.py",
+              "observatory/roman/contracts.py",
+              "observatory/roman/mast_client.py",
+              "observatory/roman/synthetic_fixture.py",
+              "observatory/roman/prelaunch_probe.py",
+              "observatory/roman/intake.py",
+              "config/roman_prelaunch.v1.json",
+              "tests/test_roman_mast.py",
+              "tests/test_roman_synthetic_fixture.py",
+              "tests/test_roman_prelaunch_probe.py",
+              "tests/test_roman_intake.py",
+              "docs/ROMAN_PRELAUNCH_READINESS.md",
+              "README.md",
+          }
+          root = Path.cwd().resolve()
+          with zipfile.ZipFile("/tmp/roman_readiness_payload.zip") as archive:
+              names = set(archive.namelist())
+              if names != expected:
+                  raise SystemExit(
+                      f"payload inventory mismatch; missing={sorted(expected-names)}, "
+                      f"unexpected={sorted(names-expected)}"
+                  )
+              for name in sorted(names):
+                  target = (root / name).resolve()
+                  if root not in target.parents:
+                      raise SystemExit(f"unsafe archive path: {name}")
+                  target.parent.mkdir(parents=True, exist_ok=True)
+                  target.write_bytes(archive.read(name))
+          print(f"Installed {len(expected)} audited Roman files")
+          PY
+
+      - name: Install locked dependencies
+        run: python -m pip install -r requirements.txt
+
+      - name: Compile, validate, and test
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m compileall -q core historical observatory pipelines sources tests tools
+          python - <<'PY'
+          from pathlib import Path
+          from observatory.roman.contracts import load_contract
+          contract = load_contract(Path("config/roman_prelaunch.v1.json"))
+          print(contract["mission"], contract["status"], contract["domain"])
+          PY
+          python -m pytest -q
+
+      - name: Commit tested Roman source, tests, configuration, and documentation
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "NVCPP Audit Installer"
+          git config user.email "actions@users.noreply.github.com"
+          git add README.md config/roman_prelaunch.v1.json docs/ROMAN_PRELAUNCH_READINESS.md \
+            observatory/roman tests/test_roman_*.py
+          git commit -m "feat: add Roman prelaunch archive and simulation readiness"
+          git push origin HEAD:feature/roman-prelaunch-readiness-v1
