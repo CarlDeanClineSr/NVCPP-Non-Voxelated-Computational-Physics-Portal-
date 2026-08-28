@@ -1,0 +1,84 @@
+name: NVCPP Roman Archive Readiness Watch
+
+on:
+  workflow_dispatch:
+    inputs:
+      now_utc:
+        description: Optional deterministic UTC time for replay
+        required: false
+        type: string
+  push:
+    branches:
+      - main
+    paths:
+      - "observatory/roman/**"
+      - "config/roman_prelaunch.v1.json"
+      - "tests/test_roman_*.py"
+      - "docs/ROMAN_PRELAUNCH_READINESS.md"
+      - ".github/workflows/roman_prelaunch_readiness.yml"
+      - "requirements.txt"
+  schedule:
+    - cron: "37 */6 * * *"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: nvcpp-roman-readiness
+  cancel-in-progress: false
+
+env:
+  PYTHONUNBUFFERED: "1"
+
+jobs:
+  readiness:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - name: Check out NVCPP
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Install locked dependencies
+        run: python -m pip install -r requirements.txt
+
+      - name: Validate Roman readiness code offline
+        run: |
+          python -m json.tool config/roman_prelaunch.v1.json >/dev/null
+          python -m pytest -q \
+            tests/test_roman_mast.py \
+            tests/test_roman_synthetic_fixture.py \
+            tests/test_roman_prelaunch_probe.py \
+            tests/test_roman_intake.py
+
+      - name: Probe MAST and build deterministic Roman-like fixture
+        shell: bash
+        run: |
+          NOW_ARG=""
+          if [[ -n "${{ inputs.now_utc }}" ]]; then
+            NOW_ARG="--now ${{ inputs.now_utc }}"
+          fi
+          python -m observatory.roman.prelaunch_probe \
+            --config config/roman_prelaunch.v1.json \
+            --outdir runs/roman/readiness \
+            $NOW_ARG
+
+      - name: Upload readiness evidence
+        uses: actions/upload-artifact@v4
+        with:
+          name: roman-readiness-${{ github.run_id }}
+          path: runs/roman/readiness/
+          if-no-files-found: error
+          retention-days: 90
+          compression-level: 6
+
+      - name: Write readiness summary
+        run: |
+          cat runs/roman/readiness/reports/ROMAN_READINESS.md >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          echo "The local fixture is not official Roman data or Roman I-Sim output." >> "$GITHUB_STEP_SUMMARY"

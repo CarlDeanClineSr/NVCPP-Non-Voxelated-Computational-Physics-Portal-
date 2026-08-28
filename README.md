@@ -174,6 +174,34 @@ The first checks NOAA SPOT/HAPI. The second checks the documented
 `/satellite-spaceweather` archive bucket with ListObjectsV2 pagination and raw XML
 hashes. Neither enables plasma calculations.
 
+## Roman prelaunch and archive readiness
+
+Roman is monitored through a separate astronomical-observatory path:
+
+```bash
+python -m observatory.roman.prelaunch_probe \
+  --config config/roman_prelaunch.v1.json \
+  --outdir runs/roman/readiness
+```
+
+The readiness watch queries the public MAST mission list, performs bounded CAOM
+counts for Roman collection candidates, hashes official NASA/STScI pages, and
+runs a deterministic Roman-like image fixture through local anomaly and chart
+checks. It does not download bulk detector-test products and does not call the
+authenticated Roman Research Nexus a public API.
+
+Authenticated Nexus or Roman I-Sim exports can be inventoried with:
+
+```bash
+python -m observatory.roman.intake \
+  --input /path/to/export \
+  --source-class ROMAN_RESEARCH_NEXUS_EXPORT \
+  --outdir runs/roman/intake
+```
+
+Roman products are never routed through L1 plasma equations and are never labeled
+`chi_B24M`. See `docs/ROMAN_PRELAUNCH_READINESS.md`.
+
 ## Provenance
 
 Every successful or failed mission run should preserve:

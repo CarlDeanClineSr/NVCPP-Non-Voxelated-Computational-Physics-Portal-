@@ -37,5 +37,9 @@ jobs:
         run: python -m sources.solar1.validate_contract config/solar1_mag_contract.v1.json
       - name: Validate hourly observatory configuration
         run: python -m json.tool config/hourly_observatory.v1.json >/dev/null
+      - name: Validate Roman prelaunch readiness contract
+        run: |
+          python -m json.tool config/roman_prelaunch.v1.json >/dev/null
+          python -c "from pathlib import Path; from observatory.roman.contracts import load_contract; load_contract(Path('config/roman_prelaunch.v1.json'))"
       - name: Test
         run: python -m pytest -q

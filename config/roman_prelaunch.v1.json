@@ -1,0 +1,82 @@
+{
+  "contract_version": "1.0.0",
+  "domain": "ASTRONOMICAL_OBSERVATORY",
+  "launch_utc": "2026-08-30T11:26:00Z",
+  "mast": {
+    "candidate_obs_collections": [
+      "Roman",
+      "ROMAN"
+    ],
+    "invoke_url": "https://mast.stsci.edu/api/v0/invoke",
+    "max_poll_seconds": 60,
+    "sample_row_limit": 25,
+    "timeout_seconds": 45
+  },
+  "mission": "ROMAN",
+  "nexus": {
+    "accepted_source_classes": [
+      "ROMAN_RESEARCH_NEXUS_EXPORT",
+      "ROMAN_ISIM",
+      "MAST_ROMAN_PUBLIC",
+      "WFI_TRIPLET_TEST",
+      "NVCPP_SYNTHETIC_FIXTURE"
+    ],
+    "access": "MYST_AUTHENTICATED",
+    "automated_public_scrape": false,
+    "manual_import_enabled": true,
+    "url": "https://roman.science.stsci.edu/hub/"
+  },
+  "official_name": "Nancy Grace Roman Space Telescope",
+  "official_pages": [
+    {
+      "name": "NASA Roman launch countdown",
+      "url": "https://science.nasa.gov/mission/roman-space-telescope/roman-launch-countdown/"
+    },
+    {
+      "name": "MAST Roman mission page",
+      "url": "https://archive.stsci.edu/missions-and-data/roman"
+    },
+    {
+      "name": "MAST Roman WFI triplet test data",
+      "url": "https://archive.stsci.edu/missions-and-data/roman/wfi-triplet-test-data"
+    },
+    {
+      "name": "Roman Research Nexus landing page",
+      "url": "https://roman.science.stsci.edu/hub/"
+    },
+    {
+      "name": "Roman I-Sim documentation",
+      "url": "https://roman-docs.stsci.edu/simulation-tools/roman-i-sim-the-roman-image-simulator"
+    }
+  ],
+  "orbit_context": "SUN_EARTH_L2",
+  "physics": {
+    "allowed_prelaunch_operations": [
+      "archive discovery",
+      "schema readiness",
+      "synthetic fixture analysis",
+      "authenticated Nexus export intake"
+    ],
+    "chi_B24M_allowed": false,
+    "l1_plasma_physics_allowed": false,
+    "science_claims_enabled": false
+  },
+  "status": "PRELAUNCH_READINESS",
+  "synthetic_fixture": {
+    "background_electrons": 1000.0,
+    "cosmic_ray_count": 10,
+    "cosmic_ray_signal": 25000.0,
+    "detection_sigma": 5.0,
+    "psf_sigma_pixels": 1.35,
+    "read_noise_electrons": 6.0,
+    "saturation_level": 65000.0,
+    "seed": 20260830,
+    "shape": [
+      128,
+      128
+    ],
+    "source_count": 24,
+    "source_flux_max": 12000.0,
+    "source_flux_min": 750.0
+  }
+}
