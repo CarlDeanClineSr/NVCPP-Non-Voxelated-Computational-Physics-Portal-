@@ -1,5 +1,5 @@
 {
-  "contract_version": "1.0.0",
+  "contract_version": "1.1.0",
   "domain": "ASTRONOMICAL_OBSERVATORY",
   "launch_utc": "2026-08-30T11:26:00Z",
   "mast": {
@@ -55,6 +55,7 @@
       "archive discovery",
       "schema readiness",
       "synthetic fixture analysis",
+      "truth-recovery benchmarking",
       "authenticated Nexus export intake"
     ],
     "chi_B24M_allowed": false,
@@ -78,5 +79,11 @@
     "source_count": 24,
     "source_flux_max": 12000.0,
     "source_flux_min": 750.0
+  },
+  "truth_benchmark": {
+    "detection_sigma": 5.0,
+    "match_radius_pixels": 4.0,
+    "minimum_component_pixels": 2,
+    "use_limit": "Engineering readiness only; scores describe the current simple detector on a known synthetic fixture, not Roman flight performance."
   }
 }
