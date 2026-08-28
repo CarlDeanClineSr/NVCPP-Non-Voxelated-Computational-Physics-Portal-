@@ -30,6 +30,12 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
+          cat <<'EOF' | sha256sum --check --strict
+          5907f58f16aa681e13a9243a7c65ce1a43f40807745d5eb54b50611e277f6abf  .roman_readiness_payload/chunk_00.txt
+          e54f0a7d6f8c7510e2d0df42c413b0bd75d9714579d2cb8c3310965867a5b458  .roman_readiness_payload/chunk_01.txt
+          015a13f579b2c45c564b891dbdb0811fc16f2a717210deb2fc15d52718f93197  .roman_readiness_payload/chunk_02.txt
+          5d9855394a6d61a33fec5cd52407500b7a6e23c970e017b02cc6b176a5c044b3  .roman_readiness_payload/chunk_03.txt
+          EOF
           cat .roman_readiness_payload/chunk_*.txt | base64 --decode > /tmp/roman_readiness_payload.zip
           echo "6f03c2dd93772b27d696fc5363af4914b4711d157edbf91358a90c8828c53a1f  /tmp/roman_readiness_payload.zip" | sha256sum --check --strict
 
