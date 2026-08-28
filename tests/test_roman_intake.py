@@ -14,7 +14,7 @@ def write_contract(path):
     path.write_text(
         json.dumps(
             {
-                "contract_version": "1.0.0",
+                "contract_version": "1.1.0",
                 "status": "PRELAUNCH_READINESS",
                 "mission": "ROMAN",
                 "domain": "ASTRONOMICAL_OBSERVATORY",
@@ -45,6 +45,12 @@ def write_contract(path):
                     "shape": [64, 64],
                     "seed": 1,
                     "source_count": 1,
+                },
+                "truth_benchmark": {
+                    "detection_sigma": 5.0,
+                    "match_radius_pixels": 4.0,
+                    "minimum_component_pixels": 2,
+                    "use_limit": "Engineering readiness only; not Roman flight performance.",
                 },
             }
         )
