@@ -32,11 +32,22 @@ jobs:
           set -euo pipefail
           cat <<'EOF' | sha256sum --check --strict
           5907f58f16aa681e13a9243a7c65ce1a43f40807745d5eb54b50611e277f6abf  .roman_readiness_payload/chunk_00.txt
-          e54f0a7d6f8c7510e2d0df42c413b0bd75d9714579d2cb8c3310965867a5b458  .roman_readiness_payload/chunk_01.txt
+          2222e7a893a7366fb455b5cc04f04f7ba592628339ec9430d29015377c59c146  .roman_readiness_payload/chunk_01_00.txt
+          709cb9a884fcc8fa8ebb917b02fab5ed6808bd3103494ec8d7b572a4a8ded3e1  .roman_readiness_payload/chunk_01_01.txt
+          ea15f792eea26580767d4003e43e4591bffb73af8018a2ed5bbca0cddc2e7892  .roman_readiness_payload/chunk_01_02.txt
+          d8201ee7b043453aa430d699e668b34ed5918b5c689c50e90561811cdb7cba65  .roman_readiness_payload/chunk_01_03.txt
           015a13f579b2c45c564b891dbdb0811fc16f2a717210deb2fc15d52718f93197  .roman_readiness_payload/chunk_02.txt
           5d9855394a6d61a33fec5cd52407500b7a6e23c970e017b02cc6b176a5c044b3  .roman_readiness_payload/chunk_03.txt
           EOF
-          cat .roman_readiness_payload/chunk_*.txt | base64 --decode > /tmp/roman_readiness_payload.zip
+          cat \
+            .roman_readiness_payload/chunk_00.txt \
+            .roman_readiness_payload/chunk_01_00.txt \
+            .roman_readiness_payload/chunk_01_01.txt \
+            .roman_readiness_payload/chunk_01_02.txt \
+            .roman_readiness_payload/chunk_01_03.txt \
+            .roman_readiness_payload/chunk_02.txt \
+            .roman_readiness_payload/chunk_03.txt \
+            | base64 --decode > /tmp/roman_readiness_payload.zip
           echo "6f03c2dd93772b27d696fc5363af4914b4711d157edbf91358a90c8828c53a1f  /tmp/roman_readiness_payload.zip" | sha256sum --check --strict
 
       - name: Extract only audited source paths
