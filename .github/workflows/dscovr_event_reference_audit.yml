@@ -1,0 +1,65 @@
+name: NVCPP DSCOVR Gannon Frozen-Reference Audit
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - "core/cline_l1_chain_v1.py"
+      - "core/event_reference.py"
+      - "historical/download_dscovr_cdaweb.py"
+      - "historical/audit_dscovr_event_reference.py"
+      - "requirements.txt"
+      - ".github/workflows/dscovr_event_reference_audit.yml"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: dscovr-gannon-frozen-reference
+  cancel-in-progress: false
+
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - name: Install locked dependencies
+        run: python -m pip install -r requirements.txt
+      - name: Rebuild the canonical Gannon interval from CDAWeb
+        run: |
+          python -m historical.download_dscovr_cdaweb \
+            --run dscovr_gannon_event_reference \
+            --start "2024-05-09T00:00:00.000Z" \
+            --analysis-start "2024-05-10T00:00:00.000Z" \
+            --end "2024-05-13T00:00:00.000Z" \
+            --outdir runs/historical
+      - name: Compare live rolling and frozen pre-shock references
+        run: |
+          python -m historical.audit_dscovr_event_reference \
+            --input runs/historical/dscovr_gannon_event_reference/cline_l1_rows.csv \
+            --source-manifest runs/historical/dscovr_gannon_event_reference/dscovr_run_manifest.json \
+            --reference-time "2024-05-10T16:34:00Z" \
+            --checkpoint "2024-05-10T16:35:00Z" \
+            --checkpoint "2024-05-10T17:05:00Z" \
+            --checkpoint "2024-05-10T19:25:00Z" \
+            --checkpoint "2024-05-10T23:03:00Z" \
+            --checkpoint "2024-05-11T04:00:00Z" \
+            --checkpoint "2024-05-11T05:30:00Z" \
+            --checkpoint "2024-05-11T12:00:00Z" \
+            --outdir runs/audits/dscovr_gannon_event_reference
+      - name: Preserve source and audit evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: dscovr-gannon-frozen-reference-${{ github.run_id }}-${{ github.sha }}
+          path: |
+            runs/historical/dscovr_gannon_event_reference/
+            runs/audits/dscovr_gannon_event_reference/
+          if-no-files-found: error
+          retention-days: 90
