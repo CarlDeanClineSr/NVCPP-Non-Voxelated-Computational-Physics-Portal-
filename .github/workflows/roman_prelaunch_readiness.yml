@@ -53,10 +53,11 @@ jobs:
           python -m pytest -q \
             tests/test_roman_mast.py \
             tests/test_roman_synthetic_fixture.py \
+            tests/test_roman_truth_benchmark.py \
             tests/test_roman_prelaunch_probe.py \
             tests/test_roman_intake.py
 
-      - name: Probe MAST and build deterministic Roman-like fixture
+      - name: Probe MAST and score deterministic Roman-like fixture
         shell: bash
         run: |
           NOW_ARG=""
@@ -81,4 +82,4 @@ jobs:
         run: |
           cat runs/roman/readiness/reports/ROMAN_READINESS.md >> "$GITHUB_STEP_SUMMARY"
           echo "" >> "$GITHUB_STEP_SUMMARY"
-          echo "The local fixture is not official Roman data or Roman I-Sim output." >> "$GITHUB_STEP_SUMMARY"
+          echo "The local fixture and truth-recovery score are engineering tests, not official Roman data or Roman I-Sim performance." >> "$GITHUB_STEP_SUMMARY"
