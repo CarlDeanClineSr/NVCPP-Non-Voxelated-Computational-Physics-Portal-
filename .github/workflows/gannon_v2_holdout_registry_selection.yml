@@ -1,5 +1,6 @@
 name: Gannon V2 Catalog-Only Holdout Registry Selection
 
+# Registry selector v1.0.0: independent catalogs only; no spacecraft MAG.
 on:
   workflow_dispatch:
   push:
