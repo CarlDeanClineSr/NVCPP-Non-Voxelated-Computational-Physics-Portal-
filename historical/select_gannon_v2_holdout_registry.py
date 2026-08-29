@@ -562,17 +562,26 @@ def build_shock_intervals(
         & candidates["named_spacecraft"].map(bool)
         & (candidates["nearest_ipshock_gap_hours"] >= 72.0)
     ].copy()
-    candidates["nearest_rc_gap_hours"] = candidates["reference_time_utc"].map(
-        lambda value: min(
-            abs((to_utc(value) - event).total_seconds()) / 3600.0
+    def nearest_other_rc_gap_hours(value: object) -> float:
+        reference = to_utc(value)
+        gaps = [
+            abs((reference - event).total_seconds()) / 3600.0
             for event in rc_times
-        )
-        if rc_times
-        else float("inf")
-    )
-    candidates = candidates.loc[candidates["nearest_rc_gap_hours"] >= 72.0].copy()
+        ]
+        # A Richardson/Cane entry within twelve hours can describe the
+        # same shock/ICME association. Isolation is measured against the
+        # nearest other catalog disturbance, not the event itself.
+        other = [gap for gap in gaps if gap > 12.0]
+        return min(other) if other else float("inf")
+
+    candidates["nearest_other_rc_gap_hours"] = candidates[
+        "reference_time_utc"
+    ].map(nearest_other_rc_gap_hours)
+    candidates = candidates.loc[
+        candidates["nearest_other_rc_gap_hours"] >= 72.0
+    ].copy()
     candidates["isolation_hours"] = candidates[
-        ["nearest_ipshock_gap_hours", "nearest_rc_gap_hours"]
+        ["nearest_ipshock_gap_hours", "nearest_other_rc_gap_hours"]
     ].min(axis=1)
     candidates["spacecraft_count"] = candidates["named_spacecraft"].map(len)
     candidates["mission_era"] = candidates["reference_time_utc"].map(
@@ -610,7 +619,7 @@ def build_shock_intervals(
                     "catalog_rows": int(row["catalog_rows"]),
                     "catalog_row_numbers": list(row["catalog_row_numbers"]),
                     "nearest_ipshock_gap_hours": float(row["nearest_ipshock_gap_hours"]),
-                    "nearest_richardson_cane_disturbance_gap_hours": float(row["nearest_rc_gap_hours"]),
+                    "nearest_richardson_cane_disturbance_gap_hours": float(row["nearest_other_rc_gap_hours"]),
                 },
             )
         )
@@ -749,9 +758,7 @@ def run_selection(*, config_path: Path, prereg_path: Path, outdir: Path) -> dict
     kp = parse_gfz_kp(raw_by_source["gfz_kp"])
     shocks = parse_ipshocks(
         raw_by_source["ipshocks"],
-        cluster_minutes=int(
-            contract["classes"]["ISOLATED_SHOCK_OR_SHEATH"]["clustering"].split()[7]
-        ) if False else 90,
+        cluster_minutes=90,
     )
     rc = parse_richardson_cane(raw_by_source["richardson_cane"])
     complex_clusters = build_complex_clusters(rc, gap_hours=48)
