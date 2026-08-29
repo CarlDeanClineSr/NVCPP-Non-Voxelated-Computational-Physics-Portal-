@@ -1,134 +1,86 @@
 import numpy as np
 import pandas as pd
-import pytest
 
 from core.event_reference import (
-    EventReferenceConfig,
-    EventReferenceError,
-    add_frozen_event_reference,
-    event_local_integrity,
+    EventReferenceColumns,
+    EventReferencePolicy,
+    attach_event_reference,
+    local_integrity_gate,
+    select_later_structure_candidate,
 )
 
 
-def canonical_frame(periods: int = 30) -> pd.DataFrame:
-    time = pd.date_range("2024-05-10T16:20:00Z", periods=periods, freq="1min")
-    frame = pd.DataFrame(
+def reference_frame() -> pd.DataFrame:
+    time = pd.date_range("2026-01-01", periods=12, freq="1min", tz="UTC")
+    bx = np.array([10, 10, 10, 10, 11, 25, 28, 30, 20, 0, 30, 30], dtype=float)
+    by = np.array([0, 0, 0, 0, 0, 0, 0, 0, 0, 32, 0, 0], dtype=float)
+    bz = np.zeros(12, dtype=float)
+    magnitude = np.sqrt(bx**2 + by**2 + bz**2)
+    baseline = np.array([10] * 8 + [30] * 4, dtype=float)
+    delta = (magnitude - baseline) / baseline
+    chi = np.abs(delta)
+    return pd.DataFrame(
         {
-            "EPOCH": time,
-            "BX_(GSE)": -5.0,
-            "BY_(GSE)": 0.0,
-            "BZ_(GSE)": 5.0,
-            "B_mag": 10.0,
-            "B0": 10.0,
-            "delta_B24M": 0.0,
-            "chi_B24M": 0.0,
+            "time": time,
+            "bx": bx,
+            "by": by,
+            "bz": bz,
+            "B_mag": magnitude,
+            "B0": baseline,
+            "delta_B24M": delta,
+            "chi_B24M": chi,
             "baseline_status": "VALID",
-            "native_coverage_fraction": 1.0,
+            "native_sample_count": 60,
         }
     )
-    return frame
 
 
-def test_frozen_reference_is_secondary_and_does_not_replace_canonical_metrics():
-    frame = canonical_frame()
-    reference_time = frame.loc[14, "EPOCH"]
-    frame.loc[20, "B_mag"] = 30.0
-    frame.loc[20, "B0"] = 25.0
-    frame.loc[20, "delta_B24M"] = 0.2
-    frame.loc[20, "chi_B24M"] = 0.2
+def columns() -> EventReferenceColumns:
+    return EventReferenceColumns(time="time", bx="bx", by="by", bz="bz")
 
-    result, metadata = add_frozen_event_reference(
-        frame,
-        reference_time=reference_time,
-        time_col="EPOCH",
-        b_mag_col="B_mag",
-        coordinate_frame="GSE",
-        by_col="BY_(GSE)",
-        bz_col="BZ_(GSE)",
+
+def test_gate_and_reference_are_derived_not_hand_picked():
+    annotated, metadata = attach_event_reference(reference_frame(), columns=columns())
+    assert metadata["gate"]["derived_time_utc"] == "2026-01-01T00:05:00+00:00"
+    assert metadata["reference"]["time_utc"] == "2026-01-01T00:04:00+00:00"
+    # The frozen value is the live B0 at the reference row, not its B magnitude (11 nT).
+    assert metadata["reference"]["B_nT"] == 10.0
+    assert annotated.loc[9, "chi_event_ref_absB"] == 2.2
+    assert annotated.loc[9, "baseline_regime"] == "EVENT_ABSORBED_BY_LIVE_BASELINE"
+    assert annotated.loc[9, "chi_B24M"] < 0.15
+
+
+def test_later_structure_is_selected_by_explicit_vector_and_jump_rule():
+    policy = EventReferencePolicy(local_integrity_half_window_minutes=1)
+    annotated, _ = attach_event_reference(
+        reference_frame(), columns=columns(), policy=policy
     )
-
-    row = result.loc[20]
-    assert row["B0"] == pytest.approx(25.0)
-    assert row["chi_B24M"] == pytest.approx(0.2)
-    assert row["event_reference_B_nT"] == pytest.approx(10.0)
-    assert row["delta_event_reference"] == pytest.approx(2.0)
-    assert row["chi_event_reference"] == pytest.approx(2.0)
-    assert row["clock_angle_gse_yz_deg"] == pytest.approx(0.0)
-    assert metadata["canonical_metrics_replaced"] is False
-
-
-def test_reference_must_be_exact_baseline_valid_and_positive():
-    frame = canonical_frame()
-    frame.loc[10, "baseline_status"] = "INSUFFICIENT_COVERAGE"
-    with pytest.raises(EventReferenceError, match="VALID"):
-        add_frozen_event_reference(
-            frame,
-            reference_time=frame.loc[10, "EPOCH"],
-            time_col="EPOCH",
-            b_mag_col="B_mag",
-        )
-
-    with pytest.raises(EventReferenceError, match="exactly one row"):
-        add_frozen_event_reference(
-            frame,
-            reference_time="2024-05-10T00:00:00Z",
-            time_col="EPOCH",
-            b_mag_col="B_mag",
-        )
-
-
-def test_local_integrity_gate_passes_complete_window_and_fails_gap():
-    frame = canonical_frame()
-    center = frame.loc[14, "EPOCH"]
-    config = EventReferenceConfig(
-        expected_cadence_seconds=60.0,
-        local_half_window_minutes=5,
-        minimum_native_coverage_fraction=0.95,
+    selected, evidence = select_later_structure_candidate(
+        annotated, columns=columns(), policy=policy
     )
-    passed = event_local_integrity(
-        frame,
-        center_time=center,
-        time_col="EPOCH",
-        config=config,
-        native_coverage_col="native_coverage_fraction",
+    assert selected["time"] == pd.Timestamp("2026-01-01T00:09:00Z")
+    assert selected["chi_B24M"] < policy.research_watch_chi
+    assert selected["chi_event_ref_absB"] >= policy.frozen_severe_chi
+    assert selected["rotation_from_previous_minute_degrees"] == 90.0
+    assert selected["minute_relative_magnitude_change"] == 0.6
+    assert evidence["selected_time_utc"] == "2026-01-01T00:09:00+00:00"
+
+
+def test_local_integrity_gate_requires_exact_rows_and_native_coverage():
+    policy = EventReferencePolicy(local_integrity_half_window_minutes=1)
+    data = reference_frame()
+    result = local_integrity_gate(
+        data,
+        timestamp="2026-01-01T00:09:00Z",
+        columns=columns(),
+        policy=policy,
     )
-    assert passed["expected_rows"] == 11
-    assert passed["present_rows"] == 11
-    assert passed["event_local_integrity_pass"] is True
-
-    missing = frame.drop(index=14).reset_index(drop=True)
-    failed = event_local_integrity(
-        missing,
-        center_time=center,
-        time_col="EPOCH",
-        config=config,
-        native_coverage_col="native_coverage_fraction",
+    assert result["status"] == "PASS"
+    broken = data.drop(index=8).reset_index(drop=True)
+    result = local_integrity_gate(
+        broken,
+        timestamp="2026-01-01T00:09:00Z",
+        columns=columns(),
+        policy=policy,
     )
-    assert failed["present_rows"] == 10
-    assert failed["all_rows_present"] is False
-    assert failed["event_local_integrity_pass"] is False
-
-
-def test_clock_angle_requires_explicit_frame_and_both_components():
-    frame = canonical_frame()
-    with pytest.raises(EventReferenceError, match="supplied together"):
-        add_frozen_event_reference(
-            frame,
-            reference_time=frame.loc[10, "EPOCH"],
-            time_col="EPOCH",
-            b_mag_col="B_mag",
-            coordinate_frame="GSE",
-            by_col="BY_(GSE)",
-        )
-
-
-def test_nonfinite_event_metrics_are_rejected():
-    frame = canonical_frame()
-    frame.loc[20, "B_mag"] = np.nan
-    with pytest.raises(EventReferenceError, match="non-finite"):
-        add_frozen_event_reference(
-            frame,
-            reference_time=frame.loc[10, "EPOCH"],
-            time_col="EPOCH",
-            b_mag_col="B_mag",
-        )
+    assert result["status"] == "FAIL"
