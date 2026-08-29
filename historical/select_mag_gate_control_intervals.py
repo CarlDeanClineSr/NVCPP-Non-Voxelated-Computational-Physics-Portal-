@@ -74,7 +74,7 @@ def load_contract(path: Path) -> dict[str, Any]:
     if source.get("dataset_id") != "OMNI_HRO2_1MIN":
         raise ControlSelectionError("selector dataset must remain OMNI_HRO2_1MIN")
     parameters = source.get("parameters")
-    if parameters != ["F", "flow_speed", "SYM_H", "percent_interp"]:
+    if parameters != ["percent_interp", "F", "flow_speed", "SYM_H"]:
         raise ControlSelectionError(
             "selector parameters changed from the frozen v1 inventory"
         )
