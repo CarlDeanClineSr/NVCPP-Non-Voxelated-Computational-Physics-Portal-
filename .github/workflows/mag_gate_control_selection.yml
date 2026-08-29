@@ -1,0 +1,87 @@
+name: NVCPP MAG Gate Control Interval Selection
+
+# Selection protocol v1.0.0: dates are frozen before spacecraft gate retrieval.
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - feature/gate-control-harness-v1
+    paths:
+      - "config/mag_gate_control_selection.v1.json"
+      - "historical/select_mag_gate_control_intervals.py"
+      - "tests/test_mag_gate_control_selection.py"
+      - ".github/workflows/mag_gate_control_selection.yml"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: nvcpp-mag-gate-control-selection
+  cancel-in-progress: true
+
+jobs:
+  select:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - name: Install locked dependencies
+        run: python -m pip install -r requirements.txt
+      - name: Compile and run selector tests
+        run: |
+          python -m compileall -q \
+            historical/select_mag_gate_control_intervals.py \
+            tests/test_mag_gate_control_selection.py
+          python -m json.tool config/mag_gate_control_selection.v1.json >/dev/null
+          python -m pytest -q tests/test_mag_gate_control_selection.py
+      - name: Select dates from independent OMNI activity metrics
+        run: |
+          python -m historical.select_mag_gate_control_intervals \
+            --config config/mag_gate_control_selection.v1.json \
+            --outdir runs/controls/mag_gate_interval_selection
+      - name: Verify pre-gate selection boundary
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+
+          root = Path("runs/controls/mag_gate_interval_selection")
+          manifest = json.loads(
+              (root / "control_interval_selection_manifest.json").read_text()
+          )
+          registry = json.loads(
+              (root / "selected_control_intervals.v1.json").read_text()
+          )
+          if manifest.get("status") != "SUCCESS":
+              raise SystemExit(f"selector status is {manifest.get('status')!r}")
+          if manifest.get("spacecraft_gate_data_retrieved") is not False:
+              raise SystemExit("selector retrieved spacecraft gate data")
+          if registry.get("gate_outputs_inspected_before_selection") is not False:
+              raise SystemExit("registry does not preserve pre-gate selection")
+          intervals = registry.get("intervals", [])
+          classes = [item.get("class") for item in intervals]
+          if classes.count("LOW_ACTIVITY_OMNI_SELECTED_CONTROL") != 3:
+              raise SystemExit("expected three low-activity controls")
+          if classes.count("MODERATE_ACTIVITY_OMNI_SELECTED_CONTROL") != 3:
+              raise SystemExit("expected three moderate-activity controls")
+          if len(intervals) != 9:
+              raise SystemExit(f"expected nine total controls, got {len(intervals)}")
+          forbidden = ("gate_pass", "rotation_gate", "magnitude_gate")
+          text = json.dumps(registry).lower()
+          if any(token in text for token in forbidden):
+              raise SystemExit("selector registry contains gate-output language")
+          print(json.dumps(intervals, indent=2))
+          PY
+      - name: Upload immutable selection evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: nvcpp-mag-gate-control-interval-selection
+          path: runs/controls/mag_gate_interval_selection
+          if-no-files-found: error
+          retention-days: 90
+          compression-level: 6
