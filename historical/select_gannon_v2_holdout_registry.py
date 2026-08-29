@@ -219,8 +219,9 @@ def parse_ipshocks(raw: bytes, *, cluster_minutes: int) -> pd.DataFrame:
 
     records: list[dict[str, Any]] = []
     for cluster, group in frame.groupby("cluster_id", sort=True):
-        integer_times = group["time"].astype("int64").to_numpy()
-        reference = pd.Timestamp(int(np.median(integer_times)), tz="UTC")
+        first_time = group["time"].min()
+        last_time = group["time"].max()
+        reference = first_time + (last_time - first_time) / 2
         named = sorted(
             item for item in set(group["spacecraft_norm"]) if item != "OMNI"
         )
