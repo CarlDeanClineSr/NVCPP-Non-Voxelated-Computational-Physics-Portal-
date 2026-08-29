@@ -1,5 +1,6 @@
 name: Repair Gannon V2 registry timestamp handling
 
+# One-time tooling repair; this workflow removes itself after a green focused test.
 on:
   push:
     branches:
