@@ -1,0 +1,229 @@
+name: Freeze Gannon V2 Holdout Registry Amendment 1
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - science/gannon-v2-complex-underfill-amendment
+    paths:
+      - "config/gannon_holdout_v2_selection.amendment1.json"
+      - "config/gannon_holdout_v2_selection.effective.amendment1.json"
+      - "config/gannon_holdout_v2.registry_status.json"
+      - "historical/freeze_gannon_v2_holdout_registry_amendment1.py"
+      - ".github/workflows/freeze_gannon_v2_holdout_registry_amendment1.yml"
+
+permissions:
+  contents: write
+
+concurrency:
+  group: freeze-gannon-v2-holdout-registry-amendment1
+  cancel-in-progress: false
+
+jobs:
+  freeze:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: science/gannon-v2-complex-underfill-amendment
+          fetch-depth: 0
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Install locked dependencies
+        run: python -m pip install -r requirements.txt
+
+      - name: Verify zero-MAG amendment boundary
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m json.tool config/gannon_holdout_v2.preregistered.json >/dev/null
+          python -m json.tool config/gannon_holdout_v2_selection.v1.json >/dev/null
+          python -m json.tool config/gannon_holdout_v2_selection.amendment1.json >/dev/null
+          python -m json.tool config/gannon_holdout_v2_selection.effective.amendment1.json >/dev/null
+          python -m compileall -q historical/freeze_gannon_v2_holdout_registry.py historical/freeze_gannon_v2_holdout_registry_amendment1.py
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          amendment = json.loads(Path("config/gannon_holdout_v2_selection.amendment1.json").read_text())
+          feasibility = amendment["observed_catalog_only_feasibility"]
+          if feasibility != {
+              "class": "COMPLEX_INTERACTING_EJECTA",
+              "original_target_count": 12,
+              "qualifying_candidates_after_unchanged_spacing": 7,
+              "failed_before_spacecraft_mag_retrieval": True,
+              "spacecraft_mag_retrieved": False,
+              "mag_values_inspected": False,
+              "gate_outputs_inspected": False,
+              "clustering_outputs_inspected": False,
+          }:
+              raise SystemExit("Amendment-1 feasibility record changed")
+          print("Amendment-1 boundary verified: no MAG and COMPLEX 12 -> observed 7")
+          PY
+
+      - name: Refuse overwrite or hidden substitution
+        run: |
+          test ! -e config/gannon_holdout_v2.registry.json
+          test ! -e provenance/gannon_holdout_v2_registry/FROZEN_INVENTORY.json
+
+      - name: Run unchanged selector through Amendment-1 contract loader
+        run: |
+          python -m historical.freeze_gannon_v2_holdout_registry_amendment1 \
+            --contract config/gannon_holdout_v2_selection.effective.amendment1.json \
+            --outdir runs/registry/gannon_v2
+
+      - name: Verify selector output before publication
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import hashlib
+          import json
+          from collections import Counter
+          from pathlib import Path
+          root = Path("runs/registry/gannon_v2")
+          registry = json.loads((root / "gannon_holdout_v2.registry.json").read_text())
+          expected = {
+              "QUIET_SOLAR_WIND": 12,
+              "MODERATE_VARIABILITY": 12,
+              "ISOLATED_SHOCK_OR_SHEATH": 12,
+              "COMPLEX_INTERACTING_EJECTA": 7,
+          }
+          counts = Counter(row["class"] for row in registry["intervals"])
+          if dict(counts) != expected or len(registry["intervals"]) != 43:
+              raise SystemExit(f"unexpected amended denominators: {dict(counts)}")
+          if registry["status"] != "FROZEN_BEFORE_HOLDOUT_MAG_RETRIEVAL":
+              raise SystemExit("registry did not freeze before MAG")
+          for key in ("spacecraft_mag_retrieved", "mag_values_inspected", "gate_outputs_inspected", "clustering_outputs_inspected"):
+              if registry["selection_firewall"].get(key) is not False:
+                  raise SystemExit(f"selection firewall violated at {key}")
+          for row in registry["intervals"]:
+              if row["replacement_after_scoring_allowed"] is not False:
+                  raise SystemExit(f"substitution allowed: {row['interval_id']}")
+              if row["failure_policy"] != "INCOMPLETE_MULTIPOINT_RETAIN_IN_DENOMINATOR":
+                  raise SystemExit(f"failure policy changed: {row['interval_id']}")
+          view = dict(registry)
+          expected_hash = view.pop("registry_content_sha256")
+          view.pop("created_utc", None)
+          actual_hash = hashlib.sha256(json.dumps(view, sort_keys=True, separators=(",", ":")).encode()).hexdigest()
+          if actual_hash != expected_hash:
+              raise SystemExit("registry hash mismatch")
+          print(json.dumps({"class_denominators": expected, "total": 43, "sha256": expected_hash}, indent=2))
+          PY
+
+      - name: Stage frozen registry and audit state
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p provenance/gannon_holdout_v2_registry docs
+          cp runs/registry/gannon_v2/gannon_holdout_v2.registry.json config/gannon_holdout_v2.registry.json
+          cp runs/registry/gannon_v2/gannon_holdout_v2.registry.csv provenance/gannon_holdout_v2_registry/registry.csv
+          cp runs/registry/gannon_v2/source_manifest.json provenance/gannon_holdout_v2_registry/source_manifest.json
+          cp runs/registry/gannon_v2/GANNON_V2_FROZEN_DATE_LIST.md docs/GANNON_V2_FROZEN_DATE_LIST.md
+          python - <<'PY'
+          import hashlib
+          import json
+          import os
+          from pathlib import Path
+          status_path = Path("config/gannon_holdout_v2.registry_status.json")
+          state = json.loads(status_path.read_text())
+          state.update({
+              "status": "HOLD_OUT_REGISTRY_PUBLISHED",
+              "published_registry_path": "config/gannon_holdout_v2.registry.json",
+              "selection_amendment": "config/gannon_holdout_v2_selection.amendment1.json",
+              "effective_selection_contract": "config/gannon_holdout_v2_selection.effective.amendment1.json",
+              "class_denominators": {"QUIET_SOLAR_WIND": 12, "MODERATE_VARIABILITY": 12, "ISOLATED_SHOCK_OR_SHEATH": 12, "COMPLEX_INTERACTING_EJECTA": 7},
+              "total_intervals": 43,
+              "spacecraft_mag_retrieved": False,
+              "mag_values_inspected": False,
+              "gate_outputs_inspected": False,
+              "clustering_outputs_inspected": False,
+              "geometry_state": "CLOSED"
+          })
+          status_path.write_text(json.dumps(state, indent=2, sort_keys=True) + "\n")
+          paths = [
+              Path("config/gannon_holdout_v2.registry.json"),
+              status_path,
+              Path("config/gannon_holdout_v2_selection.amendment1.json"),
+              Path("config/gannon_holdout_v2_selection.effective.amendment1.json"),
+              Path("provenance/gannon_holdout_v2_registry/registry.csv"),
+              Path("provenance/gannon_holdout_v2_registry/source_manifest.json"),
+              Path("docs/GANNON_V2_FROZEN_DATE_LIST.md"),
+          ]
+          inventory = {
+              "status": "FROZEN_BEFORE_HOLDOUT_MAG_RETRIEVAL",
+              "selector_commit": os.environ.get("GITHUB_SHA"),
+              "selection_amendment": "NVCPP-GANNON-V2-HOLDOUT-SELECTION-AMENDMENT-1",
+              "class_denominators": {"QUIET_SOLAR_WIND": 12, "MODERATE_VARIABILITY": 12, "ISOLATED_SHOCK_OR_SHEATH": 12, "COMPLEX_INTERACTING_EJECTA": 7},
+              "spacecraft_mag_retrieved": False,
+              "gate_outputs_inspected": False,
+              "clustering_outputs_inspected": False,
+              "files": [{"path": p.as_posix(), "sha256": hashlib.sha256(p.read_bytes()).hexdigest(), "size_bytes": p.stat().st_size} for p in paths],
+          }
+          Path("provenance/gannon_holdout_v2_registry/FROZEN_INVENTORY.json").write_text(json.dumps(inventory, indent=2, sort_keys=True) + "\n")
+          PY
+
+      - name: Write immutable registry test
+        shell: bash
+        run: |
+          cat > tests/test_gannon_holdout_v2_registry.py <<'PY'
+          import hashlib, json
+          from collections import Counter
+          from pathlib import Path
+          REGISTRY = Path("config/gannon_holdout_v2.registry.json")
+          INVENTORY = Path("provenance/gannon_holdout_v2_registry/FROZEN_INVENTORY.json")
+          def test_amended_registry_is_frozen_and_unequal_by_design():
+              data = json.loads(REGISTRY.read_text())
+              assert data["status"] == "FROZEN_BEFORE_HOLDOUT_MAG_RETRIEVAL"
+              assert Counter(x["class"] for x in data["intervals"]) == {
+                  "QUIET_SOLAR_WIND": 12,
+                  "MODERATE_VARIABILITY": 12,
+                  "ISOLATED_SHOCK_OR_SHEATH": 12,
+                  "COMPLEX_INTERACTING_EJECTA": 7,
+              }
+              assert len(data["intervals"]) == 43
+          def test_registry_firewall_and_denominator_policy():
+              data = json.loads(REGISTRY.read_text())
+              assert all(data["selection_firewall"][k] is False for k in ("spacecraft_mag_retrieved", "mag_values_inspected", "gate_outputs_inspected", "clustering_outputs_inspected"))
+              assert all(x["failure_policy"] == "INCOMPLETE_MULTIPOINT_RETAIN_IN_DENOMINATOR" for x in data["intervals"])
+              assert all(x["replacement_after_scoring_allowed"] is False for x in data["intervals"])
+          def test_registry_hash_reproduces():
+              data = json.loads(REGISTRY.read_text())
+              expected = data.pop("registry_content_sha256")
+              data.pop("created_utc", None)
+              assert hashlib.sha256(json.dumps(data, sort_keys=True, separators=(",", ":")).encode()).hexdigest() == expected
+          def test_inventory_hashes_committed_files():
+              inv = json.loads(INVENTORY.read_text())
+              assert inv["class_denominators"]["COMPLEX_INTERACTING_EJECTA"] == 7
+              assert inv["spacecraft_mag_retrieved"] is False
+              for item in inv["files"]:
+                  p = Path(item["path"])
+                  assert hashlib.sha256(p.read_bytes()).hexdigest() == item["sha256"]
+          PY
+
+      - name: Test publication form
+        run: python -m pytest -q tests/test_gannon_holdout_v2_preregistration.py tests/test_gannon_holdout_v2_registry.py
+
+      - name: Commit frozen amended registry
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "NVCPP Holdout Registry Freezer"
+          git config user.email "actions@users.noreply.github.com"
+          git add config/gannon_holdout_v2.registry.json config/gannon_holdout_v2.registry_status.json config/gannon_holdout_v2_selection.amendment1.json config/gannon_holdout_v2_selection.effective.amendment1.json provenance/gannon_holdout_v2_registry docs/GANNON_V2_FROZEN_DATE_LIST.md tests/test_gannon_holdout_v2_registry.py
+          git commit -m "science: publish V2 holdout with honest complex N=7 denominator"
+          git push origin HEAD:science/gannon-v2-complex-underfill-amendment
+
+      - name: Upload independent selector evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: nvcpp-gannon-v2-holdout-registry-amendment1-evidence
+          path: runs/registry/gannon_v2
+          if-no-files-found: error
+          retention-days: 90
+          compression-level: 6
