@@ -1,0 +1,90 @@
+name: Consolidate SOLAR-1 mission-phase authority
+
+on:
+  push:
+    branches:
+      - repair/solar1-mission-phase-single-source
+    paths:
+      - ".github/workflows/apply_solar1_phase_single_source.yml"
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: repair/solar1-mission-phase-single-source
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - name: Remove duplicate classifier and postprocessing path
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+
+          def replace_once(path: str, old: str, new: str) -> None:
+              file = Path(path)
+              text = file.read_text(encoding="utf-8")
+              count = text.count(old)
+              if count != 1:
+                  raise SystemExit(f"{path}: expected one match, found {count}")
+              file.write_text(text.replace(old, new), encoding="utf-8")
+
+          replace_once(
+              "sources/solar1/download_solar1.py",
+              "from sources.solar1.validate_contract import load_contract_or_raise\n",
+              "from sources.solar1.mission_phase import classify_solar1_interval\n"
+              "from sources.solar1.validate_contract import load_contract_or_raise\n",
+          )
+          replace_once(
+              "sources/solar1/download_solar1.py",
+              '''def classify_mission_phase(\n    analysis_start: pd.Timestamp,\n    analysis_end: pd.Timestamp,\n    contract: dict[str, Any],\n) -> dict[str, Any]:\n    operational_start = pd.to_datetime(\n        contract["mission_phase"]["operational_start_utc"], utc=True\n    )\n    if analysis_end <= operational_start:\n        classification = contract["mission_phase"]["pre_operational_label"]\n        operational_claim_allowed = False\n    elif analysis_start >= operational_start:\n        classification = contract["mission_phase"]["operational_label"]\n        operational_claim_allowed = True\n    else:\n        classification = contract["mission_phase"]["mixed_interval_label"]\n        operational_claim_allowed = False\n    return {\n        "operational_start_utc": operational_start.isoformat(),\n        "analysis_start_utc": analysis_start.isoformat(),\n        "analysis_end_utc": analysis_end.isoformat(),\n        "interval_classification": classification,\n        "operational_validation_claim_allowed": operational_claim_allowed,\n    }\n\n\n''',
+              "",
+          )
+          replace_once(
+              "sources/solar1/download_solar1.py",
+              "        phase = classify_mission_phase(analysis, end, contract)\n",
+              "        phase = classify_solar1_interval(analysis, end, contract)\n",
+          )
+          replace_once(
+              "sources/solar1/download_solar1.py",
+              "                    f\"- Mission phase: `{phase['interval_classification']}`\",\n",
+              "                    f\"- Mission phase: `{phase['label']}`\",\n",
+          )
+
+          replace_once(
+              "sources/solar1/validate_contract.py",
+              '''        "mission_phase.operational_start_utc",\n        "mission_phase.pre_operational_label",\n''',
+              '''        "mission_phase.operational_start_utc",\n        "mission_phase.operational_status_source",\n        "mission_phase.pre_operational_label",\n''',
+          )
+          replace_once(
+              "sources/solar1/validate_contract.py",
+              '''    if not _valid_aware_timestamp(operational_start):\n        errors.append("mission_phase.operational_start_utc must be a timezone-aware ISO timestamp")\n    phase_labels = [\n''',
+              '''    if not _valid_aware_timestamp(operational_start):\n        errors.append("mission_phase.operational_start_utc must be a timezone-aware ISO timestamp")\n    operational_source = _get(data, "mission_phase.operational_status_source")\n    if not isinstance(operational_source, str) or not operational_source.startswith("https://"):\n        errors.append("mission_phase.operational_status_source must be an HTTPS URL")\n    phase_labels = [\n''',
+          )
+
+          workflow = Path(".github/workflows/solar1_run.yml")
+          text = workflow.read_text(encoding="utf-8")
+          start = text.index("      - name: Label the run by declared SOLAR-1 mission phase\n")
+          end = text.index("      - name: Preserve success or failure evidence\n", start)
+          workflow.write_text(text[:start] + text[end:], encoding="utf-8")
+          PY
+      - name: Install and test
+        run: |
+          python -m pip install -r requirements.txt
+          python -m compileall -q core historical observatory pipelines sources tests tools
+          python -m sources.solar1.validate_contract config/solar1_mag_contract.v1.json
+          python -m pytest -q
+      - name: Commit tested consolidation
+        run: |
+          git config user.name "NVCPP Audit Patcher"
+          git config user.email "actions@users.noreply.github.com"
+          git add sources/solar1/download_solar1.py sources/solar1/validate_contract.py .github/workflows/solar1_run.yml
+          git commit -m "refactor: use one SOLAR-1 mission-phase classifier"
+          git push origin HEAD:repair/solar1-mission-phase-single-source
