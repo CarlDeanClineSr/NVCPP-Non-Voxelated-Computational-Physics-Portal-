@@ -1,0 +1,129 @@
+{
+  "selection_contract_id": "NVCPP-GANNON-HOLDOUT-V2-CATALOG-SELECTION-v1",
+  "selection_contract_version": "1.0.0",
+  "status": "FROZEN_BEFORE_HOLDOUT_MAG_RETRIEVAL",
+  "parent_preregistration": {
+    "path": "config/gannon_holdout_v2.preregistered.json",
+    "contract_id": "NVCPP-GANNON-HOLDOUT-CALIBRATION-v2",
+    "contract_version": "2.0.0-preregistered"
+  },
+  "sources": {
+    "gfz_kp": {
+      "url": "https://kp.gfz.de/fileadmin/files_for_gfz_cms/Kp_ap_Ap_SN_F107_since_1932.txt",
+      "role": "quiet and moderate daily activity selection",
+      "citation": "Matzka et al. 2021, doi:10.1029/2020SW002641"
+    },
+    "ipshocks": {
+      "url": "https://zenodo.org/records/19730292/files/ipshocks_database.csv?download=1",
+      "record": "doi:10.5281/zenodo.19730292",
+      "role": "isolated L1 shock/sheath selection and event exclusion"
+    },
+    "richardson_cane": {
+      "url": "https://izw1.caltech.edu/ACE/ASC/DATA/level3/icmetable2.htm",
+      "record": "doi:10.7910/DVN/C2MHTH",
+      "role": "ICME exclusion and complex interacting-ejecta selection"
+    }
+  },
+  "global_rules": {
+    "minimum_intervals_per_class": 10,
+    "spacecraft_mag_access_allowed": false,
+    "gate_output_access_allowed": false,
+    "candidate_score_access_allowed": false,
+    "clustering_output_access_allowed": false,
+    "replacement_after_mag_inspection_allowed": false,
+    "excluded_years": [2024],
+    "selection_year_start": 2016,
+    "selection_year_stop_inclusive": 2026,
+    "minimum_spacing_days_within_class": 30,
+    "event_exclusion_half_width_hours_for_kp_classes": 24,
+    "entire_2024_exclusion_reason": "V1 inspected Gannon, fixed controls, OMNI controls, and donor-offset windows during 2024; excluding the full year prevents accidental reuse",
+    "explicit_v1_dates": [
+      "2024-01-04",
+      "2024-01-13",
+      "2024-01-23",
+      "2024-02-03",
+      "2024-03-17",
+      "2024-04-09",
+      "2024-05-11",
+      "2024-06-28",
+      "2024-09-28"
+    ]
+  },
+  "mission_eras": [
+    {
+      "id": "ERA_DSCOVR_ACE_WIND_2016_2019",
+      "start_utc": "2016-01-01T00:00:00Z",
+      "stop_utc": "2020-01-01T00:00:00Z",
+      "expected_missions": ["DSCOVR", "ACE", "WIND"]
+    },
+    {
+      "id": "ERA_DSCOVR_ACE_WIND_2020_2023",
+      "start_utc": "2020-01-01T00:00:00Z",
+      "stop_utc": "2024-01-01T00:00:00Z",
+      "expected_missions": ["DSCOVR", "ACE", "WIND"]
+    },
+    {
+      "id": "ERA_DSCOVR_ACE_WIND_LATE_2025_2026",
+      "start_utc": "2025-01-01T00:00:00Z",
+      "stop_utc": "2027-01-01T00:00:00Z",
+      "expected_missions": ["DSCOVR", "ACE", "WIND"],
+      "availability_warning": "actual product availability is tested only after the registry is frozen; missing ACE or another mission becomes INCOMPLETE_MULTIPOINT or ERA_ACE_UNAVAILABLE"
+    }
+  ],
+  "classes": {
+    "QUIET_SOLAR_WIND": {
+      "target_count": 10,
+      "era_targets": {
+        "ERA_DSCOVR_ACE_WIND_2016_2019": 3,
+        "ERA_DSCOVR_ACE_WIND_2020_2023": 5,
+        "ERA_DSCOVR_ACE_WIND_LATE_2025_2026": 2
+      },
+      "eligibility": "daily maximum Kp <= 2.0 and no IPShocks cluster or Richardson-Cane disturbance/ICME start within 24 hours of the UTC day",
+      "ranking": "within each era sort by Kp mean ascending, Kp maximum ascending, then UTC date ascending",
+      "warning": "Kp-quiet is not equivalent to L1-featureless"
+    },
+    "MODERATE_VARIABILITY": {
+      "target_count": 10,
+      "era_targets": {
+        "ERA_DSCOVR_ACE_WIND_2016_2019": 3,
+        "ERA_DSCOVR_ACE_WIND_2020_2023": 5,
+        "ERA_DSCOVR_ACE_WIND_LATE_2025_2026": 2
+      },
+      "eligibility": "3.0 <= daily maximum Kp <= 4.0 and no IPShocks cluster or Richardson-Cane disturbance/ICME start within 24 hours of the UTC day",
+      "ranking": "within each era sort by absolute(Kp mean - 1.75), Kp maximum ascending, then UTC date ascending"
+    },
+    "ISOLATED_SHOCK_OR_SHEATH": {
+      "target_count": 10,
+      "era_targets": {
+        "ERA_DSCOVR_ACE_WIND_2016_2019": 4,
+        "ERA_DSCOVR_ACE_WIND_2020_2023": 6,
+        "ERA_DSCOVR_ACE_WIND_LATE_2025_2026": 0
+      },
+      "eligibility": "IPShocks fast-forward L1 shock cluster with at least one named ACE, Wind, or DSCOVR detection and at least 72 hours to the nearest other L1 shock cluster and Richardson-Cane disturbance",
+      "clustering": "catalog rows separated by no more than 90 minutes are one shock cluster",
+      "ranking": "within each era sort by nearest-event separation descending, number of named spacecraft descending, then reference time ascending",
+      "interval": "24 hours centered on the median catalog shock time",
+      "warning": "catalog-isolated is not equivalent to structure-free"
+    },
+    "COMPLEX_INTERACTING_EJECTA": {
+      "target_count": 10,
+      "era_targets": {
+        "ERA_DSCOVR_ACE_WIND_2016_2019": 3,
+        "ERA_DSCOVR_ACE_WIND_2020_2023": 4,
+        "ERA_DSCOVR_ACE_WIND_LATE_2025_2026": 3
+      },
+      "eligibility": "Richardson-Cane cluster containing at least two disturbance/ICME entries within 48 hours or a catalog row linked to at least two distinct LASCO CME times",
+      "clustering": "successive Richardson-Cane disturbance times no more than 48 hours apart form one candidate complex cluster",
+      "ranking": "within each era sort by catalog entry count descending, linked CME count descending, then first disturbance ascending",
+      "interval": "36 hours beginning six hours before the first catalog disturbance",
+      "warning": "catalog complexity identifies an event class; it does not prove every internal boundary is one structure"
+    }
+  },
+  "freeze_policy": {
+    "registry_status_after_success": "FROZEN_BEFORE_HOLDOUT_MAG_RETRIEVAL",
+    "failed_later_acquisition_state": "INCOMPLETE_MULTIPOINT",
+    "late_era_ace_failure_state": "ERA_ACE_UNAVAILABLE",
+    "geometry_state": "CLOSED",
+    "physical_interpretation_reopened": false
+  }
+}
