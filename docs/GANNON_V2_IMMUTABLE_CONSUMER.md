@@ -97,3 +97,23 @@ The capsule reports empirical control frequencies under the declared
 constructions. Those frequencies are not independent-minute probabilities.
 Neither a favorable nor an unfavorable comparison identifies one moving
 surface. Geometry remains `CLOSED` after this workflow.
+
+
+## Canonical magnitude provenance
+
+The three products are not treated as homologous scalar-magnitude
+products. Every interval manifest names the vector used to build
+canonical `B_mag_nT` and the role of any provider scalar magnitude:
+
+- DSCOVR: average the three `B1GSE` Cartesian components by minute,
+  then calculate their Euclidean norm.
+- ACE: average `BGSEc_x`, `BGSEc_y`, and `BGSEc_z` by minute, then
+  calculate their Euclidean norm. `Magnitude` is audit-only and never
+  enters canonical `B_mag_nT`.
+- Wind: average `B3GSE_x`, `B3GSE_y`, and `B3GSE_z` by minute, then
+  calculate their Euclidean norm. `B3F1` is audit-only, is not a vector
+  component, and never substitutes for canonical `B_mag_nT`.
+
+The same provenance is repeated inside each retrieved source metadata
+record. Provider scalar values remain preserved in the raw response but
+do not enter the frozen detector.

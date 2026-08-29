@@ -55,7 +55,7 @@ from historical.gannon_multipoint_audit import (
     request_cdas_text,
 )
 
-CONSUMER_VERSION = "1.0.0"
+CONSUMER_VERSION = "1.0.1"
 MINUTES_PER_DAY = 1440
 DEFAULT_CONTRACT = Path("config/gannon_holdout_v2_consumer.v1.json")
 
@@ -308,6 +308,59 @@ def _iso(value: pd.Timestamp) -> str:
     return value.isoformat().replace("+00:00", "Z")
 
 
+def canonical_magnitude_provenance(mission: str) -> dict[str, Any]:
+    """Describe exactly how canonical |B| is constructed for one source."""
+
+    records: dict[str, dict[str, Any]] = {
+        "DSCOVR": {
+  "dataset_id": "DSCOVR_H0_MAG",
+  "component_source": "B1GSE",
+  "component_columns": [
+      "resolved B1GSE Bx GSE component",
+      "resolved B1GSE By GSE component",
+      "resolved B1GSE Bz GSE component",
+  ],
+  "provider_reported_magnitude_parameter": None,
+  "provider_reported_magnitude_role": "NOT_PRESENT_IN_REQUEST",
+        },
+        "ACE": {
+  "dataset_id": "AC_H0_MFI",
+  "component_source": "BGSEc",
+  "component_columns": ["BGSEc_x", "BGSEc_y", "BGSEc_z"],
+  "provider_reported_magnitude_parameter": "Magnitude",
+  "provider_reported_magnitude_role": "AUDIT_ONLY",
+        },
+        "WIND": {
+  "dataset_id": "WI_H0_MFI",
+  "component_source": "B3GSE",
+  "component_columns": ["B3GSE_x", "B3GSE_y", "B3GSE_z"],
+  "provider_reported_magnitude_parameter": "B3F1",
+  "provider_reported_magnitude_role": "AUDIT_ONLY",
+        },
+    }
+    if mission not in records:
+        raise HoldoutConsumerError(
+  f"unsupported canonical magnitude provenance mission: {mission}"
+        )
+    return {
+        **records[mission],
+        "coordinate_frame": "GSE",
+        "canonical_quantity": "B_mag_nT",
+        "provider_reported_magnitude_used_for_canonical_B": False,
+        "operation_order": [
+  "average native vector components within each canonical UTC minute",
+  "calculate Euclidean norm from the three component means",
+        ],
+        "formula": (
+  "B_mag_nT = sqrt(mean(Bx_GSE)^2 + mean(By_GSE)^2 + "
+  "mean(Bz_GSE)^2)"
+        ),
+        "nonhomologous_source_warning": (
+  "provider scalar magnitude fields are retained only for source audit; "
+  "they are not averaged into or substituted for canonical B_mag_nT"
+        ),
+    }
+
 def _slice_analysis(frame: pd.DataFrame, window: dict[str, pd.Timestamp]) -> pd.DataFrame:
     output = frame.copy()
     output["time"] = pd.to_datetime(output["time"], format="ISO8601", utc=True, errors="coerce")
@@ -363,6 +416,7 @@ def retrieve_dscovr(
         "variables": source["variables"],
         "coordinate_frame": "GSE",
         "canonicalization": metrics,
+        "canonical_magnitude_provenance": canonical_magnitude_provenance("DSCOVR"),
     }
     return standardized, quarantine, metadata
 
@@ -403,6 +457,10 @@ def retrieve_ace(
             detector["magnitude_change_threshold_fraction"]
         ),
     )
+    metadata = {
+        **metadata,
+        "canonical_magnitude_provenance": canonical_magnitude_provenance("ACE"),
+    }
     return _slice_analysis(canonical, window), quarantine, metadata
 
 
@@ -447,6 +505,10 @@ def retrieve_wind(
             detector["magnitude_change_threshold_fraction"]
         ),
     )
+    metadata = {
+        **metadata,
+        "canonical_magnitude_provenance": canonical_magnitude_provenance("WIND"),
+    }
     return _slice_analysis(canonical, window), quarantine, metadata
 
 
@@ -888,6 +950,11 @@ def score_interval(
         "primary_clustering_hypothesis": contract[
             "primary_clustering_hypothesis"
         ],
+        "source_products": contract["source_products"],
+        "canonical_magnitude_provenance": {
+            mission: canonical_magnitude_provenance(mission)
+            for mission in ("DSCOVR", "ACE", "WIND")
+        },
         "source_status": {},
         "geometry_state": "CLOSED",
         "geometry_calculated": False,
