@@ -1,0 +1,56 @@
+{
+  "contract_id": "NVCPP-GANNON-MAG-HARD-NULLS-v1",
+  "contract_version": "1.0.0",
+  "gate_density_contract": {
+    "contract_id": "NVCPP-GANNON-MAG-GATE-DENSITY-v1",
+    "contract_version": "1.0.0",
+    "rotation_threshold_degrees": 45.0,
+    "magnitude_change_threshold_fraction": 0.25,
+    "canonical_cadence_seconds": 60,
+    "support_half_window_minutes": 15
+  },
+  "circular_shift_null": {
+    "iterations": 5000,
+    "seed": 20240511,
+    "day_minutes": 1440,
+    "minimum_pairwise_separation_minutes": 16,
+    "support_half_window_minutes": 15,
+    "support_radii_minutes": [1, 2, 3, 5, 10, 15],
+    "strongest_span_threshold_minutes": 3,
+    "candidate_minute_of_day": 659,
+    "shift_target_series": ["ACE", "WIND"],
+    "shift_semantics": "circularly rotate complete gate, score, gap, and evaluability sequences; DSCOVR anchors remain fixed",
+    "pairwise_constraint": "DSCOVR-to-ACE, DSCOVR-to-Wind, and ACE-to-Wind circular separations all at least 16 minutes"
+  },
+  "mismatched_day_null": {
+    "base_day_utc": "2024-05-11T00:00:00Z",
+    "ace_day_offsets": [3, 11, 23],
+    "wind_day_offsets": [5, 17, 29],
+    "selection_rule": "fixed nonzero prime-number day offsets declared before telemetry retrieval",
+    "pairing": "cartesian_product",
+    "minimum_evaluable_rows_per_day": 1360,
+    "support_half_window_minutes": 15,
+    "support_radii_minutes": [1, 2, 3, 5, 10, 15],
+    "strongest_span_threshold_minutes": 3,
+    "candidate_minute_of_day": 659,
+    "alignment": "minute-of-UTC-day only; dates remain recorded and are not treated as simultaneous"
+  },
+  "result_policy": {
+    "geometry_allowed_before_event_class_controls": false,
+    "quiet_moderate_isolated_controls_required_for_complete_background": true,
+    "threshold_retuning_allowed": false,
+    "common_surface_claim_allowed": false
+  },
+  "interpretation_limits": [
+    "hard-null controls preserve the frozen 45-degree/25-percent gate and timing radii",
+    "circular shifts preserve each series' autocorrelation and gate clustering but impose a periodic day boundary",
+    "mismatched-day controls break simultaneity but may differ in activity level",
+    "empirical tail fractions are conditional on these control constructions and are not independent-minute probabilities",
+    "quiet, moderate, and isolated-structure event-class controls remain required",
+    "a low empirical tail fraction does not prove one common discontinuity",
+    "spacecraft geometry, discontinuity normals, and propagation are not evaluated",
+    "GSE vector rotation is not a GSM clock-angle or geoeffectiveness claim",
+    "no interpolation or forward fill is permitted",
+    "negative and mixed results are first-class outputs"
+  ]
+}
