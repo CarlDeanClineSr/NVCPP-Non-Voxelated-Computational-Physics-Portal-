@@ -1,0 +1,91 @@
+name: Install strict Gannon CDAS parser
+
+on:
+  push:
+    branches:
+      - feature/gannon-multipoint-v1
+    paths:
+      - ".github/workflows/patch_gannon_cdas_parser_v2.yml"
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: feature/gannon-multipoint-v1
+          fetch-depth: 0
+      - name: Apply exact parser repair
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          from pathlib import Path
+
+          path = Path("historical/gannon_multipoint_audit.py")
+          text = path.read_text(encoding="utf-8")
+
+          old_import = "import platform\nfrom datetime import datetime, timezone"
+          new_import = "import platform\nimport re\nfrom datetime import datetime, timezone"
+          if text.count(old_import) != 1:
+              raise SystemExit("import patch did not match exactly once")
+          text = text.replace(old_import, new_import)
+
+          old_detector = (
+              "    for index, line in enumerate(lines):\n"
+              "        if len(line) >= 10 and line[2:3] == \"-\" and line[5:6] == \"-\":\n"
+              "            first_data = index\n"
+              "            break\n"
+          )
+          new_detector = (
+              "    timestamp_pattern = re.compile(\n"
+              "        r\"^\\d{2}-\\d{2}-\\d{4}\\s+\\d{2}:\\d{2}:\\d{2}\\.\\d+$\"\n"
+              "    )\n"
+              "    for index, line in enumerate(lines):\n"
+              "        first_field = re.split(r\"\\s{2,}\", line.strip(), maxsplit=1)[0]\n"
+              "        if timestamp_pattern.fullmatch(first_field):\n"
+              "            first_data = index\n"
+              "            break\n"
+          )
+          if text.count(old_detector) != 1:
+              raise SystemExit("data-row detector patch did not match exactly once")
+          text = text.replace(old_detector, new_detector)
+
+          old_parse = (
+              "    frame[\"time\"] = pd.to_datetime(\n"
+              "        frame[\"time\"],\n"
+              "        dayfirst=True,\n"
+              "        utc=True,\n"
+              "        errors=\"coerce\",\n"
+              "    )\n"
+          )
+          new_parse = (
+              "    frame[\"time\"] = pd.to_datetime(\n"
+              "        frame[\"time\"],\n"
+              "        format=\"%d-%m-%Y %H:%M:%S.%f\",\n"
+              "        utc=True,\n"
+              "        errors=\"coerce\",\n"
+              "    )\n"
+          )
+          if text.count(old_parse) != 1:
+              raise SystemExit("timestamp parse patch did not match exactly once")
+          text = text.replace(old_parse, new_parse)
+          path.write_text(text, encoding="utf-8")
+          PY
+      - name: Install dependencies and run focused tests
+        run: |
+          python -m pip install -r requirements.txt
+          python -m pytest -q tests/test_gannon_cdas_parser.py tests/test_gannon_multipoint.py
+      - name: Commit source repair and remove one-time workflows
+        run: |
+          rm -f .github/workflows/patch_gannon_cdas_parser.yml
+          rm -f .github/workflows/patch_gannon_cdas_parser_v2.yml
+          git config user.name "NVCPP Audit Patcher"
+          git config user.email "actions@users.noreply.github.com"
+          git add historical/gannon_multipoint_audit.py tests/test_gannon_cdas_parser.py .github/workflows
+          git commit -m "repair: require numeric CDAS timestamps"
+          git push origin HEAD:feature/gannon-multipoint-v1
