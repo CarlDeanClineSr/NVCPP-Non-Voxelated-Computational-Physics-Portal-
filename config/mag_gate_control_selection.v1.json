@@ -5,10 +5,10 @@
     "provider": "NASA CDAWeb HAPI",
     "dataset_id": "OMNI_HRO2_1MIN",
     "parameters": [
+      "percent_interp",
       "F",
       "flow_speed",
-      "SYM_H",
-      "percent_interp"
+      "SYM_H"
     ],
     "role": "interval selection only; never substituted for spacecraft-specific MAG input"
   },
