@@ -24,7 +24,7 @@ jobs:
           ref: feature/gannon-v2-holdout-registry
           fetch-depth: 0
 
-      - name: Add pre-MAG catalog coverage boundary
+      - name: Bound the late mission era to independent catalog coverage
         shell: bash
         run: |
           set -euo pipefail
@@ -32,140 +32,78 @@ jobs:
           import json
           from pathlib import Path
 
+          cutoff = "2026-07-01T00:00:00Z"
           config_path = Path("config/gannon_holdout_v2_selection.v1.json")
           config = json.loads(config_path.read_text(encoding="utf-8"))
-          rules = config["global_rules"]
-          rules["selection_stop_utc_exclusive"] = "2026-07-01T00:00:00Z"
-          rules["catalog_coverage_policy"] = (
-              "Every selected interval reference/start must precede 2026-07-01T00:00:00Z, "
-              "a frozen boundary inside the Richardson-Cane catalog coverage available at selection time; "
-              "absence of a catalog event beyond this boundary may not be interpreted as a quiet day."
+
+          late = [
+              era for era in config["mission_eras"]
+              if era["id"] == "ERA_DSCOVR_ACE_WIND_LATE_2025_2026"
+          ]
+          if len(late) != 1:
+              raise SystemExit(f"expected one late mission era; found {len(late)}")
+          late[0]["stop_utc"] = cutoff
+          late[0]["availability_warning"] = (
+              "The prospective registry is frozen only through 2026-06-30, inside "
+              "the independent event-catalog coverage available at selection time. "
+              "Actual MAG availability is tested later; a missing mission becomes "
+              "INCOMPLETE_MULTIPOINT or ERA_ACE_UNAVAILABLE."
           )
+
+          rules = config["global_rules"]
+          rules["catalog_coverage_stop_utc_exclusive"] = cutoff
+          rules["catalog_coverage_policy"] = (
+              "Every selected interval reference/start must precede 2026-07-01T00:00:00Z. "
+              "A missing catalog event after the source coverage boundary is not evidence "
+              "of an event-free quiet or moderate day."
+          )
+
           amendments = config.setdefault("catalog_feasibility_amendments", [])
-          if not any(item.get("amendment_id") == "CATALOG_COVERAGE_002" for item in amendments):
-              amendments.append(
-                  {
-                      "amendment_id": "CATALOG_COVERAGE_002",
-                      "state_when_applied": "BEFORE_FINAL_REGISTRY_FREEZE_AND_BEFORE_ANY_SPACECRAFT_MAG_RETRIEVAL",
-                      "independent_catalog_observation": (
-                          "The candidate selector could otherwise choose GFZ Kp days after the latest independent "
-                          "Richardson-Cane event-catalog coverage. A missing catalog event outside catalog coverage "
-                          "is not evidence of an event-free day."
-                      ),
-                      "change": "Add exclusive selection cutoff 2026-07-01T00:00:00Z for every class.",
-                      "total_class_target_changed": False,
-                      "class_era_targets_changed": False,
-                      "detector_changed": False,
-                      "primary_clustering_hypothesis_changed": False,
-                      "timing_radii_changed": False,
-                      "magnetic_data_inspected": False,
-                      "gate_outputs_inspected": False,
-                      "candidate_scores_inspected": False,
-                  }
-              )
+          amendments = [
+              item for item in amendments
+              if item.get("amendment_id") != "CATALOG_COVERAGE_002"
+          ]
+          amendments.append(
+              {
+                  "amendment_id": "CATALOG_COVERAGE_002",
+                  "state_when_applied": "BEFORE_FINAL_REGISTRY_FREEZE_AND_BEFORE_ANY_SPACECRAFT_MAG_RETRIEVAL",
+                  "independent_catalog_observation": (
+                      "The first catalog-only candidate list could select a GFZ Kp day "
+                      "after the independent Richardson-Cane event catalog coverage. "
+                      "Absence of a catalog event outside source coverage cannot support "
+                      "an event-free classification."
+                  ),
+                  "change": (
+                      "End the late 2025-2026 mission era at the exclusive cutoff "
+                      "2026-07-01T00:00:00Z."
+                  ),
+                  "total_class_target_changed": False,
+                  "class_era_targets_changed": False,
+                  "detector_changed": False,
+                  "primary_clustering_hypothesis_changed": False,
+                  "timing_radii_changed": False,
+                  "magnetic_data_inspected": False,
+                  "gate_outputs_inspected": False,
+                  "candidate_scores_inspected": False,
+              }
+          )
+          config["catalog_feasibility_amendments"] = amendments
           config["selection_contract_version"] = "1.0.2-catalog-coverage"
           config_path.write_text(json.dumps(config, indent=2) + "\n", encoding="utf-8")
 
-          source_path = Path("historical/select_gannon_v2_holdout_registry.py")
-          lines = source_path.read_text(encoding="utf-8").splitlines()
-
-          def function_bounds(name: str) -> tuple[int, int]:
-              start_matches = [
-                  index for index, line in enumerate(lines)
-                  if line.startswith(f"def {name}(")
-              ]
-              if len(start_matches) != 1:
-                  raise SystemExit(f"expected one function {name}; found {len(start_matches)}")
-              start = start_matches[0]
-              end = next(
-                  (index for index in range(start + 1, len(lines)) if lines[index].startswith("def ")),
-                  len(lines),
-              )
-              return start, end
-
-          def unique_index(fragment: str, start: int, end: int) -> int:
-              matches = [
-                  index for index in range(start, end)
-                  if fragment in lines[index]
-              ]
-              if len(matches) != 1:
-                  raise SystemExit(
-                      f"expected one {fragment!r} in lines {start}:{end}; found {len(matches)}"
-                  )
-              return matches[0]
-
-          # Kp-selected quiet/moderate days.
-          start, end = function_bounds("build_kp_intervals")
-          index = unique_index('stop_year = int(rules["selection_year_stop_inclusive"])', start, end)
-          indent = lines[index][: len(lines[index]) - len(lines[index].lstrip())]
-          lines.insert(index + 1, f'{indent}selection_stop = to_utc(rules["selection_stop_utc_exclusive"])')
-          end += 1
-          index = unique_index('~kp["date_utc"].dt.year.isin(excluded_years)', start, end)
-          indent = lines[index][: len(lines[index]) - len(lines[index].lstrip())]
-          lines.insert(index + 1, f'{indent}& (kp["date_utc"] < selection_stop)')
-
-          # IPShocks-selected isolated events.
-          start, end = function_bounds("build_shock_intervals")
-          index = unique_index('excluded_years = set(int(value) for value in rules["excluded_years"])', start, end)
-          indent = lines[index][: len(lines[index]) - len(lines[index].lstrip())]
-          lines.insert(index + 1, f'{indent}selection_stop = to_utc(rules["selection_stop_utc_exclusive"])')
-          end += 1
-          index = unique_index('~candidates["reference_time_utc"].map(', start, end)
-          indent = lines[index][: len(lines[index]) - len(lines[index].lstrip())]
-          lines[index:index + 1] = [
-              f'{indent}(candidates["reference_time_utc"] < selection_stop)',
-              f'{indent}& ~candidates["reference_time_utc"].map(',
-          ]
-
-          # Richardson-Cane-selected complex intervals.
-          start, end = function_bounds("build_complex_intervals")
-          index = unique_index('excluded_years = set(int(value) for value in rules["excluded_years"])', start, end)
-          indent = lines[index][: len(lines[index]) - len(lines[index].lstrip())]
-          lines.insert(index + 1, f'{indent}selection_stop = to_utc(rules["selection_stop_utc_exclusive"])')
-          end += 1
-          index = unique_index('~candidates["first_disturbance_utc"].map(', start, end)
-          indent = lines[index][: len(lines[index]) - len(lines[index].lstrip())]
-          lines[index:index + 1] = [
-              f'{indent}(candidates["first_disturbance_utc"] < selection_stop)',
-              f'{indent}& ~candidates["first_disturbance_utc"].map(',
-          ]
-
-          # Final registry validator.
-          start, end = function_bounds("validate_registry")
-          loop_index = unique_index("for item in intervals:", start, end)
-          loop_indent = lines[loop_index][: len(lines[loop_index]) - len(lines[loop_index].lstrip())]
-          lines.insert(
-              loop_index,
-              f'{loop_indent}selection_stop = to_utc(contract["global_rules"]["selection_stop_utc_exclusive"])',
-          )
-          end += 1
-          condition_index = unique_index('if to_utc(item["start_utc"]).year == 2024:', start, end)
-          condition_indent = lines[condition_index][: len(lines[condition_index]) - len(lines[condition_index].lstrip())]
-          body_indent = condition_indent + "    "
-          original_raise = lines[condition_index + 1]
-          lines[condition_index:condition_index + 2] = [
-              f'{condition_indent}start = to_utc(item["start_utc"])',
-              f'{condition_indent}if start.year == 2024:',
-              original_raise,
-              f'{condition_indent}if start >= selection_stop:',
-              f'{body_indent}raise HoldoutSelectionError(',
-              f'{body_indent}    f"catalog coverage boundary exceeded: {{item[\'interval_id\']}}"',
-              f'{body_indent})',
-          ]
-
-          source_path.write_text("\n".join(lines) + "\n", encoding="utf-8")
-
           test_path = Path("tests/test_gannon_v2_holdout_registry_selection.py")
-          test_text = test_path.read_text(encoding="utf-8")
+          text = test_path.read_text(encoding="utf-8")
           marker = '    assert selection["global_rules"]["excluded_years"] == [2024]\n'
-          addition = (
+          additions = (
               marker
-              + '    assert selection["global_rules"]["selection_stop_utc_exclusive"] == "2026-07-01T00:00:00Z"\n'
+              + '    assert selection["global_rules"]["catalog_coverage_stop_utc_exclusive"] == "2026-07-01T00:00:00Z"\n'
+              + '    late = next(era for era in selection["mission_eras"] if era["id"] == "ERA_DSCOVR_ACE_WIND_LATE_2025_2026")\n'
+              + '    assert late["stop_utc"] == "2026-07-01T00:00:00Z"\n'
           )
-          if test_text.count(marker) != 1:
-              raise SystemExit("could not locate selection-contract test marker")
-          test_path.write_text(test_text.replace(marker, addition), encoding="utf-8")
-          print("Catalog coverage boundary added without changing detector or clustering fields")
+          if text.count(marker) != 1:
+              raise SystemExit("could not locate unique selection-contract test marker")
+          test_path.write_text(text.replace(marker, additions), encoding="utf-8")
+          print("Catalog coverage bounded without changing detector or clustering fields")
           PY
 
       - name: Install dependencies and run focused invariants
@@ -177,7 +115,7 @@ jobs:
             tests/test_gannon_v2_holdout_registry_selection.py
           python -m pytest -q tests/test_gannon_v2_holdout_registry_selection.py
 
-      - name: Commit catalog coverage repair and remove one-time workflow
+      - name: Commit catalog coverage bound and remove one-time workflow
         shell: bash
         run: |
           set -euo pipefail
@@ -186,7 +124,6 @@ jobs:
           git rm .github/workflows/repair_gannon_v2_catalog_coverage.yml
           git add \
             config/gannon_holdout_v2_selection.v1.json \
-            historical/select_gannon_v2_holdout_registry.py \
             tests/test_gannon_v2_holdout_registry_selection.py
           git commit -m "science: bound V2 selection to independent catalog coverage"
           git push origin HEAD:feature/gannon-v2-holdout-registry
