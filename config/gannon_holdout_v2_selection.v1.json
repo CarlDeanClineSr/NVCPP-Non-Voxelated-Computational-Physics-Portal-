@@ -1,12 +1,28 @@
 {
   "selection_contract_id": "NVCPP-GANNON-HOLDOUT-V2-CATALOG-SELECTION-v1",
-  "selection_contract_version": "1.0.0",
+  "selection_contract_version": "1.0.1-catalog-feasibility",
   "status": "FROZEN_BEFORE_HOLDOUT_MAG_RETRIEVAL",
   "parent_preregistration": {
     "path": "config/gannon_holdout_v2.preregistered.json",
     "contract_id": "NVCPP-GANNON-HOLDOUT-CALIBRATION-v2",
     "contract_version": "2.0.0-preregistered"
   },
+  "catalog_feasibility_amendments": [
+    {
+      "amendment_id": "CATALOG_FEASIBILITY_001",
+      "state_when_applied": "BEFORE_ANY_REGISTRY_DATE_LIST_AND_BEFORE_ANY_SPACECRAFT_MAG_RETRIEVAL",
+      "independent_catalog_observation": "Under the frozen Richardson-Cane 48-hour clustering rule, the 2016-2019 era contains only two eligible complex clusters; the original era quota requested three.",
+      "change": "COMPLEX_INTERACTING_EJECTA era targets changed from 3/4/3 to 2/5/3 for 2016-2019, 2020-2023, and 2025-2026 respectively.",
+      "total_class_target_changed": false,
+      "minimum_intervals_per_class_changed": false,
+      "detector_changed": false,
+      "primary_clustering_hypothesis_changed": false,
+      "timing_radii_changed": false,
+      "magnetic_data_inspected": false,
+      "gate_outputs_inspected": false,
+      "candidate_scores_inspected": false
+    }
+  ],
   "sources": {
     "gfz_kp": {
       "url": "https://kp.gfz.de/fileadmin/files_for_gfz_cms/Kp_ap_Ap_SN_F107_since_1932.txt",
@@ -99,17 +115,17 @@
         "ERA_DSCOVR_ACE_WIND_2020_2023": 6,
         "ERA_DSCOVR_ACE_WIND_LATE_2025_2026": 0
       },
-      "eligibility": "IPShocks fast-forward L1 shock cluster with at least one named ACE, Wind, or DSCOVR detection and at least 72 hours to the nearest other L1 shock cluster and Richardson-Cane disturbance",
+      "eligibility": "IPShocks fast-forward L1 shock cluster with at least one named ACE, Wind, or DSCOVR detection and at least 72 hours to the nearest other L1 shock cluster and nearest other Richardson-Cane disturbance; a Richardson-Cane entry within 12 hours is treated as the same cataloged event rather than a second event",
       "clustering": "catalog rows separated by no more than 90 minutes are one shock cluster",
-      "ranking": "within each era sort by nearest-event separation descending, number of named spacecraft descending, then reference time ascending",
+      "ranking": "within each era sort by nearest-other-event separation descending, number of named spacecraft descending, then reference time ascending",
       "interval": "24 hours centered on the median catalog shock time",
       "warning": "catalog-isolated is not equivalent to structure-free"
     },
     "COMPLEX_INTERACTING_EJECTA": {
       "target_count": 10,
       "era_targets": {
-        "ERA_DSCOVR_ACE_WIND_2016_2019": 3,
-        "ERA_DSCOVR_ACE_WIND_2020_2023": 4,
+        "ERA_DSCOVR_ACE_WIND_2016_2019": 2,
+        "ERA_DSCOVR_ACE_WIND_2020_2023": 5,
         "ERA_DSCOVR_ACE_WIND_LATE_2025_2026": 3
       },
       "eligibility": "Richardson-Cane cluster containing at least two disturbance/ICME entries within 48 hours or a catalog row linked to at least two distinct LASCO CME times",
