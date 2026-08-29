@@ -1,0 +1,239 @@
+name: Freeze exact Gannon V2 holdout registry artifact
+
+on:
+  push:
+    branches:
+      - feature/gannon-v2-holdout-registry
+    paths:
+      - ".github/workflows/freeze_gannon_v2_holdout_registry.yml"
+
+permissions:
+  actions: read
+  contents: write
+
+concurrency:
+  group: freeze-gannon-v2-holdout-registry
+  cancel-in-progress: false
+
+jobs:
+  freeze:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: feature/gannon-v2-holdout-registry
+          fetch-depth: 0
+
+      - name: Download the exact successful catalog-selection artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: nvcpp-gannon-v2-holdout-registry-selection
+          path: /tmp/gannon-v2-selection
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          run-id: 33260766315
+
+      - name: Verify and install only compact frozen evidence
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          from __future__ import annotations
+
+          import hashlib
+          import json
+          import shutil
+          from collections import Counter
+          from datetime import datetime, timezone
+          from pathlib import Path
+
+          source = Path("/tmp/gannon-v2-selection")
+          destination = Path("provenance/gannon_v2_holdout_registry")
+          destination.mkdir(parents=True, exist_ok=True)
+
+          required = {
+              "gannon_v2_holdout_registry.v1.json",
+              "gannon_v2_holdout_registry.v1.csv",
+              "selection_manifest.json",
+          }
+          names = {path.name for path in source.iterdir() if path.is_file()}
+          if not required.issubset(names):
+              raise SystemExit(
+                  f"selection artifact lacks compact files: {sorted(required - names)}"
+              )
+
+          registry_path = source / "gannon_v2_holdout_registry.v1.json"
+          csv_path = source / "gannon_v2_holdout_registry.v1.csv"
+          manifest_path = source / "selection_manifest.json"
+
+          def sha256(path: Path) -> str:
+              return hashlib.sha256(path.read_bytes()).hexdigest()
+
+          expected_registry_sha = (
+              "db6b3af9b1d6a9a6f5752b3fbe6447bab9f0c79c156962453113f5ed08a17c61"
+          )
+          if sha256(registry_path) != expected_registry_sha:
+              raise SystemExit(
+                  f"registry drifted: {sha256(registry_path)} != {expected_registry_sha}"
+              )
+
+          registry = json.loads(registry_path.read_text(encoding="utf-8"))
+          manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+          intervals = registry.get("intervals", [])
+          counts = Counter(item["class"] for item in intervals)
+          eras = Counter(item["mission_era"] for item in intervals)
+          expected_classes = {
+              "QUIET_SOLAR_WIND",
+              "MODERATE_VARIABILITY",
+              "ISOLATED_SHOCK_OR_SHEATH",
+              "COMPLEX_INTERACTING_EJECTA",
+          }
+          if len(intervals) != 40 or set(counts) != expected_classes:
+              raise SystemExit(f"unexpected registry population: {len(intervals)}, {dict(counts)}")
+          if any(counts[name] != 10 for name in expected_classes):
+              raise SystemExit(f"registry is not 10 per class: {dict(counts)}")
+          if registry.get("status") != "FROZEN_BEFORE_HOLDOUT_MAG_RETRIEVAL":
+              raise SystemExit("artifact registry status is not frozen")
+          if registry.get("geometry_state") != "CLOSED":
+              raise SystemExit("geometry was opened")
+          if registry.get("physical_interpretation_reopened") is not False:
+              raise SystemExit("development interpretation was reopened")
+          for item in intervals:
+              if item["start_utc"].startswith("2024-"):
+                  raise SystemExit(f"V1 year leaked: {item['interval_id']}")
+              if item["start_utc"] >= "2026-07-01T00:00:00":
+                  raise SystemExit(f"catalog coverage exceeded: {item['interval_id']}")
+              for key in (
+                  "spacecraft_mag_retrieved_before_freeze",
+                  "gate_outputs_inspected_before_freeze",
+                  "candidate_scores_inspected_before_freeze",
+                  "replacement_after_later_failure_allowed",
+              ):
+                  if item.get(key) is not False:
+                      raise SystemExit(f"selection firewall failed at {item['interval_id']}:{key}")
+              if item.get("initial_retrieval_state") != "NOT_ATTEMPTED_REGISTRY_ONLY":
+                  raise SystemExit(f"retrieval already attempted: {item['interval_id']}")
+
+          expected_sources = {
+              "gfz_kp": "245ab815498a6e9488685833d5d9225fb4e4d1aecce2f6739e6c82c4625f3348",
+              "ipshocks": "b21364f62b1ac2c1f4563032ce4c2aab33cd3e6497ff58788e9438b3d4e0c1b4",
+              "richardson_cane": "af03abef60e042ec405a82e088ba6c8033c63fadf31cedfeeb9d88cec729f3e5",
+          }
+          for key, expected in expected_sources.items():
+              actual = registry["source_metadata"][key]["sha256"]
+              if actual != expected:
+                  raise SystemExit(f"source hash drift at {key}: {actual} != {expected}")
+
+          for path in (registry_path, csv_path, manifest_path):
+              shutil.copy2(path, destination / path.name)
+
+          compact = {}
+          for name in sorted(required):
+              path = destination / name
+              compact[name] = {
+                  "sha256": sha256(path),
+                  "size_bytes": path.stat().st_size,
+              }
+
+          inventory = {
+              "status": "FROZEN_BEFORE_HOLDOUT_MAG_RETRIEVAL",
+              "registry_id": registry["registry_id"],
+              "registry_version": registry["registry_version"],
+              "frozen_utc": datetime.now(timezone.utc).isoformat(),
+              "selection_workflow": {
+                  "name": "Gannon V2 Catalog-Only Holdout Registry Selection",
+                  "run_id": 33260766315,
+                  "artifact_id": 9717190524,
+                  "artifact_name": "nvcpp-gannon-v2-holdout-registry-selection",
+                  "artifact_digest": "sha256:1ce06de9b3fd105dc43510ba83da54ec9265f6efea2027e4df9823aad75c4248",
+              },
+              "compact_files": compact,
+              "raw_catalogs": {
+                  key: {
+                      "requested_url": value["requested_url"],
+                      "resolved_url": value["resolved_url"],
+                      "sha256": value["sha256"],
+                      "size_bytes": value["size_bytes"],
+                      "record": value.get("record"),
+                      "committed_to_git": False,
+                      "preserved_in_actions_artifact": True,
+                  }
+                  for key, value in registry["source_metadata"].items()
+              },
+              "counts": {
+                  "intervals_total": len(intervals),
+                  "by_class": dict(counts),
+                  "by_mission_era": dict(eras),
+              },
+              "selection_firewall": registry["selection_firewall"],
+              "geometry_state": registry["geometry_state"],
+              "physical_interpretation_reopened": registry[
+                  "physical_interpretation_reopened"
+              ],
+              "later_retrieval_policy": {
+                  "failed_interval_state": "INCOMPLETE_MULTIPOINT",
+                  "late_era_ace_failure_state": "ERA_ACE_UNAVAILABLE",
+                  "replacement_after_failure_allowed": False,
+              },
+          }
+
+          rows = sorted(intervals, key=lambda item: (item["class"], item["start_utc"]))
+          readme = [
+              "# Gannon V2 prospective holdout registry",
+              "",
+              "Status: **FROZEN_BEFORE_HOLDOUT_MAG_RETRIEVAL**",
+              "",
+              "Selection used only GFZ Kp, IPShocks, and Richardson–Cane catalog evidence.",
+              "No DSCOVR, ACE, or Wind MAG product, gate output, candidate score, or clustering output was read.",
+              "",
+              "The V1 detector and Gannon-inspired 2/3-minute clustering statistic remain unchanged.",
+              "A later missing source remains `INCOMPLETE_MULTIPOINT` or `ERA_ACE_UNAVAILABLE`; dates are not replaced.",
+              "",
+              f"Registry SHA-256: `{expected_registry_sha}`",
+              "",
+              "## Frozen intervals",
+              "",
+              "| Class | Interval ID | Start UTC | Stop UTC | Mission era |",
+              "|---|---|---|---|---|",
+          ]
+          for item in rows:
+              readme.append(
+                  f"| {item['class']} | `{item['interval_id']}` | "
+                  f"{item['start_utc']} | {item['stop_utc']} | "
+                  f"`{item['mission_era']}` |"
+              )
+          readme.extend(
+              [
+                  "",
+                  "## Counts",
+                  "",
+                  "```json",
+                  json.dumps(inventory["counts"], indent=2),
+                  "```",
+                  "",
+                  "Raw catalog bytes are retained in the immutable Actions artifact, not Git.",
+              ]
+          )
+          readme_path = destination / "README.md"
+          readme_path.write_text("\n".join(readme) + "\n", encoding="utf-8")
+          inventory["compact_files"]["README.md"] = {
+              "sha256": sha256(readme_path),
+              "size_bytes": readme_path.stat().st_size,
+          }
+          (destination / "FROZEN_INVENTORY.json").write_text(
+              json.dumps(inventory, indent=2, sort_keys=True) + "\n",
+              encoding="utf-8",
+          )
+          print(json.dumps(inventory["counts"], indent=2))
+          PY
+
+      - name: Commit the frozen date list and remove this one-time workflow
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "NVCPP Holdout Registry Freeze"
+          git config user.email "actions@users.noreply.github.com"
+          git rm .github/workflows/freeze_gannon_v2_holdout_registry.yml
+          git add provenance/gannon_v2_holdout_registry
+          git commit -m "science: freeze Gannon V2 catalog-only holdout dates"
+          git push origin HEAD:feature/gannon-v2-holdout-registry
