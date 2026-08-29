@@ -1,0 +1,46 @@
+name: Gannon V2 Holdout Preregistration Guard
+
+on:
+  pull_request:
+    paths:
+      - "config/gannon_holdout_v2.preregistered.json"
+      - "tests/test_gannon_holdout_v2_preregistration.py"
+      - ".github/workflows/gannon_v2_preregistration_guard.yml"
+  push:
+    branches:
+      - feature/gannon-v2-holdout-preregistration
+    paths:
+      - "config/gannon_holdout_v2.preregistered.json"
+      - "tests/test_gannon_holdout_v2_preregistration.py"
+      - ".github/workflows/gannon_v2_preregistration_guard.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  guard:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Validate JSON syntax
+        run: python -m json.tool config/gannon_holdout_v2.preregistered.json >/dev/null
+      - name: Run preregistration invariants
+        run: python -m pytest -q tests/test_gannon_holdout_v2_preregistration.py
+      - name: Prove this stage does not retrieve holdout MAG
+        shell: bash
+        run: |
+          set -euo pipefail
+          test ! -e runs/holdout/gannon_v2
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          data = json.loads(Path("config/gannon_holdout_v2.preregistered.json").read_text())
+          if data["status"] != "PREREGISTERED_BEFORE_HOLDOUT_MAG_INSPECTION":
+              raise SystemExit("V2 preregistration status changed")
+          if data["geometry_gate"]["default_state"] != "CLOSED":
+              raise SystemExit("geometry opened during preregistration")
+          print("V2 contract frozen; no holdout MAG retrieval performed by this workflow")
+          PY
