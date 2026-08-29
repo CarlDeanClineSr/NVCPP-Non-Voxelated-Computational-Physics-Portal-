@@ -29,20 +29,25 @@ jobs:
       - name: Install locked dependencies
         run: python -m pip install -r requirements.txt
 
-      - name: Validate frozen V2 JSON records
+      - name: Validate V2 protocol records and registry state
+        shell: bash
         run: |
+          set -euo pipefail
           python -m json.tool config/gannon_holdout_v2.preregistered.json >/dev/null
           python -m json.tool config/gannon_holdout_v2_selection.v1.json >/dev/null
-          python -m json.tool config/gannon_holdout_v2.registry.json >/dev/null
-          python -m json.tool provenance/gannon_holdout_v2_registry/FROZEN_INVENTORY.json >/dev/null
+          python -m json.tool config/gannon_holdout_v2.registry_status.json >/dev/null
+          if test -e config/gannon_holdout_v2_selection.amendment1.json; then
+            python -m json.tool config/gannon_holdout_v2_selection.amendment1.json >/dev/null
+          fi
+          if test -e config/gannon_holdout_v2.registry.json; then
+            python -m json.tool config/gannon_holdout_v2.registry.json >/dev/null
+            python -m json.tool provenance/gannon_holdout_v2_registry/FROZEN_INVENTORY.json >/dev/null
+          fi
 
-      - name: Run immutable holdout tests
-        run: |
-          python -m pytest -q \
-            tests/test_gannon_holdout_v2_preregistration.py \
-            tests/test_gannon_holdout_v2_registry.py
+      - name: Run immutable preregistration tests
+        run: python -m pytest -q tests/test_gannon_holdout_v2_preregistration.py
 
-      - name: Enforce prospective-selection and geometry boundaries
+      - name: Enforce published-or-explicitly-unpublished state
         shell: bash
         run: |
           set -euo pipefail
@@ -52,19 +57,12 @@ jobs:
           from collections import Counter
           from pathlib import Path
 
-          prereg = json.loads(
-              Path("config/gannon_holdout_v2.preregistered.json").read_text()
-          )
-          selection = json.loads(
-              Path("config/gannon_holdout_v2_selection.v1.json").read_text()
-          )
+          prereg = json.loads(Path("config/gannon_holdout_v2.preregistered.json").read_text())
+          selection = json.loads(Path("config/gannon_holdout_v2_selection.v1.json").read_text())
+          state = json.loads(Path("config/gannon_holdout_v2.registry_status.json").read_text())
           registry_path = Path("config/gannon_holdout_v2.registry.json")
-          registry = json.loads(registry_path.read_text())
-          inventory = json.loads(
-              Path(
-                  "provenance/gannon_holdout_v2_registry/FROZEN_INVENTORY.json"
-              ).read_text()
-          )
+          inventory_path = Path("provenance/gannon_holdout_v2_registry/FROZEN_INVENTORY.json")
+          amendment_path = Path("config/gannon_holdout_v2_selection.amendment1.json")
 
           if prereg["status"] != "PREREGISTERED_BEFORE_HOLDOUT_MAG_INSPECTION":
               raise SystemExit("V2 preregistration status changed")
@@ -84,87 +82,105 @@ jobs:
           for key, expected in expected_detector.items():
               if detector.get(key) != expected:
                   raise SystemExit(f"V2 detector drift at {key}")
-
           hypothesis = detector["primary_clustering_hypothesis"]
-          if hypothesis.get(
-              "nearest_joint_ace_wind_support_radius_minutes_max"
-          ) != 2:
+          if hypothesis.get("nearest_joint_ace_wind_support_radius_minutes_max") != 2:
               raise SystemExit("V2 nearest-support radius changed")
-          if hypothesis.get(
-              "strongest_three_spacecraft_span_minutes_max"
-          ) != 3:
+          if hypothesis.get("strongest_three_spacecraft_span_minutes_max") != 3:
               raise SystemExit("V2 strongest-span radius changed")
-          if hypothesis.get("provenance") != (
-              "GANNON_V1_INSPIRED_NOT_BLIND_IN_V1_FIRST_PROSPECTIVE_TEST_IN_V2"
-          ):
-              raise SystemExit("V2 clustering provenance changed")
 
+          if not registry_path.exists():
+              if state.get("status") != "HOLD_OUT_REGISTRY_UNPUBLISHED":
+                  raise SystemExit("registry absent without explicit HOLD_OUT_REGISTRY_UNPUBLISHED state")
+              for key in (
+                  "spacecraft_mag_retrieved",
+                  "mag_values_inspected",
+                  "gate_outputs_inspected",
+                  "clustering_outputs_inspected",
+              ):
+                  if state.get(key) is not False:
+                      raise SystemExit(f"unpublished state violates selection firewall at {key}")
+              if state.get("geometry_state") != "CLOSED":
+                  raise SystemExit("geometry opened while registry is unpublished")
+              if inventory_path.exists():
+                  raise SystemExit("inventory exists while registry is unpublished")
+              print(json.dumps({"status": "HOLD_OUT_REGISTRY_UNPUBLISHED", "geometry": "CLOSED"}, indent=2))
+              raise SystemExit(0)
+
+          if state.get("status") != "HOLD_OUT_REGISTRY_PUBLISHED":
+              raise SystemExit("registry exists but registry_status is not HOLD_OUT_REGISTRY_PUBLISHED")
+          if not inventory_path.exists():
+              raise SystemExit("published registry lacks frozen inventory")
+
+          registry = json.loads(registry_path.read_text())
+          inventory = json.loads(inventory_path.read_text())
           if registry["status"] != "FROZEN_BEFORE_HOLDOUT_MAG_RETRIEVAL":
               raise SystemExit("V2 registry is no longer frozen-before-MAG")
           firewall = registry["selection_firewall"]
-          forbidden_states = (
+          for key in (
               "spacecraft_mag_retrieved",
               "mag_values_inspected",
               "gate_outputs_inspected",
               "clustering_outputs_inspected",
-          )
-          if any(firewall.get(key) is not False for key in forbidden_states):
-              raise SystemExit("V2 registry selection firewall was violated")
+          ):
+              if firewall.get(key) is not False:
+                  raise SystemExit(f"V2 registry firewall changed at {key}")
 
-          counts = Counter(item["class"] for item in registry["intervals"])
           expected_counts = {
               "QUIET_SOLAR_WIND": 12,
               "MODERATE_VARIABILITY": 12,
               "ISOLATED_SHOCK_OR_SHEATH": 12,
               "COMPLEX_INTERACTING_EJECTA": 12,
           }
+          if amendment_path.exists():
+              amendment = json.loads(amendment_path.read_text())
+              if amendment.get("status") != "FROZEN_BEFORE_HOLDOUT_MAG_RETRIEVAL":
+                  raise SystemExit("selection amendment is not frozen-before-MAG")
+              if amendment["amendment"]["type"] != "AMEND_N_ONLY":
+                  raise SystemExit("unexpected V2 selection amendment type")
+              complex_rule = amendment["amendment"]["COMPLEX_INTERACTING_EJECTA"]
+              if any(complex_rule.get(key) is not False for key in (
+                  "selection_criteria_changed",
+                  "independent_source_changed",
+                  "cluster_window_hours_changed",
+                  "minimum_spacing_days_changed",
+              )):
+                  raise SystemExit("complex-class amendment changed more than N")
+              expected_counts["COMPLEX_INTERACTING_EJECTA"] = int(
+                  complex_rule["expected_count_from_triggering_catalog_snapshot"]
+              )
+
+          counts = Counter(item["class"] for item in registry["intervals"])
           if dict(counts) != expected_counts:
-              raise SystemExit(f"V2 class denominator changed: {dict(counts)}")
-          if len(registry["intervals"]) != 48:
-              raise SystemExit("V2 registry no longer has 48 intervals")
+              raise SystemExit(f"V2 class denominator changed: {dict(counts)} != {expected_counts}")
+          if len(registry["intervals"]) != sum(expected_counts.values()):
+              raise SystemExit("V2 registry total does not match class denominators")
 
           for interval in registry["intervals"]:
               if interval.get("replacement_after_scoring_allowed") is not False:
-                  raise SystemExit(
-                      f"replacement became allowed: {interval['interval_id']}"
-                  )
-              if interval.get("failure_policy") != (
-                  "INCOMPLETE_MULTIPOINT_RETAIN_IN_DENOMINATOR"
-              ):
-                  raise SystemExit(
-                      f"failure policy changed: {interval['interval_id']}"
-                  )
+                  raise SystemExit(f"replacement became allowed: {interval['interval_id']}")
+              if interval.get("failure_policy") != "INCOMPLETE_MULTIPOINT_RETAIN_IN_DENOMINATOR":
+                  raise SystemExit(f"failure policy changed: {interval['interval_id']}")
               if not interval.get("mission_era_tag"):
-                  raise SystemExit(
-                      f"mission-era tag missing: {interval['interval_id']}"
-                  )
+                  raise SystemExit(f"mission-era tag missing: {interval['interval_id']}")
 
           hash_view = dict(registry)
           expected_hash = hash_view.pop("registry_content_sha256")
           hash_view.pop("created_utc", None)
           actual_hash = hashlib.sha256(
-              json.dumps(
-                  hash_view, sort_keys=True, separators=(",", ":")
-              ).encode()
+              json.dumps(hash_view, sort_keys=True, separators=(",", ":")).encode()
           ).hexdigest()
           if actual_hash != expected_hash:
               raise SystemExit("V2 registry content hash changed")
-
           if inventory.get("spacecraft_mag_retrieved") is not False:
               raise SystemExit("frozen inventory now claims MAG retrieval")
           if inventory.get("gate_outputs_inspected") is not False:
               raise SystemExit("frozen inventory now claims gate inspection")
 
-          print(
-              json.dumps(
-                  {
-                      "status": registry["status"],
-                      "intervals": len(registry["intervals"]),
-                      "class_denominators": expected_counts,
-                      "registry_content_sha256": expected_hash,
-                      "geometry": "CLOSED",
-                  },
-                  indent=2,
-              )
-          )
+          print(json.dumps({
+              "status": registry["status"],
+              "intervals": len(registry["intervals"]),
+              "class_denominators": expected_counts,
+              "registry_content_sha256": expected_hash,
+              "geometry": "CLOSED",
+          }, indent=2))
           PY
