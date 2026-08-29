@@ -18,6 +18,7 @@ import io
 import json
 import math
 import platform
+import re
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
@@ -445,8 +446,12 @@ def parse_cdas_rows(
         if line.strip() and not line.lstrip().startswith("#")
     ]
     first_data = None
+    timestamp_pattern = re.compile(
+        r"^\d{2}-\d{2}-\d{4}\s+\d{2}:\d{2}:\d{2}\.\d+$"
+    )
     for index, line in enumerate(lines):
-        if len(line) >= 10 and line[2:3] == "-" and line[5:6] == "-":
+        first_field = re.split(r"\s{2,}", line.strip(), maxsplit=1)[0]
+        if timestamp_pattern.fullmatch(first_field):
             first_data = index
             break
     if first_data is None:
@@ -462,7 +467,7 @@ def parse_cdas_rows(
         raise MultipointAuditError("CDAS text column-count mismatch")
     frame["time"] = pd.to_datetime(
         frame["time"],
-        dayfirst=True,
+        format="%d-%m-%Y %H:%M:%S.%f",
         utc=True,
         errors="coerce",
     )
