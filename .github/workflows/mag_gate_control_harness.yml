@@ -1,0 +1,107 @@
+name: NVCPP Frozen MAG Gate Control Harness
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+      - feature/mag-gate-control-harness-v1
+    paths:
+      - "config/mag_gate_controls.v1.json"
+      - "config/gannon_gate_density.v1.json"
+      - "historical/mag_gate_control_harness.py"
+      - "historical/gannon_gate_density.py"
+      - "historical/gannon_multipoint_audit.py"
+      - "tests/test_mag_gate_control_harness.py"
+      - ".github/workflows/mag_gate_control_harness.yml"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: nvcpp-frozen-mag-gate-controls
+  cancel-in-progress: true
+
+jobs:
+  controls:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - name: Install locked dependencies
+        run: python -m pip install -r requirements.txt
+      - name: Compile and run focused offline tests
+        run: |
+          python -m compileall -q \
+            historical/mag_gate_control_harness.py \
+            tests/test_mag_gate_control_harness.py
+          python -m json.tool config/mag_gate_controls.v1.json >/dev/null
+          python -m json.tool config/gannon_gate_density.v1.json >/dev/null
+          python -m pytest -q tests/test_mag_gate_control_harness.py
+      - name: Run circular-shift and mismatched-day hard controls
+        run: |
+          python -m historical.mag_gate_control_harness \
+            --config config/mag_gate_controls.v1.json \
+            --outdir runs/audits/mag_gate_controls
+      - name: Verify frozen detector and bounded interpretation
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+
+          path = Path("runs/audits/mag_gate_controls/mag_gate_control_manifest.json")
+          data = json.loads(path.read_text())
+          if data.get("status") != "SUCCESS":
+              raise SystemExit(f"control harness status is {data.get('status')!r}")
+          gate = data.get("gate", {})
+          expected = {
+              "canonical_cadence_seconds": 60,
+              "required_previous_offset_seconds": 60,
+              "rotation_threshold_degrees": 45.0,
+              "magnitude_change_threshold_fraction": 0.25,
+              "logical_operator": "OR",
+              "support_half_window_minutes": 15,
+          }
+          for key, value in expected.items():
+              if gate.get(key) != value:
+                  raise SystemExit(f"frozen gate field {key} changed")
+          if data.get("timing_radii_minutes") != [1, 2, 3, 5, 10, 15]:
+              raise SystemExit("frozen timing radii changed")
+          circular = data.get("circular_shift_null", {})
+          if circular.get("iterations") != 5000:
+              raise SystemExit("circular-shift iteration count changed")
+          if circular.get("all_three_series_pairwise_separated_beyond_support_window") is not True:
+              raise SystemExit("circular null did not break all pairwise simultaneity")
+          mismatch = data.get("mismatched_day_null")
+          if not mismatch or int(mismatch.get("pair_rows", 0)) < 6:
+              raise SystemExit("too few admitted mismatched-day controls")
+          assessment = data.get("assessment", {})
+          if assessment.get("geometry_stage_state") != "BLOCKED_PENDING_EVENT_CLASS_CONTROLS":
+              raise SystemExit("geometry was opened before event-class controls")
+          if assessment.get("common_surface_claim_allowed") is not False:
+              raise SystemExit("common-surface claim was enabled")
+          if assessment.get("physical_class_claim_allowed") is not False:
+              raise SystemExit("physical-class claim was enabled")
+          if assessment.get("threshold_retuning_allowed") is not False:
+              raise SystemExit("threshold retuning was enabled")
+          if data.get("common_surface_test_completed") is not False:
+              raise SystemExit("common-surface test was marked complete")
+          if data.get("ephemeris_test_completed") is not False:
+              raise SystemExit("ephemeris test was marked complete")
+          if data.get("physical_mechanism_classified") is not False:
+              raise SystemExit("physical mechanism was classified")
+          print(json.dumps(assessment, indent=2))
+          PY
+      - name: Upload immutable control package
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: nvcpp-frozen-mag-gate-controls
+          path: runs/audits/mag_gate_controls
+          if-no-files-found: error
+          retention-days: 90
+          compression-level: 6

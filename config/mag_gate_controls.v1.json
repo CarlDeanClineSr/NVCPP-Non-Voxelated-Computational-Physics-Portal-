@@ -1,0 +1,109 @@
+{
+  "contract_id": "NVCPP-MAG-GATE-CONTROL-HARNESS-v1",
+  "contract_version": "1.0.0",
+  "development_gate_contract": {
+    "path": "config/gannon_gate_density.v1.json",
+    "contract_id": "NVCPP-GANNON-MAG-GATE-DENSITY-v1",
+    "contract_version": "1.0.0"
+  },
+  "gate": {
+    "coordinate_frame": "GSE",
+    "canonical_cadence_seconds": 60,
+    "required_previous_offset_seconds": 60,
+    "rotation_threshold_degrees": 45.0,
+    "magnitude_change_threshold_fraction": 0.25,
+    "logical_operator": "OR",
+    "support_half_window_minutes": 15
+  },
+  "timing_radii_minutes": [
+    1,
+    2,
+    3,
+    5,
+    10,
+    15
+  ],
+  "circular_shift_null": {
+    "iterations": 5000,
+    "seed": 20240511,
+    "minimum_pairwise_separation_minutes": 16,
+    "shifted_missions": [
+      "ACE",
+      "WIND"
+    ],
+    "wrap_period_minutes": 1440,
+    "preserves": [
+      "per-spacecraft gate count",
+      "within-spacecraft autocorrelation",
+      "within-day gap pattern"
+    ],
+    "breaks": [
+      "DSCOVR-to-ACE simultaneity",
+      "DSCOVR-to-Wind simultaneity",
+      "ACE-to-Wind simultaneity"
+    ]
+  },
+  "mismatched_day_null": {
+    "ace_day_offsets": [
+      -21,
+      -7,
+      7,
+      21
+    ],
+    "wind_day_offsets": [
+      -21,
+      -7,
+      7,
+      21
+    ],
+    "exclude_equal_offsets": true,
+    "minimum_evaluable_fraction": 0.8,
+    "minimum_admitted_pair_rows": 6,
+    "selection_rule": "symmetric fixed day offsets declared before any control MAG result is retrieved",
+    "pairing_rule": "all admitted ACE/Wind offset combinations except equal offsets"
+  },
+  "event_class_controls": {
+    "status": "PENDING_INDEPENDENT_SELECTION_BEFORE_MAG_RETRIEVAL",
+    "required_classes": [
+      "QUIET_SOLAR_WIND",
+      "MODERATE_VARIABILITY",
+      "ISOLATED_SHOCK_OR_SHEATH",
+      "COMPLEX_INTERACTING_EJECTA"
+    ],
+    "selection_boundary": "class membership must be frozen from an independent catalog or index before the corresponding MAG gate results are retrieved"
+  },
+  "decision_policy": {
+    "aggregate_metrics": [
+      "joint_support_fraction_within_1_minutes",
+      "joint_support_fraction_within_2_minutes",
+      "joint_support_fraction_within_3_minutes",
+      "joint_support_fraction_within_5_minutes",
+      "joint_support_fraction_within_10_minutes",
+      "joint_support_fraction_within_15_minutes",
+      "strongest_span_fraction_within_3_minutes"
+    ],
+    "candidate_metrics_are_conditional_only": [
+      "candidate_nearest_joint_radius_minutes",
+      "candidate_strongest_three_spacecraft_span_minutes"
+    ],
+    "candidate_selection_replayed_inside_each_null_trial": false,
+    "binary_significance_threshold_applied": false,
+    "geometry_remains_blocked_until_event_class_controls_complete": true
+  },
+  "interpretation_limits": [
+    "the detector thresholds and timing radii are identical to the frozen Gannon gate-density contract",
+    "circular-shift and mismatched-day fractions are empirical under their declared generators",
+    "the hard-null tail fractions are not independent-minute probabilities",
+    "the named 10:59 candidate was selected from the development data and its conditional tail fractions are not global search-corrected probabilities",
+    "candidate selection is not replayed inside each null trial",
+    "mismatched-day controls preserve within-day activity but deliberately destroy physical simultaneity",
+    "quiet, moderate, isolated-shock, and additional complex-event controls remain pending in this version",
+    "the finite mismatched-day set has add-one resolution no finer than one divided by thirteen",
+    "no binary significance threshold is applied in this partial calibration",
+    "a hard-null comparison does not identify one discontinuity or prove propagation",
+    "no interpolation or forward fill is allowed",
+    "GSE vector rotation is not a GSM clock-angle or geoeffectiveness claim",
+    "detector thresholds must not be retuned after seeing the control results",
+    "common-surface, physical-class, and ephemeris claims remain disabled"
+  ]
+}
