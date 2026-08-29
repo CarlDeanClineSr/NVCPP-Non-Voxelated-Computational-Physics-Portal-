@@ -1,0 +1,223 @@
+name: NVCPP Gannon V2 Immutable Holdout Consumer
+
+on:
+  workflow_dispatch:
+    inputs:
+      execute_frozen_holdout:
+        description: "Confirm that the frozen 43-interval holdout may be opened"
+        required: true
+        type: boolean
+        default: false
+      registry_file_sha256:
+        description: "Paste the full committed registry file SHA-256"
+        required: true
+        type: string
+
+permissions:
+  actions: read
+  contents: read
+
+concurrency:
+  group: nvcpp-gannon-v2-immutable-consumer
+  cancel-in-progress: false
+
+jobs:
+  plan:
+    name: verify frozen registry and plan all rows
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    outputs:
+      matrix: ${{ steps.matrix.outputs.matrix }}
+    steps:
+      - name: Require main and explicit frozen-registry acknowledgement
+        shell: bash
+        env:
+          EXECUTE: ${{ inputs.execute_frozen_holdout }}
+          SUPPLIED_SHA: ${{ inputs.registry_file_sha256 }}
+          EXPECTED_SHA: 8c1510e026aa68dca21d42181bbe8a2fe1876a9738426be1378605f8bfe947af
+        run: |
+          set -euo pipefail
+          test "${GITHUB_REF}" = "refs/heads/main"
+          test "${EXECUTE}" = "true"
+          test "${SUPPLIED_SHA}" = "${EXPECTED_SHA}"
+
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 1
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Install locked dependencies
+        run: python -m pip install -r requirements.txt
+
+      - name: Verify exact registry and emit immutable matrix
+        id: matrix
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m historical.gannon_holdout_v2_consumer \
+            --contract config/gannon_holdout_v2_consumer.v1.json \
+            plan --output runs/holdout_v2/plan.json >/tmp/plan.log
+          cat /tmp/plan.log
+          echo "matrix=$(python -c 'import json; print(json.dumps(json.load(open("runs/holdout_v2/plan.json")), separators=(",", ":")))')" >> "${GITHUB_OUTPUT}"
+
+      - name: Upload immutable execution plan
+        uses: actions/upload-artifact@v4
+        with:
+          name: nvcpp-gannon-v2-immutable-plan
+          path: runs/holdout_v2/plan.json
+          if-no-files-found: error
+          retention-days: 90
+
+  score:
+    name: score ${{ matrix.interval_id }}
+    needs: plan
+    runs-on: ubuntu-latest
+    timeout-minutes: 75
+    strategy:
+      fail-fast: false
+      max-parallel: 3
+      matrix: ${{ fromJson(needs.plan.outputs.matrix) }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 1
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Install locked dependencies
+        run: python -m pip install -r requirements.txt
+
+      - name: Score exactly one registered interval
+        run: |
+          python -m historical.gannon_holdout_v2_consumer \
+            --contract config/gannon_holdout_v2_consumer.v1.json \
+            score-interval \
+            --interval-id '${{ matrix.interval_id }}' \
+            --outdir 'runs/holdout_v2/intervals/${{ matrix.interval_id }}'
+
+      - name: Package interval evidence without committing data
+        if: always()
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p artifacts
+          mkdir -p 'runs/holdout_v2/intervals/${{ matrix.interval_id }}'
+          tar -C runs/holdout_v2/intervals -czf \
+            'artifacts/${{ matrix.safe_id }}.tar.gz' \
+            '${{ matrix.interval_id }}'
+
+      - name: Upload immutable interval package
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: nvcpp-v2-interval-${{ matrix.safe_id }}
+          path: artifacts/${{ matrix.safe_id }}.tar.gz
+          if-no-files-found: error
+          retention-days: 90
+          compression-level: 0
+
+  aggregate:
+    name: reconcile all 43 rows and write capsule
+    needs: [plan, score]
+    if: ${{ always() && needs.plan.result == 'success' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 1
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Install locked dependencies
+        run: python -m pip install -r requirements.txt
+
+      - name: Download every interval package
+        uses: actions/download-artifact@v4
+        with:
+          pattern: nvcpp-v2-interval-*
+          path: downloads
+          merge-multiple: true
+
+      - name: Extract interval packages
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p runs/holdout_v2/intervals
+          count=0
+          while IFS= read -r -d '' archive; do
+            tar -xzf "${archive}" -C runs/holdout_v2/intervals
+            count=$((count + 1))
+          done < <(find downloads -type f -name '*.tar.gz' -print0)
+          echo "Extracted ${count} interval packages"
+
+      - name: Aggregate registered denominators and hard nulls
+        run: |
+          python -m historical.gannon_holdout_v2_consumer \
+            --contract config/gannon_holdout_v2_consumer.v1.json \
+            aggregate \
+            --input-root runs/holdout_v2/intervals \
+            --outdir runs/holdout_v2/final
+
+      - name: Verify capsule boundaries
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import json
+          from pathlib import Path
+
+          path = Path("runs/holdout_v2/final/gannon_holdout_v2_capsule.json")
+          capsule = json.loads(path.read_text())
+          expected = {
+              "QUIET_SOLAR_WIND": 12,
+              "MODERATE_VARIABILITY": 12,
+              "ISOLATED_SHOCK_OR_SHEATH": 12,
+              "COMPLEX_INTERACTING_EJECTA": 7,
+          }
+          assert capsule["registry"]["expected_file_sha256"] == (
+              "8c1510e026aa68dca21d42181bbe8a2fe1876a9738426be1378605f8bfe947af"
+          )
+          assert capsule["denominators"]["registered_by_class"] == expected
+          assert capsule["denominators"]["registered_total"] == 43
+          assert capsule["geometry_state"] == "CLOSED"
+          assert capsule["geometry_calculated"] is False
+          assert capsule["propagation_calculated"] is False
+          assert capsule["common_surface_claim_allowed"] is False
+          assert capsule["physical_class_assigned"] is False
+          print(json.dumps({
+              "result_state": capsule["result_state"],
+              "denominators": capsule["denominators"],
+              "geometry_state": capsule["geometry_state"],
+          }, indent=2))
+          PY
+
+      - name: Package final capsule and compact tables
+        shell: bash
+        run: |
+          set -euo pipefail
+          tar -C runs/holdout_v2 -czf nvcpp-gannon-v2-holdout-capsule.tar.gz final
+
+      - name: Upload prospective holdout capsule
+        uses: actions/upload-artifact@v4
+        with:
+          name: nvcpp-gannon-v2-prospective-holdout-capsule
+          path: |
+            nvcpp-gannon-v2-holdout-capsule.tar.gz
+            runs/holdout_v2/final
+          if-no-files-found: error
+          retention-days: 90
+          compression-level: 6

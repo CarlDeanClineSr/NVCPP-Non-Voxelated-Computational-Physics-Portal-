@@ -1,0 +1,139 @@
+{
+  "contract_id": "NVCPP-GANNON-V2-IMMUTABLE-CONSUMER-v1",
+  "contract_version": "1.0.0",
+  "status": "FROZEN_BEFORE_HOLDOUT_MAG_RETRIEVAL",
+  "preregistration_path": "config/gannon_holdout_v2.preregistered.json",
+  "effective_selection_contract_path": "config/gannon_holdout_v2_selection.effective.amendment1.json",
+  "registry": {
+    "path": "config/gannon_holdout_v2.registry.json",
+    "status_path": "config/gannon_holdout_v2.registry_status.json",
+    "inventory_path": "provenance/gannon_holdout_v2_registry/FROZEN_INVENTORY.json",
+    "expected_file_sha256": "8c1510e026aa68dca21d42181bbe8a2fe1876a9738426be1378605f8bfe947af",
+    "expected_content_sha256": "d6db5682347b958d2f3f9b26c404563c6cb97f1c514525ae30c7c797fa2b8e7b",
+    "expected_class_denominators": {
+      "QUIET_SOLAR_WIND": 12,
+      "MODERATE_VARIABILITY": 12,
+      "ISOLATED_SHOCK_OR_SHEATH": 12,
+      "COMPLEX_INTERACTING_EJECTA": 7
+    },
+    "expected_total_intervals": 43,
+    "substitution_allowed": false
+  },
+  "source_products": {
+    "DSCOVR": {
+      "provider": "NASA CDAWeb",
+      "dataset_id": "DSCOVR_H0_MAG",
+      "variables": ["B1GSE"],
+      "coordinate_frame": "GSE",
+      "transport": "CDAWEB_REST_CSV",
+      "canonicalization": "native components averaged by minute before magnitude"
+    },
+    "ACE": {
+      "provider": "NASA CDAWeb",
+      "dataset_id": "AC_H0_MFI",
+      "parameters": ["Magnitude", "BGSEc", "SC_pos_GSE"],
+      "coordinate_frame": "GSE",
+      "transport": "CDAWEB_HAPI_CSV",
+      "minimum_native_samples_per_minute": 3,
+      "canonicalization": "native components averaged by minute before magnitude"
+    },
+    "WIND": {
+      "provider": "NASA CDAWeb",
+      "dataset_id": "WI_H0_MFI",
+      "variables": ["B3GSE", "B3F1"],
+      "coordinate_frame": "GSE",
+      "transport": "CDAWEB_CDAS_TEXT",
+      "minimum_native_samples_per_minute": 18,
+      "canonicalization": "native components averaged by minute before magnitude"
+    }
+  },
+  "canonical_window": {
+    "registered_duration_hours": 24,
+    "minute_grid_rule": "first UTC minute at or after registered start through the minute before the correspondingly rounded stop",
+    "predecessor_preroll_minutes": 1,
+    "expected_analysis_minutes": 1440,
+    "reason": "the exact t-1 gate may use one preserved predecessor minute outside the registered analysis window; the predecessor is not scored as an analysis minute"
+  },
+  "completeness": {
+    "minimum_evaluable_fraction_per_mission": 0.9,
+    "minimum_common_exact_previous_fraction": 0.8,
+    "support_half_window_minutes": 15,
+    "minimum_independent_window_coverage_fraction": 0.8,
+    "minimum_evaluable_fraction_per_class": 0.6,
+    "failure_state": "INCOMPLETE_MULTIPOINT",
+    "failed_interval_remains_in_registered_denominator": true
+  },
+  "detector": {
+    "coordinate_frame": "GSE",
+    "canonical_cadence_seconds": 60,
+    "required_previous_offset_seconds": 60,
+    "rotation_threshold_degrees": 45.0,
+    "magnitude_change_threshold_fraction": 0.25,
+    "logical_operator": "OR",
+    "timing_radii_minutes": [1, 2, 3, 5, 10, 15],
+    "interpolation": "NONE",
+    "forward_fill": "NONE"
+  },
+  "primary_clustering_hypothesis": {
+    "logical_operator": "AND",
+    "nearest_joint_support_radius_minutes_lte": 2,
+    "strongest_three_spacecraft_span_minutes_lte": 3,
+    "origin": "GANNON_V1_INSPIRED_NOT_BLIND_IN_V1_FIRST_PROSPECTIVE_TEST_IN_V2",
+    "retuning_allowed": false
+  },
+  "nulls": {
+    "circular_shift": {
+      "iterations_per_interval": 1000,
+      "seed": 20240511,
+      "minimum_pairwise_separation_minutes": 16,
+      "shifted_missions": ["ACE", "WIND"],
+      "preserve_real_serial_structure": true,
+      "no_wrap_diagnostic_required": true,
+      "independent_minute_noise_prohibited": true
+    },
+    "mismatched_registered_days": {
+      "iterations": 5000,
+      "seed": 20260829,
+      "require_three_distinct_interval_ids": true,
+      "minimum_pairwise_date_separation_days": 7,
+      "mission_era_matched": true,
+      "pair_only_registered_real_intervals": true,
+      "physical_simultaneity_broken_by_construction": true
+    },
+    "moving_block_uncertainty": {
+      "iterations_per_interval": 1000,
+      "block_minutes": 60,
+      "seed": 240602,
+      "preserve_short_range_temporal_dependence": true
+    }
+  },
+  "result_policy": {
+    "successful_execution_state": "V2_HOLDOUT_NULLS_MEASURED_GEOMETRY_CLOSED",
+    "insufficient_evaluable_state": "V2_BACKGROUND_INCOMPLETE",
+    "automatic_common_surface_decision": false,
+    "automatic_geometry_open": false,
+    "geometry_state": "CLOSED",
+    "physical_class_assignment": false,
+    "propagation_calculation": false,
+    "null_outputs_are_empirical_control_frequencies": true
+  },
+  "execution_policy": {
+    "workflow_trigger": "MANUAL_ONLY",
+    "pull_request_tests_may_retrieve_spacecraft_mag": false,
+    "interval_jobs_continue_after_provider_failure": true,
+    "aggregate_must_reconcile_all_43_registered_rows": true,
+    "raw_source_bytes_preserved_in_interval_artifacts": true,
+    "heavy_outputs_committed_to_git": false
+  },
+  "interpretation_limits": [
+    "quiet and moderate are catalog-selected classes, not claims of featureless upstream plasma",
+    "isolated and complex are Richardson-Cane catalog classes under the frozen rules, not physical-topology classifications",
+    "mission-era expectation tags do not promise product availability",
+    "a missing or incomplete mission product is INCOMPLETE_MULTIPOINT and does not authorize a replacement interval",
+    "all class results must report both registered and evaluable denominators",
+    "circular-shift and mismatched-day values are empirical frequencies under their named generators, not independent-minute probabilities",
+    "the unchanged primary clustering statistic was motivated by V1 and is first tested prospectively here",
+    "no favorable result automatically opens ephemeris, MVA, propagation, common-surface, or physical-class analysis",
+    "no date, threshold, radius, cadence, or fill policy may be changed after holdout MAG inspection"
+  ]
+}
