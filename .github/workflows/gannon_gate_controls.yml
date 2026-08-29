@@ -1,0 +1,157 @@
+name: NVCPP Gannon Frozen MAG Hard-Null Controls
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+      - feature/gannon-control-harness-v1
+    paths:
+      - "config/gannon_gate_controls.v1.json"
+      - "config/gannon_gate_density.v1.json"
+      - "historical/gannon_gate_controls.py"
+      - "historical/gannon_gate_density.py"
+      - "historical/gannon_multipoint_audit.py"
+      - "tests/test_gannon_gate_controls.py"
+      - ".github/workflows/gannon_gate_controls.yml"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: nvcpp-gannon-hard-nulls-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  controls:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Install locked dependencies
+        run: python -m pip install -r requirements.txt
+
+      - name: Compile and run focused offline tests
+        run: |
+          python -m compileall -q \
+            historical/gannon_gate_controls.py \
+            historical/gannon_gate_density.py \
+            tests/test_gannon_gate_controls.py
+          python -m json.tool config/gannon_gate_controls.v1.json >/dev/null
+          python -m pytest -q tests/test_gannon_gate_controls.py
+
+      - name: Rebuild the frozen Gannon gate-density input
+        run: |
+          python -m historical.gannon_gate_density \
+            --config config/gannon_gate_density.v1.json \
+            --outdir runs/audits/gannon_gate_density
+
+      - name: Run circular-shift and mismatched-day hard nulls
+        run: |
+          python -m historical.gannon_gate_controls \
+            --config config/gannon_gate_controls.v1.json \
+            --gate-density-root runs/audits/gannon_gate_density \
+            --outdir runs/audits/gannon_gate_controls
+
+      - name: Verify frozen semantics and bounded result
+        run: |
+          python - <<'PY'
+          import json
+          import math
+          from pathlib import Path
+
+          root = Path("runs/audits/gannon_gate_controls")
+          manifest = json.loads(
+              (root / "gannon_gate_controls_manifest.json").read_text()
+          )
+          if manifest.get("status") != "SUCCESS":
+              raise SystemExit(f"control status is {manifest.get('status')!r}")
+          expected_state = (
+              "HARD_NULLS_MEASURED_EVENT_CLASS_CONTROLS_PENDING_"
+              "COMMON_SURFACE_UNRESOLVED"
+          )
+          if manifest.get("result_state") != expected_state:
+              raise SystemExit("unexpected hard-null result state")
+          if manifest.get("geometry_allowed") is not False:
+              raise SystemExit("geometry was enabled before background completion")
+          if manifest.get("ephemeris_test_completed") is not False:
+              raise SystemExit("ephemeris was incorrectly marked complete")
+          if manifest.get("physical_mechanism_classified") is not False:
+              raise SystemExit("a physical mechanism was promoted")
+          if manifest.get("background_calibration_complete") is not False:
+              raise SystemExit("partial background was marked complete")
+          if manifest.get("event_class_controls_completed") is not False:
+              raise SystemExit("event-class controls were marked complete")
+
+          observed = manifest["observed"]
+          if observed["dscovr_gate_anchor_rows"] != 82:
+              raise SystemExit("frozen DSCOVR anchor count changed")
+          candidate = observed["candidate"]
+          if candidate["ace_nearest_offset_minutes"] != 0:
+              raise SystemExit("ACE nearest candidate offset changed")
+          if candidate["wind_nearest_offset_minutes"] != -2:
+              raise SystemExit("Wind nearest candidate offset changed")
+          if candidate["nearest_joint_radius_minutes"] != 2:
+              raise SystemExit("candidate joint radius changed")
+          if candidate["strongest_three_spacecraft_span_minutes"] != 3:
+              raise SystemExit("candidate strongest span changed")
+
+          circular = manifest["circular_shift_null"]
+          mismatch = manifest["mismatched_day_null"]
+          if circular["rows"] != 5000:
+              raise SystemExit("circular-shift iteration count changed")
+          if mismatch["rows"] != 9:
+              raise SystemExit("mismatched-day Cartesian product is incomplete")
+          if set(mismatch["source_metadata"]) != {"ACE", "WIND"}:
+              raise SystemExit("mismatched-day source metadata are incomplete")
+          if len(mismatch["source_metadata"]["ACE"]) != 3:
+              raise SystemExit("ACE mismatched-day inventory is incomplete")
+          if len(mismatch["source_metadata"]["WIND"]) != 3:
+              raise SystemExit("Wind mismatched-day inventory is incomplete")
+
+          for null_name in ("circular_shift_null", "mismatched_day_null"):
+              summary = manifest[null_name]["summary"]
+              for field in (
+                  "candidate_nearest_joint_radius_minutes",
+                  "candidate_strongest_three_spacecraft_span_minutes",
+                  "joint_support_fraction_within_2_minutes",
+                  "strongest_span_fraction",
+              ):
+                  record = summary[field]
+                  value = float(record["plus_one_tail_estimator"])
+                  if not math.isfinite(value) or not 0.0 < value <= 1.0:
+                      raise SystemExit(
+                          f"{null_name} {field} has invalid empirical tail"
+                      )
+          serialized = json.dumps(manifest).lower()
+          if "p_value" in serialized or "p-value" in serialized:
+              raise SystemExit("hard-null frequency was mislabeled as a p-value")
+          print(json.dumps({
+              "result_state": manifest["result_state"],
+              "candidate": candidate,
+              "circular_candidate_radius_tail": circular["summary"]
+                  ["candidate_nearest_joint_radius_minutes"]
+                  ["plus_one_tail_estimator"],
+              "circular_candidate_span_tail": circular["summary"]
+                  ["candidate_strongest_three_spacecraft_span_minutes"]
+                  ["plus_one_tail_estimator"],
+          }, indent=2))
+          PY
+
+      - name: Upload immutable hard-null package
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: nvcpp-gannon-hard-null-controls
+          path: |
+            runs/audits/gannon_gate_density
+            runs/audits/gannon_gate_controls
+          if-no-files-found: error
+          retention-days: 90
+          compression-level: 6
