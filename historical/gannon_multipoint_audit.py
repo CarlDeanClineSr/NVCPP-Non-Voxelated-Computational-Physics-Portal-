@@ -12,6 +12,7 @@ or a physical mechanism.
 from __future__ import annotations
 
 import argparse
+import csv
 import hashlib
 import io
 import json
@@ -32,8 +33,9 @@ from historical.download_dscovr_cdaweb import (
     format_cdaweb_date,
 )
 
-AUDIT_VERSION = "1.1.0"
+AUDIT_VERSION = "1.2.0"
 HAPI_BASE = "https://cdaweb.gsfc.nasa.gov/hapi"
+NCEI_API_BASE = "https://www.ncei.noaa.gov/cloud-access/space-weather-portal/api/v1"
 CDAS_BASE = "https://cdaweb.gsfc.nasa.gov/WS/cdasr/1/dataviews/sp_phys"
 DEFAULT_START = "2024-05-11T10:30:00Z"
 DEFAULT_STOP = "2024-05-11T11:30:00Z"
@@ -183,7 +185,9 @@ def fetch_hapi(
         raise MultipointAuditError(
             f"{dataset_id} HAPI column-count mismatch"
         )
-    frame["time"] = pd.to_datetime(frame["time"], utc=True, errors="coerce")
+    frame["time"] = pd.to_datetime(
+        frame["time"], format="ISO8601", utc=True, errors="coerce"
+    )
     if frame["time"].isna().any():
         raise MultipointAuditError(
             f"{dataset_id} HAPI data contain invalid timestamps"
@@ -211,6 +215,141 @@ def fetch_hapi(
         "dataset_id": dataset_id,
         "transport": "HAPI_CSV",
         "requested_parameters": parameters,
+        "info": {
+            "path": str(info_path),
+            "resolved_url": info_response.url,
+            "sha256": sha256_bytes(info_raw),
+            "size_bytes": len(info_raw),
+        },
+        "raw": {
+            "path": str(raw_path),
+            "resolved_url": data_response.url,
+            "sha256": sha256_bytes(raw),
+            "size_bytes": len(raw),
+            "rows": int(len(frame)),
+        },
+        "schema": {
+            name: {
+                key: parameter_map[name].get(key)
+                for key in ("description", "units", "fill", "size", "type")
+                if key in parameter_map[name]
+            }
+            for name in parameters
+        },
+    }
+    return frame, metadata, parameter_map
+
+
+def fetch_ncei_hapi(
+    session: requests.Session,
+    *,
+    dataset_id: str,
+    parameters: list[str],
+    start: str,
+    stop: str,
+    outdir: Path,
+) -> tuple[pd.DataFrame, dict[str, Any], dict[str, dict[str, Any]]]:
+    """Fetch a NOAA/NCEI HAPI product with strict provider field counts."""
+
+    outdir.mkdir(parents=True, exist_ok=True)
+    info_response = request_required(
+        session,
+        f"{NCEI_API_BASE}/hapi/info",
+        params={"dataset": dataset_id},
+        timeout=60,
+    )
+    info_raw = info_response.content
+    info_path = outdir / "hapi_info.json"
+    info_path.write_bytes(info_raw)
+    try:
+        info = info_response.json()
+    except ValueError as exc:
+        raise MultipointAuditError(
+            f"{dataset_id} NCEI HAPI /info is not JSON"
+        ) from exc
+    if info.get("status", {}).get("code") != 1200:
+        raise MultipointAuditError(
+            f"{dataset_id} NCEI HAPI /info status is not 1200"
+        )
+    parameter_map = hapi_parameter_map(info)
+    missing = [name for name in parameters if name not in parameter_map]
+    if missing:
+        raise MultipointAuditError(
+            f"{dataset_id} NCEI HAPI schema lacks parameters: {missing}"
+        )
+
+    data_response = request_required(
+        session,
+        f"{NCEI_API_BASE}/hapi/data",
+        params={
+            "dataset": dataset_id,
+            "start": start,
+            "stop": stop,
+            "parameters": ",".join(parameters),
+            "format": "csv",
+        },
+        timeout=120,
+    )
+    raw = data_response.content
+    raw_path = outdir / "raw.csv"
+    raw_path.write_bytes(raw)
+    rows = [
+        row
+        for row in csv.reader(io.StringIO(raw.decode("utf-8-sig")))
+        if row
+    ]
+    if not rows:
+        raise MultipointAuditError(
+            f"{dataset_id} NCEI HAPI returned no rows"
+        )
+    bad_rows = [
+        index
+        for index, row in enumerate(rows, start=1)
+        if len(row) != len(parameters)
+    ]
+    if bad_rows:
+        raise MultipointAuditError(
+            f"{dataset_id} NCEI HAPI strict field-count mismatch "
+            f"at rows {bad_rows[:10]}"
+        )
+
+    frame = pd.DataFrame(rows, columns=parameters)
+    time_col = parameters[0]
+    frame[time_col] = pd.to_datetime(
+        frame[time_col], format="ISO8601", utc=True, errors="coerce"
+    )
+    if frame[time_col].isna().any():
+        raise MultipointAuditError(
+            f"{dataset_id} NCEI HAPI contains invalid timestamps"
+        )
+    if frame[time_col].duplicated().any():
+        raise MultipointAuditError(
+            f"{dataset_id} NCEI HAPI contains duplicate timestamps"
+        )
+    if time_col != "time":
+        frame.rename(columns={time_col: "time"}, inplace=True)
+
+    for name in parameters[1:]:
+        metadata = parameter_map[name]
+        frame[name] = pd.to_numeric(frame[name], errors="coerce")
+        fill = metadata.get("fill")
+        try:
+            fill_number = float(fill) if fill is not None else None
+        except (TypeError, ValueError):
+            fill_number = None
+        if fill_number is not None:
+            frame.loc[frame[name] == fill_number, name] = np.nan
+        frame.loc[frame[name].abs() >= FILL_ABS, name] = np.nan
+
+    metadata = {
+        "provider": "NOAA/NCEI",
+        "dataset_id": dataset_id,
+        "transport": "NCEI_HAPI_CSV",
+        "requested_parameters": parameters,
+        "availability": {
+            "start": info.get("startDate"),
+            "stop": info.get("stopDate"),
+        },
         "info": {
             "path": str(info_path),
             "resolved_url": info_response.url,
@@ -794,6 +933,7 @@ def run_audit(
         "interpretation_limits": [
             "same-window structures do not prove one-to-one propagation",
             "spacecraft are not co-located",
+            "DSCOVR MAG is NASA CDAWeb while DSCOVR plasma is NOAA/NCEI f1m",
             "GSE rotation is not a GSM clock-angle claim",
             "plasma beta values inherit each product's temperature definition",
             "Wind 3DP plasma is context-only because HAPI omits CDAS VALID/GAP flags",
@@ -837,41 +977,50 @@ def run_audit(
             "canonicalization_metrics": dscovr_metrics,
         }
 
-        dscovr_fc, dscovr_fc_meta, dscovr_fc_schema = fetch_hapi(
-            session,
-            dataset_id="DSCOVR_H1_FC",
-            parameters=[
-                "DQF",
-                "V_GSE",
-                "THERMAL_SPD",
-                "Np",
-                "THERMAL_TEMP",
-            ],
-            start=start,
-            stop=stop,
-            outdir=raw_root / "DSCOVR_H1_FC",
+        dscovr_plasma_raw, dscovr_plasma_meta, dscovr_plasma_schema = (
+            fetch_ncei_hapi(
+                session,
+                dataset_id="f1m_dscovr",
+                parameters=[
+                    "time",
+                    "overall_quality",
+                    "proton_density",
+                    "proton_speed",
+                    "proton_temperature",
+                    "proton_vx_gse",
+                    "proton_vy_gse",
+                    "proton_vz_gse",
+                ],
+                start=start,
+                stop=stop,
+                outdir=raw_root / "f1m_dscovr",
+            )
         )
-        dscovr_quality = dscovr_fc["DQF"] == 0
+        dscovr_quality = dscovr_plasma_raw["overall_quality"] == 0
         dscovr_plasma, dscovr_plasma_quarantine = (
             canonicalize_plasma_minutes(
-                dscovr_fc,
-                density_col="Np",
-                speed_col=None,
-                velocity_components=(
-                    "V_GSE_x",
-                    "V_GSE_y",
-                    "V_GSE_z",
-                ),
-                temperature_col="THERMAL_TEMP",
+                dscovr_plasma_raw,
+                density_col="proton_density",
+                speed_col="proton_speed",
+                velocity_components=None,
+                temperature_col="proton_temperature",
                 temperature_unit=str(
-                    dscovr_fc_schema["THERMAL_TEMP"].get("units")
+                    dscovr_plasma_schema["proton_temperature"].get("units")
                 ),
                 minimum_samples=1,
-                source="DSCOVR_H1_FC",
+                source="NOAA_NCEI_f1m_dscovr",
                 quality_mask=dscovr_quality,
             )
         )
-        manifest["source_metadata"]["DSCOVR_H1_FC"] = dscovr_fc_meta
+        dscovr_plasma_meta["quality_scope"] = {
+            "admission": "overall_quality == 0",
+            "meaning": "provider normal sample; suspect and error rows rejected",
+            "role": (
+                "current 2024 DSCOVR one-minute plasma context; the canonical "
+                "magnetic path remains NASA CDAWeb DSCOVR_H0_MAG"
+            ),
+        }
+        manifest["source_metadata"]["f1m_dscovr"] = dscovr_plasma_meta
 
         ace_mag_raw, ace_mag_meta, _ = fetch_hapi(
             session,
@@ -1008,7 +1157,7 @@ def run_audit(
         dscovr_physics = add_plasma_physics(
             dscovr_plasma,
             dscovr_mag,
-            beta_label="proton_beta_isotropic_fit",
+            beta_label="proton_beta_ncei_temperature",
         )
         ace_physics = add_plasma_physics(
             ace_plasma,
@@ -1029,7 +1178,7 @@ def run_audit(
         physics_by_mission = {
             "DSCOVR": (
                 dscovr_physics,
-                "proton_beta_isotropic_fit",
+                "proton_beta_ncei_temperature",
             ),
             "ACE": (
                 ace_physics,
@@ -1224,6 +1373,7 @@ def run_audit(
             "",
             "- GSE rotations are not GSM clock angles.",
             "- The spacecraft are not co-located.",
+            "- DSCOVR MAG and plasma use separately identified NASA/NOAA products.",
             "- Plasma products use different temperature definitions.",
             "- Wind 3DP plasma is context-only because HAPI omits CDAS quality flags.",
             "- No interpolation or forward fill was used.",
