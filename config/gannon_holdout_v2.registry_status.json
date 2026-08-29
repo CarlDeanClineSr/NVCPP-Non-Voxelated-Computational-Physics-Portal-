@@ -1,0 +1,14 @@
+{
+  "state_id": "NVCPP-GANNON-V2-HOLDOUT-REGISTRY-STATE-v1",
+  "status": "HOLD_OUT_REGISTRY_UNPUBLISHED",
+  "reason": "The first independent catalog-only freeze attempt stopped before registry publication because the unchanged COMPLEX_INTERACTING_EJECTA selector produced only 7 candidates satisfying the frozen spacing rule while the original target was 12.",
+  "failed_freeze_run_id": 33262316832,
+  "failed_stage": "catalog-only interval selection",
+  "spacecraft_mag_retrieved": false,
+  "mag_values_inspected": false,
+  "gate_outputs_inspected": false,
+  "clustering_outputs_inspected": false,
+  "registry_file_expected_when_published": "config/gannon_holdout_v2.registry.json",
+  "replacement_or_substitution_authorized": false,
+  "geometry_state": "CLOSED"
+}
