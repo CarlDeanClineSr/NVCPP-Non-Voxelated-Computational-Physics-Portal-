@@ -1,9 +1,15 @@
 {
-  "contract_version": "1.1.0",
+  "contract_version": "1.2.0",
   "status": "FROZEN_VERIFIED",
   "mission": "SOLAR-1",
   "provider": "NOAA/NCEI",
   "instrument": "MAG",
+  "mission_phase": {
+    "operational_start_utc": "2026-06-10T00:00:00.000Z",
+    "pre_operational_label": "PRE_OPERATIONAL_COMMISSIONING_REGRESSION",
+    "mixed_interval_label": "CROSSES_OPERATIONAL_BOUNDARY",
+    "operational_label": "OPERATIONAL"
+  },
   "source": {
     "api_base": "https://www.ncei.noaa.gov/cloud-access/space-weather-portal/api/v1",
     "hapi_version": "3.2.0",
