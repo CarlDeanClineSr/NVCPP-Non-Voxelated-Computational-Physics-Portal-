@@ -1,0 +1,178 @@
+{
+  "contract_id": "NVCPP-GANNON-HOLDOUT-CALIBRATION-v2",
+  "contract_version": "2.0.0-preregistered",
+  "status": "PREREGISTERED_BEFORE_HOLDOUT_MAG_INSPECTION",
+  "frozen_from_v1": {
+    "main_commit_sha_at_preregistration": "7f78da210cc8cf92d19d2f65b79830835fcfd35f",
+    "v1_gate_contract_path": "config/gannon_gate_density.v1.json",
+    "v1_control_contract_path": "config/mag_gate_controls.v1.json",
+    "v1_control_contract_blob_sha": "c0b05c076e94f19c8fdf6e53954d9f1a8c149641",
+    "development_event": "GANNON_2024_05_11",
+    "development_candidate_utc": "2024-05-11T10:59:00Z",
+    "statement": "V1 remains immutable. V2 is a prospective holdout test of the detector and clustering definition motivated by V1."
+  },
+  "detector": {
+    "coordinate_frame": "GSE",
+    "canonical_cadence_seconds": 60,
+    "required_previous_offset_seconds": 60,
+    "rotation_threshold_degrees": 45.0,
+    "magnitude_change_threshold_fraction": 0.25,
+    "logical_operator": "OR",
+    "interpolation_allowed": false,
+    "forward_fill_allowed": false,
+    "timing_radii_minutes": [1, 2, 3, 5, 10, 15]
+  },
+  "primary_clustering_hypothesis": {
+    "origin": "GANNON_V1_INSPIRED_NOT_BLIND_IN_V1",
+    "frozen_before_holdout_scoring": true,
+    "logical_operator": "AND",
+    "nearest_joint_support_radius_minutes_lte": 2,
+    "strongest_three_spacecraft_span_minutes_lte": 3,
+    "retuning_after_holdout_inspection_allowed": false,
+    "development_observation_offsets_minutes": {
+      "DSCOVR": 0,
+      "ACE": -2,
+      "WIND": -3
+    },
+    "interpretation": "The holdout asks how often this exact Gannon-inspired clustering definition occurs under prospectively selected real intervals and broken-simultaneity nulls."
+  },
+  "secondary_descriptive_metrics": {
+    "report_all_frozen_radii": true,
+    "metrics": [
+      "per_spacecraft_evaluable_rows",
+      "per_spacecraft_gate_rows",
+      "per_spacecraft_gate_fraction",
+      "rotation_only_count",
+      "magnitude_only_count",
+      "both_trigger_count",
+      "contiguous_gate_run_count",
+      "contiguous_gate_run_lengths_minutes",
+      "hourly_gate_density",
+      "joint_support_fraction_within_1_minutes",
+      "joint_support_fraction_within_2_minutes",
+      "joint_support_fraction_within_3_minutes",
+      "joint_support_fraction_within_5_minutes",
+      "joint_support_fraction_within_10_minutes",
+      "joint_support_fraction_within_15_minutes",
+      "nearest_support_offsets_minutes",
+      "strongest_support_offsets_minutes",
+      "strongest_three_spacecraft_span_minutes",
+      "candidate_score_percentile_within_interval",
+      "source_hashes",
+      "quality_exclusions",
+      "gap_statistics"
+    ],
+    "multiple_radius_policy": "All radii remain descriptive; the primary holdout decision statistic is fixed at nearest<=2 AND strongest-span<=3."
+  },
+  "holdout_selection": {
+    "selection_must_complete_before_spacecraft_mag_retrieval": true,
+    "selection_may_use_gate_outputs": false,
+    "selection_may_use_candidate_scores": false,
+    "selection_may_use_clustering_outputs": false,
+    "minimum_intervals_per_class": 10,
+    "required_classes": {
+      "QUIET_SOLAR_WIND": {
+        "minimum_intervals": 10,
+        "selection_basis": "independent geomagnetic/solar-wind activity index declared before MAG retrieval",
+        "warning": "Kp-quiet is not equivalent to L1-featureless"
+      },
+      "MODERATE_VARIABILITY": {
+        "minimum_intervals": 10,
+        "selection_basis": "independent activity index with predeclared moderate band and no post-hoc gate inspection"
+      },
+      "ISOLATED_SHOCK_OR_SHEATH": {
+        "minimum_intervals": 10,
+        "selection_basis": "independent event catalog selected before MAG retrieval",
+        "warning": "catalog-isolated is not equivalent to structure-free"
+      },
+      "COMPLEX_INTERACTING_EJECTA": {
+        "minimum_intervals": 10,
+        "selection_basis": "independent event catalog or predeclared event-complexity metadata before MAG retrieval"
+      }
+    },
+    "development_and_v1_control_exclusion": "Gannon and every interval inspected during V1 are excluded from the V2 holdout denominator.",
+    "mission_era_policy": "Selection should span more than one mission era when simultaneous DSCOVR/ACE/Wind coverage permits; class and era are reported separately.",
+    "replacement_policy": "An interval that later fails acquisition or multipoint completeness remains in the registry with its failure state and is not replaced because of its gate or clustering result."
+  },
+  "denominator_policy": {
+    "registry_denominator": "all prospectively frozen intervals",
+    "evaluable_denominator": "intervals meeting predeclared multipoint completeness without inspecting gate/clustering outcomes",
+    "required_failure_state": "INCOMPLETE_MULTIPOINT",
+    "report": [
+      "selected_intervals_by_class",
+      "evaluable_intervals_by_class",
+      "INCOMPLETE_MULTIPOINT_count_by_class",
+      "other_acquisition_failure_count_by_class",
+      "excluded_interval_ids_and_reasons"
+    ],
+    "rule": "Never report only successful intervals without the frozen registry denominator."
+  },
+  "hard_nulls": {
+    "circular_shift": {
+      "preserve_real_serial_structure": true,
+      "shifted_missions": ["ACE", "WIND"],
+      "minimum_shift_beyond_support_window_minutes": 16,
+      "primary_statistic_recomputed_each_realization": true,
+      "independent_minute_noise_prohibited_as_primary_null": true
+    },
+    "mismatched_day": {
+      "preserve_real_serial_structure": true,
+      "pair_only_prospectively_registered_real_intervals": true,
+      "physical_simultaneity_broken_by_construction": true,
+      "primary_statistic_recomputed_each_pairing": true
+    },
+    "additional_v2_robustness": {
+      "date_block_permutations": true,
+      "mission_era_matched_mismatched_days": true,
+      "moving_block_uncertainty": true,
+      "circular_wrap_diagnostics": true
+    }
+  },
+  "reporting_policy": {
+    "class_by_class_required": true,
+    "pooled_results_may_not_replace_class_results": true,
+    "gannon_reference_gate_fraction_context": {
+      "full_day_approximate": 0.06,
+      "candidate_hour_approximate": 0.25,
+      "status": "context_only_verify_from_v1_artifacts_before publication"
+    },
+    "primary_outputs": [
+      "gate_fraction_by_spacecraft_and_class",
+      "joint_support_fraction_at_2_minutes_by_class",
+      "joint_support_fraction_at_3_minutes_by_class",
+      "primary_clustering_event_rate_by_class",
+      "primary_clustering_event_rate_circular_shift_null",
+      "primary_clustering_event_rate_mismatched_day_null",
+      "development_10_59_position_in_null_distributions",
+      "registry_and_evaluable_denominators_by_class"
+    ]
+  },
+  "result_states": [
+    "V2_BACKGROUND_INCOMPLETE",
+    "V1_RESULT_REPLICATED_ON_HOLDOUT",
+    "V1_RESULT_NOT_REPLICATED_ON_HOLDOUT",
+    "GATE_SELECTIVITY_DEPENDS_ON_CONTROL_CLASS",
+    "GATE_SELECTIVITY_DEPENDS_ON_MISSION_ERA",
+    "GATE_REMAINS_NONSELECTIVE",
+    "PRIMARY_CLUSTERING_COMMON_AFTER_SIMULTANEITY_BREAK",
+    "PRIMARY_CLUSTERING_RARE_AFTER_SIMULTANEITY_BREAK"
+  ],
+  "geometry_gate": {
+    "default_state": "CLOSED",
+    "common_surface_claim_allowed": false,
+    "physical_class_claim_allowed": false,
+    "propagation_claim_allowed": false,
+    "automatic_open_on_favorable_null_result": false,
+    "opening_rule": "A rare primary clustering statistic under both hard-null families may earn a separately reviewed geometry stage; it does not itself establish a common surface."
+  },
+  "prohibited_actions": [
+    "retune 45 degree threshold after holdout inspection",
+    "retune 25 percent threshold after holdout inspection",
+    "change exact t-1 requirement after holdout inspection",
+    "change nearest-support primary radius from 2 minutes after holdout inspection",
+    "change strongest-span primary radius from 3 minutes after holdout inspection",
+    "drop inconvenient registered intervals after seeing gate or clustering results",
+    "substitute independent-minute Bernoulli noise for the primary hard nulls",
+    "open geometry because a null comparison is merely favorable"
+  ]
+}
