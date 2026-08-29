@@ -25,6 +25,9 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
+          cache: pip
+      - name: Install locked dependencies
+        run: python -m pip install -r requirements.txt
       - name: Validate JSON syntax
         run: python -m json.tool config/gannon_holdout_v2.preregistered.json >/dev/null
       - name: Run preregistration invariants
