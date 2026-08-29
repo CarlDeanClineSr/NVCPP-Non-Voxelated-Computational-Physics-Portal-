@@ -1,0 +1,112 @@
+{
+  "contract_id": "NVCPP-GANNON-V2-HOLDOUT-SELECTION-v1",
+  "contract_version": "1.0.0",
+  "status": "SELECTION_RULES_FROZEN_BEFORE_HOLDOUT_MAG_RETRIEVAL",
+  "parent_preregistration": "config/gannon_holdout_v2.preregistered.json",
+  "allowed_selection_sources": {
+    "GFZ_KP": {
+      "url": "https://kp.gfz.de/app/files/Kp_ap_Ap_SN_F107_since_1932.txt",
+      "role": "quiet and moderate daily activity selection"
+    },
+    "RICHARDSON_CANE_ICME": {
+      "urls": [
+        "https://izw1.caltech.edu/ACE/ASC/DATA/level3/icmetable2.htm",
+        "https://www.srl.caltech.edu/ACE/ASC/DATA/level3/icmetable2.htm"
+      ],
+      "role": "exclude cataloged disturbances from quiet/moderate dates and select isolated or complex event intervals"
+    }
+  },
+  "forbidden_selection_inputs": [
+    "DSCOVR_H0_MAG values",
+    "AC_H0_MFI values",
+    "WI_H0_MFI values",
+    "gate_pass",
+    "rotation score",
+    "magnitude-change score",
+    "joint-support score",
+    "nearest-support radius",
+    "strongest-span result",
+    "10:59 candidate score"
+  ],
+  "selection_pool": {
+    "start_utc": "2016-01-01T00:00:00Z",
+    "stop_utc": "2024-05-01T00:00:00Z",
+    "reason": "complete pre-Gannon three-mission era with independent event-catalog coverage",
+    "recent_2025_2026_policy": "NOT_COUNTED_IN_PRIMARY_V2_REGISTRY_UNTIL_COMPLETE_INDEPENDENT_EVENT_CATALOG_COVERAGE_AND_PRODUCT_METADATA_ARE_FROZEN_BEFORE_MAG_RETRIEVAL"
+  },
+  "required_classes": {
+    "QUIET_SOLAR_WIND": {
+      "count": 12,
+      "criteria": "GFZ daily Kp maximum <=2.0 and daily Kp mean <=1.0; no Richardson-Cane disturbance or ICME interval in the one-day-expanded exclusion window; deterministic activity rank, year diversity, and >=60-day spacing"
+    },
+    "MODERATE_VARIABILITY": {
+      "count": 12,
+      "criteria": "GFZ daily Kp maximum between 3.0 and 4.0 inclusive and daily Kp mean between 1.0 and 2.5 inclusive; no Richardson-Cane disturbance or ICME interval in the one-day-expanded exclusion window; deterministic target-activity rank, year diversity, and >=60-day spacing"
+    },
+    "ISOLATED_SHOCK_OR_SHEATH": {
+      "count": 12,
+      "criteria": "Richardson-Cane disturbance/ICME entry with >=120 hours to the nearest listed disturbance and catalog ICME duration between 6 and 96 hours; 24-hour interval begins six hours before the disturbance; deterministic isolation rank, year diversity, and >=75-day spacing"
+    },
+    "COMPLEX_INTERACTING_EJECTA": {
+      "count": 12,
+      "criteria": "at least two Richardson-Cane disturbance entries begin within 48 hours; 24-hour interval centered on the midpoint of the first two disturbances; deterministic member-count/time-span rank, year diversity, and >=75-day spacing"
+    }
+  },
+  "v1_exclusion_policy": {
+    "exclude_every_date_named_or_derived_in": [
+      "config/gannon_gate_density.v1.json",
+      "config/mag_gate_control_intervals.v1.json",
+      "config/gannon_control_registry.v1.json",
+      "config/mag_gate_event_class_controls.v1.json",
+      "config/mag_gate_controls.v1.json",
+      "provenance/mag_gate_control_selection_v1/FROZEN_INVENTORY.json"
+    ],
+    "exclude_gannon": true,
+    "exclusion_padding_days": 2,
+    "known_minimum_exclusions": [
+      "2024-01-04",
+      "2024-01-13",
+      "2024-01-23",
+      "2024-02-03",
+      "2024-03-17",
+      "2024-04-09",
+      "2024-05-11",
+      "2024-06-28",
+      "2024-09-28"
+    ]
+  },
+  "frozen_detector": {
+    "coordinate_frame": "GSE",
+    "canonical_cadence_seconds": 60,
+    "required_previous_offset_seconds": 60,
+    "rotation_threshold_degrees": 45.0,
+    "magnitude_change_threshold_fraction": 0.25,
+    "logical_operator": "OR",
+    "timing_radii_minutes": [1, 2, 3, 5, 10, 15],
+    "primary_clustering_hypothesis": {
+      "nearest_joint_ace_wind_support_radius_minutes_max": 2,
+      "strongest_three_spacecraft_span_minutes_max": 3,
+      "provenance": "GANNON_V1_INSPIRED_NOT_BLIND_IN_V1_FIRST_PROSPECTIVE_TEST_IN_V2"
+    },
+    "interpolation": "NONE",
+    "forward_fill": "NONE"
+  },
+  "registry_policy": {
+    "freeze_before_spacecraft_mag_retrieval": true,
+    "registered_denominator_immutable": true,
+    "failed_fetch_state": "INCOMPLETE_MULTIPOINT",
+    "substitution_after_mag_or_gate_inspection_allowed": false,
+    "class_specific_reporting_required": true,
+    "mission_era_tag_required": true,
+    "geometry_default_state": "CLOSED"
+  },
+  "interpretation_limits": [
+    "Kp quiet does not prove featureless upstream L1 plasma",
+    "absence from one ICME catalog does not prove absence of every uncataloged structure",
+    "isolated means isolated under the named catalog and frozen gap rule",
+    "complex means multiple catalog entries under the frozen 48-hour rule, not a physical-topology classification",
+    "mission-era tags do not guarantee product retrieval; later source failure remains INCOMPLETE_MULTIPOINT",
+    "no holdout interval may be replaced after spacecraft MAG, gate, or clustering inspection",
+    "no geometry, MVA, propagation, common-surface, or physical-class analysis is authorized by this selection stage"
+  ]
+}
