@@ -1,0 +1,94 @@
+name: Repair Gannon V2 registry selector before execution
+
+on:
+  push:
+    branches:
+      - feature/gannon-v2-holdout-registry
+    paths:
+      - ".github/workflows/repair_gannon_v2_registry_selector.yml"
+
+permissions:
+  contents: write
+
+concurrency:
+  group: repair-gannon-v2-registry-selector
+  cancel-in-progress: false
+
+jobs:
+  repair:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: feature/gannon-v2-holdout-registry
+          fetch-depth: 0
+
+      - name: Correct independent-catalog shock-isolation semantics
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          from pathlib import Path
+          import re
+
+          path = Path("historical/select_gannon_v2_holdout_registry.py")
+          text = path.read_text(encoding="utf-8")
+
+          pattern = re.compile(
+              r'    candidates\["nearest_rc_gap_hours"\] = candidates\["reference_time_utc"\]\.map\(\n'
+              r'.*?'
+              r'    candidates = candidates\.loc\[candidates\["nearest_rc_gap_hours"\] >= 72\.0\]\.copy\(\)',
+              re.DOTALL,
+          )
+          replacement = '''    def nearest_other_rc_gap_hours(value: object) -> float:
+              reference = to_utc(value)
+              gaps = [
+                  abs((reference - event).total_seconds()) / 3600.0
+                  for event in rc_times
+              ]
+              # A Richardson/Cane entry within twelve hours can describe the
+              # same shock/ICME association.  Isolation is measured against the
+              # nearest *other* catalog disturbance, not the event itself.
+              other = [gap for gap in gaps if gap > 12.0]
+              return min(other) if other else float("inf")
+
+          candidates["nearest_other_rc_gap_hours"] = candidates[
+              "reference_time_utc"
+          ].map(nearest_other_rc_gap_hours)
+          candidates = candidates.loc[
+              candidates["nearest_other_rc_gap_hours"] >= 72.0
+          ].copy()'''
+
+          text, count = pattern.subn(replacement, text, count=1)
+          if count != 1:
+              raise SystemExit(f"expected one Richardson/Cane isolation block; found {count}")
+          text = text.replace(
+              '"nearest_rc_gap_hours"',
+              '"nearest_other_rc_gap_hours"',
+          )
+          text = re.sub(
+              r'cluster_minutes=int\(\n\s*contract\["classes"\]\["ISOLATED_SHOCK_OR_SHEATH"\]\["clustering"\]\.split\(\)\[7\]\n\s*\) if False else 90,',
+              'cluster_minutes=90,',
+              text,
+              count=1,
+          )
+          path.write_text(text, encoding="utf-8")
+          print("Corrected same-event catalog matching without changing any detector or clustering field")
+          PY
+
+      - name: Install dependencies and compile
+        run: |
+          python -m pip install -r requirements.txt lxml==6.0.1
+          python -m compileall -q historical/select_gannon_v2_holdout_registry.py
+          python -m json.tool config/gannon_holdout_v2_selection.v1.json >/dev/null
+
+      - name: Commit only the selector repair
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "NVCPP Registry Repair"
+          git config user.email "actions@users.noreply.github.com"
+          git add historical/select_gannon_v2_holdout_registry.py
+          git commit -m "repair: isolate shocks from other catalog events"
+          git push origin HEAD:feature/gannon-v2-holdout-registry
