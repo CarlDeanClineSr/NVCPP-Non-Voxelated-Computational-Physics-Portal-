@@ -16,6 +16,9 @@ from historical.select_mag_gate_control_intervals import (
 )
 
 
+PARAMETERS = ["percent_interp", "F", "flow_speed", "SYM_H"]
+
+
 def frozen_contract() -> dict:
     return {
         "contract_id": "NVCPP-MAG-GATE-CONTROL-SELECTION-v1",
@@ -23,7 +26,7 @@ def frozen_contract() -> dict:
         "selection_source": {
             "provider": "NASA CDAWeb HAPI",
             "dataset_id": "OMNI_HRO2_1MIN",
-            "parameters": ["F", "flow_speed", "SYM_H", "percent_interp"],
+            "parameters": PARAMETERS,
             "role": "selection only",
         },
         "search_window": {
@@ -67,18 +70,18 @@ def test_load_contract_rejects_parameter_drift(tmp_path: Path):
 
 def test_parse_chunk_is_strict_and_applies_fill_values():
     metadata = {
+        "percent_interp": {"fill": "999"},
         "F": {"fill": "9999.99"},
         "flow_speed": {"fill": "99999.9"},
         "SYM_H": {"fill": "99999"},
-        "percent_interp": {"fill": "999"},
     }
     raw = (
-        b"2024-01-01T00:00:00.000Z,5.0,400.0,-5,0\n"
-        b"2024-01-01T00:01:00.000Z,9999.99,410.0,-6,999\n"
+        b"2024-01-01T00:00:00.000Z,0,5.0,400.0,-5\n"
+        b"2024-01-01T00:01:00.000Z,999,9999.99,410.0,-6\n"
     )
     frame = parse_chunk(
         raw,
-        parameters=["F", "flow_speed", "SYM_H", "percent_interp"],
+        parameters=PARAMETERS,
         parameter_map=metadata,
     )
     assert len(frame) == 2
@@ -87,8 +90,8 @@ def test_parse_chunk_is_strict_and_applies_fill_values():
 
     with pytest.raises(ControlSelectionError, match="field-count mismatch"):
         parse_chunk(
-            b"2024-01-01T00:00:00Z,5.0,400.0\n",
-            parameters=["F", "flow_speed", "SYM_H", "percent_interp"],
+            b"2024-01-01T00:00:00Z,0,5.0\n",
+            parameters=PARAMETERS,
             parameter_map=metadata,
         )
 
