@@ -23,7 +23,7 @@ jobs:
         with:
           python-version: "3.12"
           cache: pip
-      - name: Remove duplicate classifier and postprocessing path
+      - name: Remove duplicate classifier and verify postprocessing removal
         run: |
           python - <<'PY'
           from pathlib import Path
@@ -81,10 +81,12 @@ jobs:
           python -m compileall -q core historical observatory pipelines sources tests tools
           python -m sources.solar1.validate_contract config/solar1_mag_contract.v1.json
           python -m pytest -q
-      - name: Commit tested consolidation
+      - name: Commit tested source consolidation
         run: |
+          # Workflow changes are applied separately through the authorized connector.
+          git checkout -- .github/workflows/solar1_run.yml
           git config user.name "NVCPP Audit Patcher"
           git config user.email "actions@users.noreply.github.com"
-          git add sources/solar1/download_solar1.py sources/solar1/validate_contract.py .github/workflows/solar1_run.yml
+          git add sources/solar1/download_solar1.py sources/solar1/validate_contract.py
           git commit -m "refactor: use one SOLAR-1 mission-phase classifier"
           git push origin HEAD:repair/solar1-mission-phase-single-source
