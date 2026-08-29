@@ -67,74 +67,93 @@ jobs:
           config_path.write_text(json.dumps(config, indent=2) + "\n", encoding="utf-8")
 
           source_path = Path("historical/select_gannon_v2_holdout_registry.py")
-          text = source_path.read_text(encoding="utf-8")
+          lines = source_path.read_text(encoding="utf-8").splitlines()
 
-          old = '''    start_year = int(rules["selection_year_start"])
-              stop_year = int(rules["selection_year_stop_inclusive"])
-              excluded_years = set(int(value) for value in rules["excluded_years"])
-              pool = kp.loc[
-                  kp["date_utc"].dt.year.between(start_year, stop_year)
-                  & ~kp["date_utc"].dt.year.isin(excluded_years)
-              ].copy()'''
-          new = '''    start_year = int(rules["selection_year_start"])
-              stop_year = int(rules["selection_year_stop_inclusive"])
-              selection_stop = to_utc(rules["selection_stop_utc_exclusive"])
-              excluded_years = set(int(value) for value in rules["excluded_years"])
-              pool = kp.loc[
-                  kp["date_utc"].dt.year.between(start_year, stop_year)
-                  & ~kp["date_utc"].dt.year.isin(excluded_years)
-                  & (kp["date_utc"] < selection_stop)
-              ].copy()'''
-          if text.count(old) != 1:
-              raise SystemExit("could not locate Kp selection boundary block")
-          text = text.replace(old, new)
+          def function_bounds(name: str) -> tuple[int, int]:
+              start_matches = [
+                  index for index, line in enumerate(lines)
+                  if line.startswith(f"def {name}(")
+              ]
+              if len(start_matches) != 1:
+                  raise SystemExit(f"expected one function {name}; found {len(start_matches)}")
+              start = start_matches[0]
+              end = next(
+                  (index for index in range(start + 1, len(lines)) if lines[index].startswith("def ")),
+                  len(lines),
+              )
+              return start, end
 
-          old = '''    excluded_years = set(int(value) for value in rules["excluded_years"])
-              rc_times = [to_utc(value) for value in rc["disturbance_time_utc"]]
-              candidates = shocks.copy()
-              candidates = candidates.loc[
-                  ~candidates["reference_time_utc"].map('''
-          new = '''    excluded_years = set(int(value) for value in rules["excluded_years"])
-              selection_stop = to_utc(rules["selection_stop_utc_exclusive"])
-              rc_times = [to_utc(value) for value in rc["disturbance_time_utc"]]
-              candidates = shocks.copy()
-              candidates = candidates.loc[
-                  (candidates["reference_time_utc"] < selection_stop)
-                  & ~candidates["reference_time_utc"].map('''
-          if text.count(old) != 1:
-              raise SystemExit("could not locate shock selection boundary block")
-          text = text.replace(old, new)
+          def unique_index(fragment: str, start: int, end: int) -> int:
+              matches = [
+                  index for index in range(start, end)
+                  if fragment in lines[index]
+              ]
+              if len(matches) != 1:
+                  raise SystemExit(
+                      f"expected one {fragment!r} in lines {start}:{end}; found {len(matches)}"
+                  )
+              return matches[0]
 
-          old = '''    excluded_years = set(int(value) for value in rules["excluded_years"])
-              candidates = complex_clusters.loc[complex_clusters["qualifies_complex"]].copy()
-              candidates = candidates.loc[
-                  ~candidates["first_disturbance_utc"].map('''
-          new = '''    excluded_years = set(int(value) for value in rules["excluded_years"])
-              selection_stop = to_utc(rules["selection_stop_utc_exclusive"])
-              candidates = complex_clusters.loc[complex_clusters["qualifies_complex"]].copy()
-              candidates = candidates.loc[
-                  (candidates["first_disturbance_utc"] < selection_stop)
-                  & ~candidates["first_disturbance_utc"].map('''
-          if text.count(old) != 1:
-              raise SystemExit("could not locate complex selection boundary block")
-          text = text.replace(old, new)
+          # Kp-selected quiet/moderate days.
+          start, end = function_bounds("build_kp_intervals")
+          index = unique_index('stop_year = int(rules["selection_year_stop_inclusive"])', start, end)
+          indent = lines[index][: len(lines[index]) - len(lines[index].lstrip())]
+          lines.insert(index + 1, f'{indent}selection_stop = to_utc(rules["selection_stop_utc_exclusive"])')
+          end += 1
+          index = unique_index('~kp["date_utc"].dt.year.isin(excluded_years)', start, end)
+          indent = lines[index][: len(lines[index]) - len(lines[index].lstrip())]
+          lines.insert(index + 1, f'{indent}& (kp["date_utc"] < selection_stop)')
 
-          old = '''    for item in intervals:
-              if to_utc(item["start_utc"]).year == 2024:
-                  raise HoldoutSelectionError(f"V1 year leaked into V2: {item['interval_id']}")'''
-          new = '''    selection_stop = to_utc(contract["global_rules"]["selection_stop_utc_exclusive"])
-              for item in intervals:
-                  start = to_utc(item["start_utc"])
-                  if start.year == 2024:
-                      raise HoldoutSelectionError(f"V1 year leaked into V2: {item['interval_id']}")
-                  if start >= selection_stop:
-                      raise HoldoutSelectionError(
-                          f"catalog coverage boundary exceeded: {item['interval_id']}"
-                      )'''
-          if text.count(old) != 1:
-              raise SystemExit("could not locate registry coverage validation block")
-          text = text.replace(old, new)
-          source_path.write_text(text, encoding="utf-8")
+          # IPShocks-selected isolated events.
+          start, end = function_bounds("build_shock_intervals")
+          index = unique_index('excluded_years = set(int(value) for value in rules["excluded_years"])', start, end)
+          indent = lines[index][: len(lines[index]) - len(lines[index].lstrip())]
+          lines.insert(index + 1, f'{indent}selection_stop = to_utc(rules["selection_stop_utc_exclusive"])')
+          end += 1
+          index = unique_index('~candidates["reference_time_utc"].map(', start, end)
+          indent = lines[index][: len(lines[index]) - len(lines[index].lstrip())]
+          lines[index:index + 1] = [
+              f'{indent}(candidates["reference_time_utc"] < selection_stop)',
+              f'{indent}& ~candidates["reference_time_utc"].map(',
+          ]
+
+          # Richardson-Cane-selected complex intervals.
+          start, end = function_bounds("build_complex_intervals")
+          index = unique_index('excluded_years = set(int(value) for value in rules["excluded_years"])', start, end)
+          indent = lines[index][: len(lines[index]) - len(lines[index].lstrip())]
+          lines.insert(index + 1, f'{indent}selection_stop = to_utc(rules["selection_stop_utc_exclusive"])')
+          end += 1
+          index = unique_index('~candidates["first_disturbance_utc"].map(', start, end)
+          indent = lines[index][: len(lines[index]) - len(lines[index].lstrip())]
+          lines[index:index + 1] = [
+              f'{indent}(candidates["first_disturbance_utc"] < selection_stop)',
+              f'{indent}& ~candidates["first_disturbance_utc"].map(',
+          ]
+
+          # Final registry validator.
+          start, end = function_bounds("validate_registry")
+          loop_index = unique_index("for item in intervals:", start, end)
+          loop_indent = lines[loop_index][: len(lines[loop_index]) - len(lines[loop_index].lstrip())]
+          lines.insert(
+              loop_index,
+              f'{loop_indent}selection_stop = to_utc(contract["global_rules"]["selection_stop_utc_exclusive"])',
+          )
+          end += 1
+          condition_index = unique_index('if to_utc(item["start_utc"]).year == 2024:', start, end)
+          condition_indent = lines[condition_index][: len(lines[condition_index]) - len(lines[condition_index].lstrip())]
+          body_indent = condition_indent + "    "
+          original_raise = lines[condition_index + 1]
+          lines[condition_index:condition_index + 2] = [
+              f'{condition_indent}start = to_utc(item["start_utc"])',
+              f'{condition_indent}if start.year == 2024:',
+              original_raise,
+              f'{condition_indent}if start >= selection_stop:',
+              f'{body_indent}raise HoldoutSelectionError(',
+              f'{body_indent}    f"catalog coverage boundary exceeded: {{item[\'interval_id\']}}"',
+              f'{body_indent})',
+          ]
+
+          source_path.write_text("\n".join(lines) + "\n", encoding="utf-8")
 
           test_path = Path("tests/test_gannon_v2_holdout_registry_selection.py")
           test_text = test_path.read_text(encoding="utf-8")
