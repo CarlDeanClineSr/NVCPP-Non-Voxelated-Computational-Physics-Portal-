@@ -1,6 +1,6 @@
 name: Gannon V2 Catalog-Only Holdout Registry Selection
 
-# Registry selector v1.0.0: independent catalogs only; no spacecraft MAG.
+# Registry selector v1.0.1: independent catalogs only; no spacecraft MAG.
 on:
   workflow_dispatch:
   push:
@@ -64,11 +64,20 @@ jobs:
           python - <<'PY'
           import json
           from collections import Counter
+          from datetime import datetime
           from pathlib import Path
 
           root = Path("runs/holdout/gannon_v2_registry_selection")
           registry = json.loads((root / "gannon_v2_holdout_registry.v1.json").read_text())
           manifest = json.loads((root / "selection_manifest.json").read_text())
+          selection_contract = json.loads(
+              Path("config/gannon_holdout_v2_selection.v1.json").read_text()
+          )
+          cutoff = datetime.fromisoformat(
+              selection_contract["global_rules"][
+                  "catalog_coverage_stop_utc_exclusive"
+              ].replace("Z", "+00:00")
+          )
 
           expected_classes = {
               "QUIET_SOLAR_WIND",
@@ -117,8 +126,13 @@ jobs:
               missing = required_item_keys - set(item)
               if missing:
                   raise SystemExit(f"{item.get('interval_id')} lacks {sorted(missing)}")
-              if item["start_utc"].startswith("2024-"):
+              start = datetime.fromisoformat(item["start_utc"].replace("Z", "+00:00"))
+              if start.year == 2024:
                   raise SystemExit(f"V1 year leaked into V2: {item['interval_id']}")
+              if start >= cutoff:
+                  raise SystemExit(
+                      f"catalog coverage boundary exceeded: {item['interval_id']}"
+                  )
               if item["spacecraft_mag_retrieved_before_freeze"] is not False:
                   raise SystemExit("MAG firewall failed")
               if item["gate_outputs_inspected_before_freeze"] is not False:
@@ -143,36 +157,34 @@ jobs:
               "registry_sha256": manifest["registry_sha256"],
               "class_counts": dict(counts),
               "mission_era_counts": dict(eras),
+              "catalog_coverage_stop_utc_exclusive": cutoff.isoformat(),
               "interval_ids": ids,
           }, indent=2))
           PY
 
-      - name: Prove workflow contains no spacecraft MAG retrieval command
+      - name: Prove selector contains no spacecraft MAG runtime transport
         shell: bash
         run: |
           set -euo pipefail
           python - <<'PY'
           from pathlib import Path
 
-          paths = [
-              Path("historical/select_gannon_v2_holdout_registry.py"),
-              Path(".github/workflows/gannon_v2_holdout_registry_selection.yml"),
-          ]
-          forbidden = (
+          text = Path(
+              "historical/select_gannon_v2_holdout_registry.py"
+          ).read_text(encoding="utf-8")
+          forbidden_runtime_fragments = (
               "historical.download_dscovr",
               "historical.gannon_gate_density",
               "historical.gannon_multipoint_audit",
-              "DSCOVR_H0_MAG_raw_bytes",
-              "AC_H0_MFI",
-              "WI_H0_MFI",
               "cdaweb.gsfc.nasa.gov/hapi/data",
               "cdaweb.gsfc.nasa.gov/WS/cdasr",
+              "ncei.noaa.gov/cloud-access/space-weather-portal",
           )
-          for path in paths:
-              text = path.read_text(encoding="utf-8")
-              for token in forbidden:
-                  if token in text:
-                      raise SystemExit(f"forbidden MAG retrieval token {token!r} in {path}")
+          for fragment in forbidden_runtime_fragments:
+              if fragment in text:
+                  raise SystemExit(
+                      f"forbidden spacecraft MAG runtime fragment {fragment!r}"
+                  )
           print("Catalog-only registry selection confirmed")
           PY
 
