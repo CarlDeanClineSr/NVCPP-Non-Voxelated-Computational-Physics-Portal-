@@ -4,6 +4,7 @@ on:
   workflow_dispatch:
   push:
     branches:
+      - main
       - feature/gannon-multipoint-v1
     paths:
       - "config/gannon_gate_density.v1.json"
