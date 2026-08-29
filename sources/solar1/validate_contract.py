@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import json
 import re
+from datetime import datetime
 from pathlib import Path
 from typing import Any
 
@@ -38,6 +39,16 @@ def _sha256(value: Any) -> bool:
     return isinstance(value, str) and SHA256_RE.fullmatch(value.lower()) is not None
 
 
+def _valid_aware_timestamp(value: Any) -> bool:
+    if not isinstance(value, str):
+        return False
+    try:
+        parsed = datetime.fromisoformat(value.replace("Z", "+00:00"))
+    except ValueError:
+        return False
+    return parsed.tzinfo is not None
+
+
 def validate_contract(data: dict[str, Any]) -> list[str]:
     """Return all contract errors. An empty list means the contract is admissible."""
     errors: list[str] = []
@@ -63,6 +74,10 @@ def validate_contract(data: dict[str, Any]) -> list[str]:
 
     required = [
         "contract_version",
+        "mission_phase.operational_start_utc",
+        "mission_phase.pre_operational_label",
+        "mission_phase.mixed_interval_label",
+        "mission_phase.operational_label",
         "source.api_base",
         "source.hapi_version",
         "source.product_title",
@@ -80,6 +95,17 @@ def validate_contract(data: dict[str, Any]) -> list[str]:
     for path in required:
         if not _verified(_get(data, path)):
             errors.append(f"{path} is missing or unverified")
+
+    operational_start = _get(data, "mission_phase.operational_start_utc")
+    if not _valid_aware_timestamp(operational_start):
+        errors.append("mission_phase.operational_start_utc must be a timezone-aware ISO timestamp")
+    phase_labels = [
+        _get(data, "mission_phase.pre_operational_label"),
+        _get(data, "mission_phase.mixed_interval_label"),
+        _get(data, "mission_phase.operational_label"),
+    ]
+    if all(isinstance(value, str) for value in phase_labels) and len(set(phase_labels)) != 3:
+        errors.append("mission-phase labels must be three distinct values")
 
     if str(_get(data, "time.timezone") or "").upper() != "UTC":
         errors.append("time.timezone must be UTC")
@@ -197,6 +223,7 @@ def main() -> None:
                 "contract": str(args.contract),
                 "status": data["status"],
                 "product_id": data["source"]["product_id"],
+                "operational_start_utc": data["mission_phase"]["operational_start_utc"],
                 "schema_fingerprint_sha256": data["source"]["schema_fingerprint_sha256"],
             },
             indent=2,
