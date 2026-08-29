@@ -23,55 +23,28 @@ jobs:
         with:
           python-version: "3.12"
           cache: pip
-      - name: Apply exact transport-only edits
+      - name: Apply schema-order edit only
         shell: bash
         run: |
           set -euo pipefail
           python - <<'PY'
           from pathlib import Path
 
-          source = Path("historical/select_mag_gate_control_intervals.py")
-          text = source.read_text(encoding="utf-8")
-          old_order = '["F", "flow_speed", "SYM_H", "percent_interp"]'
-          new_order = '["percent_interp", "F", "flow_speed", "SYM_H"]'
-          if text.count(old_order) != 1:
-              raise SystemExit("selector frozen-order edit did not match exactly once")
-          text = text.replace(old_order, new_order)
-
-          old_parse = '''        raw = response.content
-          path = outdir / f"omni_chunk_{index:02d}.csv"
-          path.write_bytes(raw)
-          frame = parse_chunk(
-          '''
-          new_parse = '''        raw = response.content
-          path = outdir / f"omni_chunk_{index:02d}.csv"
-          path.write_bytes(raw)
-          stripped = raw.lstrip()
-          if stripped.startswith(b"{"):
-              try:
-                  payload = response.json()
-              except ValueError as exc:
-                  raise ControlSelectionError(
-                      "OMNI HAPI data returned malformed JSON"
-                  ) from exc
-              status = payload.get("status", {})
-              if status.get("code") != 1200:
-                  raise ControlSelectionError(
-                      f"OMNI HAPI data status is not 1200: {status}"
-                  )
-          frame = parse_chunk(
-          '''
-          if text.count(old_parse) != 1:
-              raise SystemExit("selector HAPI-status edit did not match exactly once")
-          source.write_text(text.replace(old_parse, new_parse), encoding="utf-8")
-
-          test = Path("tests/test_mag_gate_control_selection.py")
-          test_text = test.read_text(encoding="utf-8")
-          old_test = '["F", "flow_speed", "SYM_H", "percent_interp"]'
-          new_test = '["percent_interp", "F", "flow_speed", "SYM_H"]'
-          if test_text.count(old_test) != 1:
-              raise SystemExit("selector test-order edit did not match exactly once")
-          test.write_text(test_text.replace(old_test, new_test), encoding="utf-8")
+          replacements = {
+              Path("historical/select_mag_gate_control_intervals.py"): (
+                  '["F", "flow_speed", "SYM_H", "percent_interp"]',
+                  '["percent_interp", "F", "flow_speed", "SYM_H"]',
+              ),
+              Path("tests/test_mag_gate_control_selection.py"): (
+                  '["F", "flow_speed", "SYM_H", "percent_interp"]',
+                  '["percent_interp", "F", "flow_speed", "SYM_H"]',
+              ),
+          }
+          for path, (old, new) in replacements.items():
+              text = path.read_text(encoding="utf-8")
+              if text.count(old) != 1:
+                  raise SystemExit(f"{path}: expected one frozen-order occurrence")
+              path.write_text(text.replace(old, new), encoding="utf-8")
           PY
       - name: Install and validate
         run: |
@@ -86,5 +59,5 @@ jobs:
           git config user.name "NVCPP Audit Installer"
           git config user.email "actions@users.noreply.github.com"
           git add historical/select_mag_gate_control_intervals.py tests/test_mag_gate_control_selection.py
-          git commit -m "fix: honor OMNI HAPI parameter order and status"
+          git commit -m "fix: honor OMNI HAPI parameter order"
           git push origin HEAD:feature/gate-control-harness-v1
