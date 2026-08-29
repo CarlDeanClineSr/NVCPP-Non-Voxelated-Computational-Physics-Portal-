@@ -38,9 +38,6 @@ jobs:
           echo "00f200bcbc858452445e98945ba0223682ce699007aa08b8698073b0049bb4e6  /tmp/nvcpp_consumer_bundle.tar.gz" \
             | sha256sum --check
           tar -xzf /tmp/nvcpp_consumer_bundle.tar.gz -C .
-          git rm -r \
-            .staging/gannon_v2_consumer \
-            .github/workflows/stage_gannon_v2_immutable_consumer.yml
 
       - name: Install locked dependencies
         run: python -m pip install -r requirements.txt
@@ -78,17 +75,20 @@ jobs:
           print('Immutable 43-row consumer plan verified; no MAG request executed')
           PY
 
-      - name: Commit only the immutable-consumer files
+      - name: Commit the four non-workflow consumer files
         shell: bash
         run: |
           set -euo pipefail
+          # GitHub's Actions token may not create workflow files. The connected
+          # repository writer adds the already-validated manual workflow after
+          # this non-workflow commit succeeds.
+          rm .github/workflows/gannon_holdout_v2_consumer.yml
           git config user.name "NVCPP Consumer Builder"
           git config user.email "actions@users.noreply.github.com"
           git add \
             historical/gannon_holdout_v2_consumer.py \
             config/gannon_holdout_v2_consumer.v1.json \
             tests/test_gannon_holdout_v2_consumer.py \
-            .github/workflows/gannon_holdout_v2_consumer.yml \
             docs/GANNON_V2_IMMUTABLE_CONSUMER.md
           python - <<'PY'
           import subprocess
@@ -98,25 +98,18 @@ jobs:
                   ['git', 'diff', '--cached', '--name-only'], text=True
               ).splitlines()
           )
-          expected_additions = {
+          expected = {
               'historical/gannon_holdout_v2_consumer.py',
               'config/gannon_holdout_v2_consumer.v1.json',
               'tests/test_gannon_holdout_v2_consumer.py',
-              '.github/workflows/gannon_holdout_v2_consumer.yml',
               'docs/GANNON_V2_IMMUTABLE_CONSUMER.md',
           }
-          missing = expected_additions - changed
-          unexpected = {
-              path for path in changed
-              if path not in expected_additions
-              and not path.startswith('.staging/gannon_v2_consumer/part')
-              and path != '.github/workflows/stage_gannon_v2_immutable_consumer.yml'
-          }
-          if missing:
-              raise SystemExit(f'missing consumer paths: {sorted(missing)}')
-          if unexpected:
-              raise SystemExit(f'unexpected staged paths: {sorted(unexpected)}')
-          print('Staged paths:', *sorted(changed), sep='\n- ')
+          if changed != expected:
+              raise SystemExit(
+                  f'non-workflow staged set differs: expected={sorted(expected)} '
+                  f'actual={sorted(changed)}'
+              )
+          print('Non-workflow staged paths:', *sorted(changed), sep='\n- ')
           PY
           git commit -m "feat: add immutable consumer for frozen Gannon V2 registry"
           git push origin HEAD:feature/gannon-v2-immutable-consumer
