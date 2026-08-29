@@ -16,7 +16,7 @@ from typing import Any, Iterable
 import numpy as np
 import pandas as pd
 
-EVENT_DETECTOR_VERSION = "1.0.0"
+EVENT_DETECTOR_VERSION = "1.1.0"
 
 
 @dataclass(frozen=True)
@@ -110,6 +110,71 @@ def _stable_event_id(mission: str, start: pd.Timestamp, end: pd.Timestamp, codes
     ).encode("utf-8")
     suffix = hashlib.sha256(identity).hexdigest()[:10]
     return f"NVCPP-{mission}-{start.strftime('%Y%m%dT%H%MZ')}-{suffix}"
+
+
+def _threshold_contract(
+    thresholds: EventThresholds,
+    columns: CanonicalColumns,
+) -> dict[str, dict[str, Any]]:
+    live_reference = "live prior-only 24-hour median B0"
+    return {
+        "CHI_RESEARCH_WATCH": {
+            "metric": columns.chi,
+            "source_quantity": columns.magnitude,
+            "reference": live_reference,
+            "operator": ">=",
+            "threshold": thresholds.research_watch_chi,
+            "creates_event_by_itself": False,
+            "meaning": "low-level absolute magnetic-magnitude departure watch",
+            "not_equivalent_to": ["shock confirmation", "geoeffectiveness", "ICME phase"],
+        },
+        "MAG_COMPRESSION_CANDIDATE": {
+            "metric": columns.delta,
+            "source_quantity": columns.magnitude,
+            "reference": live_reference,
+            "operator": ">=",
+            "threshold": thresholds.significant_chi,
+            "creates_event_by_itself": True,
+            "meaning": "positive signed departure from the live magnetic baseline",
+        },
+        "MAG_DEPRESSION_CANDIDATE": {
+            "metric": columns.delta,
+            "source_quantity": columns.magnitude,
+            "reference": live_reference,
+            "operator": "<=",
+            "threshold": -thresholds.significant_chi,
+            "creates_event_by_itself": True,
+            "meaning": "negative signed departure from the live magnetic baseline",
+        },
+        "SEVERE_MAGNETIC_DEPARTURE": {
+            "metric": columns.chi,
+            "source_quantity": columns.magnitude,
+            "reference": live_reference,
+            "operator": ">=",
+            "threshold": thresholds.severe_chi,
+            "creates_event_by_itself": True,
+            "meaning": "severe absolute departure from the live magnetic baseline",
+            "not_equivalent_to": ["shock confirmation", "southward Bz", "ICME phase"],
+        },
+        "FIELD_ROTATION_CANDIDATE": {
+            "metric": "rotation_degrees",
+            "source_quantity": [columns.bx, columns.by, columns.bz],
+            "reference": "previous admitted one-minute vector",
+            "operator": ">=",
+            "threshold": thresholds.rotation_degrees,
+            "creates_event_by_itself": True,
+            "meaning": "one-minute vector-direction change",
+        },
+        "MAGNITUDE_JUMP_CANDIDATE": {
+            "metric": "magnitude_relative_change",
+            "source_quantity": columns.magnitude,
+            "reference": "previous admitted one-minute magnitude",
+            "operator": ">=",
+            "threshold": thresholds.minute_relative_magnitude_change,
+            "creates_event_by_itself": True,
+            "meaning": "one-minute absolute relative magnitude change",
+        },
+    }
 
 
 def _row_codes(row: pd.Series, thresholds: EventThresholds) -> list[str]:
@@ -223,6 +288,7 @@ def detect_events(
     focus_start: pd.Timestamp | str | None = None,
 ) -> tuple[pd.DataFrame, list[dict[str, Any]], dict[str, Any]]:
     thresholds = thresholds or EventThresholds()
+    threshold_contract = _threshold_contract(thresholds, columns)
     prepared = prepare_event_frame(frame, columns, thresholds)
     if focus_start is not None:
         focus = pd.Timestamp(focus_start)
@@ -258,6 +324,7 @@ def detect_events(
                 "severity": severity,
                 "dominant_type": _dominant_type(group),
                 "trigger_codes": codes,
+                "trigger_evidence": [threshold_contract[code] for code in codes],
                 "max_chi_B24M": max_chi,
                 "min_delta_B24M": float(group["_delta"].min()),
                 "max_delta_B24M": float(group["_delta"].max()),
@@ -283,6 +350,7 @@ def detect_events(
         "candidate_rows": int(len(candidates)),
         "event_count": int(len(events)),
         "thresholds": thresholds.__dict__,
+        "threshold_contract": threshold_contract,
         "latest": {
             "time_utc": prepared["_time"].iloc[-1].isoformat(),
             "B_nT": float(prepared["_B"].iloc[-1]),

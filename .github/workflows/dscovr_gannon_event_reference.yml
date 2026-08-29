@@ -1,0 +1,58 @@
+name: NVCPP DSCOVR Gannon Event-Reference Audit
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - "core/cline_l1_chain_v1.py"
+      - "core/event_reference.py"
+      - "historical/download_dscovr_cdaweb.py"
+      - "historical/gannon_event_reference_audit.py"
+      - "tests/test_event_reference.py"
+      - ".github/workflows/dscovr_gannon_event_reference.yml"
+      - "requirements.txt"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: nvcpp-gannon-event-reference
+  cancel-in-progress: false
+
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - name: Install locked dependencies
+        run: python -m pip install -r requirements.txt
+      - name: Run current DSCOVR Gannon canonical pipeline
+        run: |
+          python -m historical.download_dscovr_cdaweb \
+            --run dscovr_gannon_may_2024 \
+            --start 2024-05-09T00:00:00.000Z \
+            --analysis-start 2024-05-10T00:00:00.000Z \
+            --end 2024-05-13T00:00:00.000Z \
+            --outdir runs/historical
+      - name: Derive event gate, frozen reference, and later hidden structure
+        run: |
+          python -m historical.gannon_event_reference_audit \
+            --input runs/historical/dscovr_gannon_may_2024/cline_l1_rows.csv \
+            --manifest runs/historical/dscovr_gannon_may_2024/dscovr_run_manifest.json \
+            --outdir runs/audits/gannon_event_reference
+      - name: Preserve complete audit evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: gannon-event-reference-${{ github.run_id }}-${{ github.sha }}
+          path: |
+            runs/historical/dscovr_gannon_may_2024/
+            runs/audits/gannon_event_reference/
+          if-no-files-found: error
+          retention-days: 90

@@ -60,6 +60,32 @@ def dependency_versions() -> dict[str, str]:
     return result
 
 
+def classify_mission_phase(
+    analysis_start: pd.Timestamp,
+    analysis_end: pd.Timestamp,
+    contract: dict[str, Any],
+) -> dict[str, Any]:
+    operational_start = pd.to_datetime(
+        contract["mission_phase"]["operational_start_utc"], utc=True
+    )
+    if analysis_end <= operational_start:
+        classification = contract["mission_phase"]["pre_operational_label"]
+        operational_claim_allowed = False
+    elif analysis_start >= operational_start:
+        classification = contract["mission_phase"]["operational_label"]
+        operational_claim_allowed = True
+    else:
+        classification = contract["mission_phase"]["mixed_interval_label"]
+        operational_claim_allowed = False
+    return {
+        "operational_start_utc": operational_start.isoformat(),
+        "analysis_start_utc": analysis_start.isoformat(),
+        "analysis_end_utc": analysis_end.isoformat(),
+        "interval_classification": classification,
+        "operational_validation_claim_allowed": operational_claim_allowed,
+    }
+
+
 def _identity_from_info(info: dict[str, Any], vector_parameter: str) -> dict[str, Any]:
     for record in info.get("additionalMetadata", []):
         content = record.get("content")
@@ -368,6 +394,8 @@ def run_solar1_pipeline(
         start = pd.to_datetime(start_time, utc=True)
         analysis = pd.to_datetime(analysis_start, utc=True)
         end = pd.to_datetime(end_time, utc=True)
+        phase = classify_mission_phase(analysis, end, contract)
+        manifest["mission_phase"] = phase
         pre_roll = pd.Timedelta(hours=contract["physics"]["pre_roll_hours"])
         if not start < analysis < end:
             raise ValueError("require retrieval start < analysis start < retrieval end")
@@ -428,6 +456,8 @@ def run_solar1_pipeline(
                     "",
                     f"- Dataset: `{contract['source']['product_id']}`",
                     f"- Protocol: `{PROTOCOL_ID}` version `{PROTOCOL_VERSION}`",
+                    f"- Mission phase: `{phase['interval_classification']}`",
+                    f"- Operational validation claim allowed: **{phase['operational_validation_claim_allowed']}**",
                     f"- Retrieval: {start_time} to {end_time}",
                     f"- Analysis: {analysis_start} to {end_time}",
                     f"- Raw rows: {len(raw):,}",

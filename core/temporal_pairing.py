@@ -25,6 +25,30 @@ POSITIVE_LAG_DEFINITION = (
     "positive lag L compares DSCOVR(t) with SOLAR-1(t+L); "
     "positive values mean the SOLAR-1 feature occurs later"
 )
+COHERENCE_MIN_R = 0.70
+LOOK_ELSEWHERE_MAX_P = 0.01
+LAG_IMPROVEMENT_MIN = 0.02
+PLATEAU_995_MAX_LAGS = 3
+BOOTSTRAP_MODE_MIN_FRACTION = 0.60
+BOOTSTRAP_95_MAX_SPAN_MINUTES = 2.0
+SEGMENT_MAX_SPAN_MINUTES = 2
+
+
+def classification_policy() -> dict[str, Any]:
+    return {
+        "coherence": {
+            "best_pearson_r_minimum": COHERENCE_MIN_R,
+            "look_elsewhere_p_value_maximum": LOOK_ELSEWHERE_MAX_P,
+        },
+        "lag_candidate": {
+            "improvement_over_zero_lag_minimum": LAG_IMPROVEMENT_MIN,
+            "peak_plateau_99_5_percent_max_lags": PLATEAU_995_MAX_LAGS,
+            "bootstrap_mode_fraction_minimum": BOOTSTRAP_MODE_MIN_FRACTION,
+            "bootstrap_95_percent_span_max_minutes": BOOTSTRAP_95_MAX_SPAN_MINUTES,
+            "daily_segment_span_max_minutes": SEGMENT_MAX_SPAN_MINUTES,
+            "ephemeris_still_required": True,
+        },
+    }
 
 
 def sha256_file(path: Path) -> str:
@@ -287,7 +311,11 @@ def classify(
     segment_lags: list[int],
     null_p: float | None,
 ) -> str:
-    coherent = best_r >= 0.70 and null_p is not None and null_p <= 0.01
+    coherent = (
+        best_r >= COHERENCE_MIN_R
+        and null_p is not None
+        and null_p <= LOOK_ELSEWHERE_MAX_P
+    )
     if not coherent:
         return "NO_STABLE_COHERENCE"
 
@@ -302,11 +330,11 @@ def classify(
     segment_span = max(segment_lags) - min(segment_lags) if segment_lags else np.inf
 
     lag_stable = (
-        improvement >= 0.02
-        and len(plateau_995) <= 3
-        and mode_fraction >= 0.60
-        and bootstrap_span <= 2
-        and segment_span <= 2
+        improvement >= LAG_IMPROVEMENT_MIN
+        and len(plateau_995) <= PLATEAU_995_MAX_LAGS
+        and mode_fraction >= BOOTSTRAP_MODE_MIN_FRACTION
+        and bootstrap_span <= BOOTSTRAP_95_MAX_SPAN_MINUTES
+        and segment_span <= SEGMENT_MAX_SPAN_MINUTES
     )
     return (
         "LAG_CANDIDATE_REQUIRES_EPHEMERIS"
@@ -412,6 +440,7 @@ def run_pairing_engine(
             "lag_search_range_minutes": [-max_lag, max_lag],
             "look_elsewhere_control": "circular-shift null scans the same lag range",
             "block_bootstrap_minutes": block_minutes,
+            "classification_thresholds": classification_policy(),
         },
         "inputs": {
             "dscovr": {

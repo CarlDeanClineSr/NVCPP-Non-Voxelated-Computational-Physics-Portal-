@@ -52,7 +52,8 @@ every result.
 ## Canonical observable
 
 ```text
-B0(t) = median{B(τ): t - 24 h < τ < t}
+B(t) = |<B_GSE>_1min|
+B0(t) = median{B(τ): t - 24 h <= τ < t}
 ratio_B24M = B / B0
 delta_B24M = (B - B0) / B0
 chi_B24M = abs(delta_B24M)
@@ -154,6 +155,7 @@ See:
 
 - `docs/HOURLY_OBSERVATORY.md`
 - `docs/TEACHING_ENGINE.md`
+- `docs/EVENT_REFERENCE_OVERLAY.md`
 - `docs/DRIVE_PREFLIGHT.md`
 - `docs/DRIVE_VAULT_SETUP.md`
 

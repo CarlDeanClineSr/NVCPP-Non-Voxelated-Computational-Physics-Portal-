@@ -45,6 +45,19 @@ def test_signed_compression_depression_and_rotation_are_retained():
     assert "FIELD_ROTATION_CANDIDATE" in codes
     assert prepared["rotation_degrees"].max() == 90.0
     assert metrics["event_count"] >= 2
+    assert metrics["threshold_contract"]["SEVERE_MAGNETIC_DEPARTURE"] == {
+        "metric": "chi_B24M",
+        "source_quantity": "B_mag",
+        "reference": "live prior-only 24-hour median B0",
+        "operator": ">=",
+        "threshold": 1.0,
+        "creates_event_by_itself": True,
+        "meaning": "severe absolute departure from the live magnetic baseline",
+        "not_equivalent_to": ["shock confirmation", "southward Bz", "ICME phase"],
+    }
+    for event in events:
+        assert {item["metric"] for item in event["trigger_evidence"]}
+        assert all("reference" in item for item in event["trigger_evidence"])
 
 
 def test_watch_threshold_does_not_create_event_by_itself():
@@ -59,3 +72,4 @@ def test_watch_threshold_does_not_create_event_by_itself():
     )
     assert events == []
     assert metrics["watch_rows"] == 3
+    assert metrics["threshold_contract"]["CHI_RESEARCH_WATCH"]["creates_event_by_itself"] is False
