@@ -19,9 +19,13 @@
   },
   "eligibility": {
     "minimum_minutes_with_finite_F": 1368,
-    "minimum_minutes_with_finite_flow_speed": 1368,
+    "minimum_F_coverage_fraction": 0.95,
+    "minimum_minutes_with_finite_flow_speed": 1008,
+    "minimum_flow_speed_coverage_fraction": 0.70,
     "minimum_minutes_with_finite_SYM_H": 1368,
-    "maximum_abs_SYM_H_nT": 250.0
+    "minimum_SYM_H_coverage_fraction": 0.95,
+    "maximum_abs_SYM_H_nT": 250.0,
+    "coverage_revision_reason": "the first preselection run showed that no day in the frozen OMNI search pool had 95 percent finite flow-speed coverage; before any spacecraft gate date was selected, the speed requirement was declared as 70 percent while F and SYM_H remain at 95 percent"
   },
   "ranking": {
     "method": "sum_of_ascending_fractional_ranks",
@@ -69,6 +73,7 @@
     "low-activity and moderate labels are relative to this frozen search pool, not universal solar-wind classes",
     "no spacecraft-specific gate output may be inspected before the selected dates are written",
     "fixed event controls are selected from external NASA event metadata before gate retrieval",
-    "dates may not be replaced because their later gate result is inconvenient"
+    "dates may not be replaced because their later gate result is inconvenient",
+    "the 70 percent flow-speed coverage gate was declared after a zero-eligible-day transport diagnostic and before any spacecraft gate output was retrieved"
   ]
 }
