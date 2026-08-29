@@ -1,0 +1,256 @@
+name: Repair and finalize event-class control evidence
+
+on:
+  push:
+    branches:
+      - feature/mag-gate-event-class-controls-v1
+    paths:
+      - ".github/workflows/repair_and_finalize_event_class_controls.yml"
+
+permissions:
+  contents: write
+
+concurrency:
+  group: repair-finalize-event-class-controls-v1
+  cancel-in-progress: false
+
+jobs:
+  finalize:
+    runs-on: ubuntu-latest
+    timeout-minutes: 180
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: feature/mag-gate-event-class-controls-v1
+          fetch-depth: 0
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Repair dictionary-count merge guard
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          from pathlib import Path
+
+          path = Path("tests/test_mag_gate_event_class_evidence.py")
+          text = path.read_text(encoding="utf-8")
+          broken = '    assert result["successful_interval_counts"] >= EXPECTED_CLASSES\n'
+          fixed = (
+              '    for control_class, minimum in EXPECTED_CLASSES.items():\n'
+              '        assert result["successful_interval_counts"].get(control_class, 0) >= minimum\n'
+          )
+          if broken in text:
+              text = text.replace(broken, fixed)
+              path.write_text(text, encoding="utf-8")
+              print("Repaired unsupported dictionary comparison")
+          elif fixed in text:
+              print("Dictionary-count guard was already repaired")
+          else:
+              raise SystemExit("evidence guard does not match the reviewed source")
+          PY
+
+      - name: Restore frozen independent selection evidence if branch integration lagged
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [[ ! -f provenance/mag_gate_control_selection_v1/FROZEN_INVENTORY.json ]]; then
+            git fetch origin feature/gate-control-harness-v1
+            git checkout origin/feature/gate-control-harness-v1 -- \
+              provenance/mag_gate_control_selection_v1
+          fi
+          test -f provenance/mag_gate_control_selection_v1/FROZEN_INVENTORY.json
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          path = Path("provenance/mag_gate_control_selection_v1/FROZEN_INVENTORY.json")
+          data = json.loads(path.read_text(encoding="utf-8"))
+          if data.get("status") != "FROZEN_BEFORE_SPACECRAFT_GATE_RETRIEVAL":
+              raise SystemExit(f"unexpected selection state: {data.get('status')!r}")
+          if data.get("spacecraft_gate_outputs_used") is not False:
+              raise SystemExit("selection evidence used spacecraft MAG gate output")
+          print(json.dumps({
+              "status": data["status"],
+              "spacecraft_gate_outputs_used": data["spacecraft_gate_outputs_used"],
+          }))
+          PY
+
+      - name: Install locked dependencies
+        run: python -m pip install -r requirements.txt
+
+      - name: Compile and run pre-evidence tests
+        run: |
+          python -m compileall -q \
+            historical/mag_gate_event_class_controls.py \
+            tests/test_mag_gate_event_class_controls.py \
+            tests/test_mag_gate_event_class_evidence.py
+          python -m json.tool config/mag_gate_event_class_controls.v1.json >/dev/null
+          python -m pytest -q tests/test_mag_gate_event_class_controls.py
+
+      - name: Run every frozen event-class interval
+        run: |
+          rm -rf runs/audits/mag_gate_event_class_controls
+          python -m historical.mag_gate_event_class_controls \
+            --config config/mag_gate_event_class_controls.v1.json \
+            --outdir runs/audits/mag_gate_event_class_controls
+
+      - name: Freeze compact evidence without raw telemetry
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          from pathlib import Path
+          import hashlib
+          import json
+          import shutil
+
+          source = Path("runs/audits/mag_gate_event_class_controls")
+          manifest_path = source / "mag_gate_event_class_controls_manifest.json"
+          manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+          if manifest.get("status") != "SUCCESS":
+              raise SystemExit(
+                  f"event-class controls incomplete: status={manifest.get('status')!r}; "
+                  f"failures={manifest.get('failed_intervals')!r}"
+              )
+          if manifest.get("event_interpretation_reopened") is not False:
+              raise SystemExit("Gannon interpretation was reopened")
+          if manifest.get("geometry_blocked") is not True:
+              raise SystemExit("geometry was unblocked")
+          if manifest.get("physical_mechanism_classified") is not False:
+              raise SystemExit("physical mechanism was classified")
+
+          target = Path("provenance/mag_gate_event_class_controls_v1")
+          if target.exists():
+              shutil.rmtree(target)
+          target.mkdir(parents=True)
+
+          compact_names = [
+              "event_class_interval_summary.csv",
+              "event_class_aggregate.csv",
+              "event_class_failures.json",
+              "MAG_GATE_EVENT_CLASS_CONTROLS.md",
+          ]
+          for name in compact_names:
+              path = source / name
+              if not path.is_file():
+                  raise SystemExit(f"missing compact result: {path}")
+              shutil.copy2(path, target / name)
+
+          interval_results = []
+          for path in sorted((source / "intervals").glob("*/interval_manifest.json")):
+              data = json.loads(path.read_text(encoding="utf-8"))
+              source_hashes = {}
+              for mission, metadata in data["source_metadata"].items():
+                  source_hashes[mission] = {
+                      key: value
+                      for key, value in metadata.items()
+                      if key in {
+                          "dataset_id",
+                          "variables",
+                          "requested_parameters",
+                          "raw",
+                          "descriptor",
+                          "info",
+                      }
+                  }
+              interval_results.append({
+                  "interval_id": data["interval_id"],
+                  "control_class": data["control_class"],
+                  "label": data["label"],
+                  "start_utc": data["start_utc"],
+                  "stop_utc": data["stop_utc"],
+                  "selection_source": data["selection_source"],
+                  "selection_rank": data.get("selection_rank"),
+                  "gate": data["gate"],
+                  "mission_gate_density": data["mission_gate_density"],
+                  "support_metrics": data["support_metrics"],
+                  "source_hashes": source_hashes,
+                  "claims": data["claims"],
+              })
+
+          compact = {
+              "status": manifest["status"],
+              "audit_version": manifest["audit_version"],
+              "completed_utc": manifest["completed_utc"],
+              "git_commit": manifest["git_commit"],
+              "github_run_id": manifest["github_run_id"],
+              "contract": manifest["contract"],
+              "selection_provenance": manifest["selection_provenance"],
+              "selected_intervals": manifest["selected_intervals"],
+              "frozen_gate": manifest["frozen_gate"],
+              "successful_interval_counts": manifest["successful_interval_counts"],
+              "failed_intervals": manifest["failed_intervals"],
+              "result_states": manifest["result_states"],
+              "hard_null_combination_completed": manifest["hard_null_combination_completed"],
+              "common_surface_test_completed": manifest["common_surface_test_completed"],
+              "ephemeris_propagation_test_completed": manifest["ephemeris_propagation_test_completed"],
+              "event_interpretation_reopened": manifest["event_interpretation_reopened"],
+              "geometry_blocked": manifest["geometry_blocked"],
+              "physical_mechanism_classified": manifest["physical_mechanism_classified"],
+              "interpretation_limits": manifest["interpretation_limits"],
+              "interval_results": interval_results,
+              "raw_telemetry_committed": False,
+          }
+          compact_path = target / "COMPACT_RESULT.json"
+          compact_path.write_text(
+              json.dumps(compact, indent=2, sort_keys=True), encoding="utf-8"
+          )
+
+          inventory_files = []
+          for path in sorted(target.rglob("*")):
+              if path.is_file():
+                  payload = path.read_bytes()
+                  inventory_files.append({
+                      "path": path.relative_to(target).as_posix(),
+                      "sha256": hashlib.sha256(payload).hexdigest(),
+                      "size_bytes": len(payload),
+                  })
+          (target / "FROZEN_INVENTORY.json").write_text(
+              json.dumps({
+                  "status": "EVENT_CLASS_CONTROL_DISTRIBUTIONS_FROZEN",
+                  "detector_thresholds_changed": False,
+                  "gannon_interpretation_reopened": False,
+                  "raw_telemetry_committed": False,
+                  "files": inventory_files,
+              }, indent=2, sort_keys=True),
+              encoding="utf-8",
+          )
+          print(json.dumps({
+              "successful_interval_counts": manifest["successful_interval_counts"],
+              "failed_intervals": manifest["failed_intervals"],
+              "interval_result_count": len(interval_results),
+          }, indent=2))
+          PY
+
+      - name: Enforce frozen evidence and full repository tests
+        run: |
+          python -m pytest -q \
+            tests/test_mag_gate_event_class_controls.py \
+            tests/test_mag_gate_event_class_evidence.py
+          python -m pytest -q
+
+      - name: Remove temporary workflows and commit final evidence
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -f \
+            .github/workflows/finalize_event_class_control_evidence.yml \
+            .github/workflows/repair_and_finalize_event_class_controls.yml
+          git config user.name "NVCPP Control Calibration"
+          git config user.email "actions@users.noreply.github.com"
+          git add -A
+          git commit -m "evidence: freeze MAG event-class control distributions"
+          git push origin HEAD:feature/mag-gate-event-class-controls-v1
+
+      - name: Upload full immutable control package
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: nvcpp-mag-gate-event-class-controls-final
+          path: runs/audits/mag_gate_event_class_controls
+          if-no-files-found: warn
+          retention-days: 90
+          compression-level: 6
