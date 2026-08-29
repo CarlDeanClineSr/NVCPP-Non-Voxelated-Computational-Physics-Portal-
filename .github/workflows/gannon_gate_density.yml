@@ -1,0 +1,95 @@
+name: NVCPP Gannon Full-Day MAG Gate Density
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+      - feature/gannon-multipoint-v1
+    paths:
+      - "config/gannon_gate_density.v1.json"
+      - "historical/gannon_gate_density.py"
+      - "historical/gannon_multipoint_audit.py"
+      - "tests/test_gannon_gate_density.py"
+      - ".github/workflows/gannon_gate_density.yml"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: nvcpp-gannon-gate-density
+  cancel-in-progress: true
+
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - name: Install locked dependencies
+        run: python -m pip install -r requirements.txt
+      - name: Compile and run focused offline tests
+        run: |
+          python -m compileall -q \
+            historical/gannon_gate_density.py \
+            tests/test_gannon_gate_density.py
+          python -m json.tool config/gannon_gate_density.v1.json >/dev/null
+          python -m pytest -q tests/test_gannon_gate_density.py
+      - name: Measure full-day gate density and timing prevalence
+        run: |
+          python -m historical.gannon_gate_density \
+            --config config/gannon_gate_density.v1.json \
+            --outdir runs/audits/gannon_gate_density
+      - name: Verify bounded interpretation and provenance
+        run: |
+          python - <<'PY'
+          import json
+          import math
+          from pathlib import Path
+
+          path = Path("runs/audits/gannon_gate_density/gannon_gate_density_manifest.json")
+          data = json.loads(path.read_text())
+          if data.get("status") != "SUCCESS":
+              raise SystemExit(f"gate-density status is {data.get('status')!r}")
+          if data.get("physical_mechanism_classified") is not False:
+              raise SystemExit("physical mechanism was promoted")
+          if data.get("common_surface_test_completed") is not False:
+              raise SystemExit("common-surface test was incorrectly marked complete")
+          if data.get("ephemeris_propagation_test_completed") is not False:
+              raise SystemExit("ephemeris test was incorrectly marked complete")
+          if data.get("candidate_result_state") != (
+              "WITHIN_DAY_GATE_PREVALENCE_MEASURED_COMMON_SURFACE_UNRESOLVED"
+          ):
+              raise SystemExit("unexpected candidate result state")
+          summaries = {row["mission"]: row for row in data["mission_gate_density"]}
+          if set(summaries) != {"DSCOVR", "ACE", "WIND"}:
+              raise SystemExit("missing spacecraft density summary")
+          if summaries["DSCOVR"]["minimum_native_samples"] < 57:
+              raise SystemExit("DSCOVR native sample provenance was not preserved")
+          candidate = data["support_prevalence"]["candidate"]
+          for key in (
+              "ace_nearest_offset_minutes",
+              "wind_nearest_offset_minutes",
+              "nearest_joint_radius_minutes",
+              "strongest_three_spacecraft_span_minutes",
+          ):
+              value = float(candidate[key])
+              if not math.isfinite(value):
+                  raise SystemExit(f"candidate timing field {key} is not finite")
+          if "p_value" in json.dumps(data).lower():
+              raise SystemExit("within-day prevalence was mislabeled as a p-value")
+          print(json.dumps(candidate, indent=2))
+          PY
+      - name: Upload immutable gate-density package
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: nvcpp-gannon-gate-density
+          path: runs/audits/gannon_gate_density
+          if-no-files-found: error
+          retention-days: 90
+          compression-level: 6

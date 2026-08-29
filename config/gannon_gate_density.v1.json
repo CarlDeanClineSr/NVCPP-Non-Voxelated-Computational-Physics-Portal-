@@ -1,0 +1,52 @@
+{
+  "contract_id": "NVCPP-GANNON-MAG-GATE-DENSITY-v1",
+  "contract_version": "1.0.0",
+  "analysis_window": {
+    "start_utc": "2024-05-11T00:00:00Z",
+    "stop_utc": "2024-05-12T00:00:00Z",
+    "candidate_utc": "2024-05-11T10:59:00Z"
+  },
+  "gate": {
+    "coordinate_frame": "GSE",
+    "canonical_cadence_seconds": 60,
+    "required_previous_offset_seconds": 60,
+    "rotation_threshold_degrees": 45.0,
+    "magnitude_change_threshold_fraction": 0.25,
+    "logical_operator": "OR",
+    "support_half_window_minutes": 15,
+    "contiguous_run_definition": "successive gate rows separated by exactly 60 seconds"
+  },
+  "sources": {
+    "DSCOVR": {
+      "provider": "NASA CDAWeb",
+      "dataset_id": "DSCOVR_H0_MAG",
+      "variables": ["B1GSE"],
+      "native_cadence": "approximately 1 second",
+      "canonical_minimum_native_samples": 57
+    },
+    "ACE": {
+      "provider": "NASA CDAWeb HAPI",
+      "dataset_id": "AC_H0_MFI",
+      "parameters": ["Magnitude", "BGSEc", "SC_pos_GSE"],
+      "native_cadence": "approximately 16 seconds",
+      "canonical_minimum_native_samples": 3
+    },
+    "WIND": {
+      "provider": "NASA CDAWeb CDAS REST",
+      "dataset_id": "WI_H0_MFI",
+      "variables": ["B3GSE", "B3F1"],
+      "native_cadence": "approximately 3 seconds",
+      "canonical_minimum_native_samples": 18
+    }
+  },
+  "interpretation_limits": [
+    "gate prevalence on one disturbed day is not a quiet-time false-positive rate",
+    "a nearby ACE or Wind gate does not prove that the spacecraft crossed the same discontinuity",
+    "the spacecraft are not co-located and no propagation correction is applied",
+    "GSE vector rotation is not a GSM clock-angle or geoeffectiveness claim",
+    "no shock, rotational discontinuity, current sheet, or flux-rope boundary is classified",
+    "no interpolation or forward fill is allowed",
+    "candidate support must report exact selected times and signed offsets",
+    "ephemeris and discontinuity-normal tests remain separately gated"
+  ]
+}
