@@ -31,6 +31,7 @@ jobs:
           python - <<'PY'
           from pathlib import Path
           import re
+          import textwrap
 
           path = Path("historical/select_gannon_v2_holdout_registry.py")
           text = path.read_text(encoding="utf-8")
@@ -41,15 +42,16 @@ jobs:
               r'    candidates = candidates\.loc\[candidates\["nearest_rc_gap_hours"\] >= 72\.0\]\.copy\(\)',
               re.DOTALL,
           )
-          replacement = '''    def nearest_other_rc_gap_hours(value: object) -> float:
+          replacement = textwrap.indent(
+              '''def nearest_other_rc_gap_hours(value: object) -> float:
               reference = to_utc(value)
               gaps = [
                   abs((reference - event).total_seconds()) / 3600.0
                   for event in rc_times
               ]
               # A Richardson/Cane entry within twelve hours can describe the
-              # same shock/ICME association.  Isolation is measured against the
-              # nearest *other* catalog disturbance, not the event itself.
+              # same shock/ICME association. Isolation is measured against the
+              # nearest other catalog disturbance, not the event itself.
               other = [gap for gap in gaps if gap > 12.0]
               return min(other) if other else float("inf")
 
@@ -58,7 +60,9 @@ jobs:
           ].map(nearest_other_rc_gap_hours)
           candidates = candidates.loc[
               candidates["nearest_other_rc_gap_hours"] >= 72.0
-          ].copy()'''
+          ].copy()''',
+              "    ",
+          )
 
           text, count = pattern.subn(replacement, text, count=1)
           if count != 1:
