@@ -4,9 +4,11 @@ on:
   workflow_dispatch:
   push:
     branches:
+      - main
       - feature/gannon-multipoint-v1
     paths:
       - "historical/gannon_multipoint_audit.py"
+      - "historical/finalize_gannon_multipoint.py"
       - "tests/test_gannon_multipoint.py"
       - "tests/test_gannon_cdas_parser.py"
       - ".github/workflows/gannon_multipoint_audit.yml"
@@ -34,6 +36,7 @@ jobs:
         run: |
           python -m compileall -q \
             historical/gannon_multipoint_audit.py \
+            historical/finalize_gannon_multipoint.py \
             tests/test_gannon_multipoint.py \
             tests/test_gannon_cdas_parser.py
           python -m pytest -q \
@@ -46,10 +49,15 @@ jobs:
             --stop 2024-05-11T11:30:00Z \
             --candidate-time 2024-05-11T10:59:00Z \
             --outdir runs/audits/gannon_multipoint
+      - name: Finalize exact-minute and native-sample provenance
+        run: |
+          python -m historical.finalize_gannon_multipoint \
+            --root runs/audits/gannon_multipoint
       - name: Verify successful unresolved classification
         run: |
           python - <<'PY'
           import json
+          import pandas as pd
           from pathlib import Path
 
           path = Path("runs/audits/gannon_multipoint/gannon_multipoint_manifest.json")
@@ -63,6 +71,19 @@ jobs:
           selected = data.get("selected_structures", {})
           if not all(selected.get(name) for name in ("DSCOVR", "ACE", "WIND")):
               raise SystemExit("one or more spacecraft lack a selected structure")
+          integrity = data.get("selected_structure_integrity", {})
+          for mission in ("DSCOVR", "ACE", "WIND"):
+              record = integrity.get(mission, {})
+              if record.get("exact_previous_minute") is not True:
+                  raise SystemExit(f"{mission} does not use an exact previous minute")
+              if float(record.get("previous_offset_seconds")) != 60.0:
+                  raise SystemExit(f"{mission} previous offset is not 60 seconds")
+          if int(selected["DSCOVR"].get("native_samples", 0)) < 57:
+              raise SystemExit("DSCOVR native sample count was not restored")
+          if int(selected["DSCOVR"].get("secondary_standardization_input_rows", 0)) != 1:
+              raise SystemExit("DSCOVR secondary-standardization provenance is absent")
+          if data.get("artifact_finalizer", {}).get("physics_recomputed") is not False:
+              raise SystemExit("provenance finalizer changed the physics")
           print(data.get("classification"))
           PY
       - name: Upload immutable audit package
