@@ -1,14 +1,14 @@
 #!/usr/bin/env python3
 """Classify SOLAR-1 analysis intervals relative to operational service.
 
-The fixed June 1-5 regression is useful as a deterministic integration fixture,
-but it precedes NOAA's declared operational date of 2026-06-10.  This module
-adds that fact to the machine-readable run manifest and human-readable report;
-it does not reject or relabel the provider's science-quality product.
+The authoritative operational boundary, labels, and source citation live in the
+SOLAR-1 contract. This module is the only implementation of interval-phase
+classification. The fixed June 1-5 regression remains useful as a deterministic
+integration fixture, but it is explicitly pre-operational.
 
-When a report is changed, its artifact size and SHA-256 are refreshed in the
-same manifest before the manifest is rewritten.  Phase labeling therefore
-cannot leave a stale provenance record behind.
+``apply_phase_label`` remains available for repairing older manifests. New source
+runs classify the interval before artifact inventory, so no post-processing step
+is required in the normal workflow.
 """
 
 from __future__ import annotations
@@ -21,44 +21,70 @@ from typing import Any
 
 import pandas as pd
 
-MISSION_PHASE_VERSION = "1.0.1"
-SOLAR1_OPERATIONAL_START_UTC = pd.Timestamp("2026-06-10T00:00:00Z")
-OPERATIONAL_STATUS_SOURCE = (
-    "https://www.ospo.noaa.gov/data/messages/2026/06/MSG_20260610_2105.html"
-)
+MISSION_PHASE_VERSION = "1.1.0"
+DEFAULT_CONTRACT_PATH = Path("config/solar1_mag_contract.v1.json")
 
 
 def _sha256(path: Path) -> str:
     return hashlib.sha256(path.read_bytes()).hexdigest()
 
 
+def _utc(value: str | pd.Timestamp) -> pd.Timestamp:
+    timestamp = pd.Timestamp(value)
+    return (
+        timestamp.tz_localize("UTC")
+        if timestamp.tzinfo is None
+        else timestamp.tz_convert("UTC")
+    )
+
+
+def _load_contract(path: Path = DEFAULT_CONTRACT_PATH) -> dict[str, Any]:
+    data = json.loads(path.read_text(encoding="utf-8"))
+    if not isinstance(data, dict):
+        raise ValueError("SOLAR-1 contract root must be an object")
+    _phase_config(data)
+    return data
+
+
+def _phase_config(contract: dict[str, Any]) -> dict[str, Any]:
+    phase = contract.get("mission_phase")
+    if not isinstance(phase, dict):
+        raise ValueError("SOLAR-1 contract has no mission_phase object")
+    required = (
+        "operational_start_utc",
+        "operational_status_source",
+        "pre_operational_label",
+        "mixed_interval_label",
+        "operational_label",
+    )
+    missing = [name for name in required if not phase.get(name)]
+    if missing:
+        raise ValueError(f"SOLAR-1 mission_phase is missing: {missing}")
+    return phase
+
+
 def classify_solar1_interval(
     start: str | pd.Timestamp,
     end: str | pd.Timestamp,
+    contract: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
-    start_time = pd.Timestamp(start)
-    end_time = pd.Timestamp(end)
-    start_time = (
-        start_time.tz_localize("UTC")
-        if start_time.tzinfo is None
-        else start_time.tz_convert("UTC")
-    )
-    end_time = (
-        end_time.tz_localize("UTC")
-        if end_time.tzinfo is None
-        else end_time.tz_convert("UTC")
-    )
+    """Return a machine-readable interval label from the authoritative contract."""
+    contract = contract or _load_contract()
+    config = _phase_config(contract)
+    start_time = _utc(start)
+    end_time = _utc(end)
+    operational_start = _utc(config["operational_start_utc"])
     if not start_time < end_time:
         raise ValueError("SOLAR-1 mission-phase interval must have start < end")
 
-    if end_time <= SOLAR1_OPERATIONAL_START_UTC:
-        label = "PRE_OPERATIONAL_COMMISSIONING_REGRESSION"
+    if end_time <= operational_start:
+        label = str(config["pre_operational_label"])
         operational_claim = False
-    elif start_time >= SOLAR1_OPERATIONAL_START_UTC:
-        label = "OPERATIONAL"
+    elif start_time >= operational_start:
+        label = str(config["operational_label"])
         operational_claim = True
     else:
-        label = "TRANSITION_SPANNING_OPERATIONAL_START"
+        label = str(config["mixed_interval_label"])
         operational_claim = False
 
     return {
@@ -66,8 +92,8 @@ def classify_solar1_interval(
         "label": label,
         "analysis_start_utc": start_time.isoformat(),
         "analysis_end_utc": end_time.isoformat(),
-        "declared_operational_start_utc": SOLAR1_OPERATIONAL_START_UTC.isoformat(),
-        "operational_status_source": OPERATIONAL_STATUS_SOURCE,
+        "declared_operational_start_utc": operational_start.isoformat(),
+        "operational_status_source": str(config["operational_status_source"]),
         "operational_validation_claim_allowed": operational_claim,
         "interpretation": (
             "phase label describes mission operational status; it does not alter "
@@ -76,17 +102,8 @@ def classify_solar1_interval(
     }
 
 
-def _refresh_artifact_record(
-    manifest: dict[str, Any],
-    path: Path,
-) -> None:
-    """Refresh an existing artifact record after a deliberate file mutation.
-
-    The source pipeline stores artifacts as a list of dictionaries.  A missing
-    record is treated as a provenance error rather than silently appending a new
-    path that the source runner did not originally inventory.
-    """
-
+def _refresh_artifact_record(manifest: dict[str, Any], path: Path) -> None:
+    """Refresh one existing artifact record after a deliberate file mutation."""
     artifacts = manifest.get("artifacts")
     if not isinstance(artifacts, list):
         raise ValueError("SOLAR-1 manifest artifacts must be a list")
@@ -105,7 +122,12 @@ def _refresh_artifact_record(
     record["sha256"] = _sha256(path)
 
 
-def apply_phase_label(manifest_path: Path, report_path: Path | None = None) -> dict[str, Any]:
+def apply_phase_label(
+    manifest_path: Path,
+    report_path: Path | None = None,
+    contract_path: Path = DEFAULT_CONTRACT_PATH,
+) -> dict[str, Any]:
+    """Apply the single contract-driven classifier to an older run manifest."""
     manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
     analysis_window = manifest.get("analysis_window", {})
     start = analysis_window.get("start")
@@ -113,7 +135,8 @@ def apply_phase_label(manifest_path: Path, report_path: Path | None = None) -> d
     if not start or not end:
         raise ValueError("SOLAR-1 manifest has no complete analysis_window")
 
-    phase = classify_solar1_interval(start, end)
+    contract = _load_contract(contract_path)
+    phase = classify_solar1_interval(start, end, contract)
     manifest["mission_phase"] = phase
 
     if report_path is not None and report_path.exists():
@@ -145,8 +168,9 @@ def main() -> None:
     parser = argparse.ArgumentParser(description="Label a SOLAR-1 run by mission phase")
     parser.add_argument("--manifest", required=True, type=Path)
     parser.add_argument("--report", type=Path)
+    parser.add_argument("--contract", type=Path, default=DEFAULT_CONTRACT_PATH)
     args = parser.parse_args()
-    phase = apply_phase_label(args.manifest, args.report)
+    phase = apply_phase_label(args.manifest, args.report, args.contract)
     print(json.dumps(phase, indent=2, sort_keys=True))
 
 

@@ -59,26 +59,6 @@ jobs:
             --analysis-start "${{ inputs.analysis_start || '2026-06-02T00:00:00.000Z' }}" \
             --end "${{ inputs.end_time || '2026-06-05T00:00:00.000Z' }}" \
             --outdir runs/historical
-      - name: Label the run by declared SOLAR-1 mission phase
-        if: always()
-        shell: bash
-        run: |
-          RUN_NAME="${{ inputs.run_name || 'solar1_regression_june_2026' }}"
-          RUN_DIR="runs/historical/${RUN_NAME}"
-          MANIFEST="${RUN_DIR}/solar1_run_manifest.json"
-          REPORT="${RUN_DIR}/solar1_cline_l1_report.md"
-          if [[ -f "$MANIFEST" ]]; then
-            if [[ -f "$REPORT" ]]; then
-              python -m sources.solar1.mission_phase \
-                --manifest "$MANIFEST" \
-                --report "$REPORT"
-            else
-              python -m sources.solar1.mission_phase \
-                --manifest "$MANIFEST"
-            fi
-          else
-            echo "No SOLAR-1 manifest exists to phase-label."
-          fi
       - name: Preserve success or failure evidence
         if: always()
         uses: actions/upload-artifact@v4

@@ -1,13 +1,14 @@
 {
-  "contract_version": "1.2.0",
+  "contract_version": "1.3.0",
   "status": "FROZEN_VERIFIED",
   "mission": "SOLAR-1",
   "provider": "NOAA/NCEI",
   "instrument": "MAG",
   "mission_phase": {
     "operational_start_utc": "2026-06-10T00:00:00.000Z",
+    "operational_status_source": "https://www.ospo.noaa.gov/data/messages/2026/06/MSG_20260610_2105.html",
     "pre_operational_label": "PRE_OPERATIONAL_COMMISSIONING_REGRESSION",
-    "mixed_interval_label": "CROSSES_OPERATIONAL_BOUNDARY",
+    "mixed_interval_label": "TRANSITION_SPANNING_OPERATIONAL_START",
     "operational_label": "OPERATIONAL"
   },
   "source": {

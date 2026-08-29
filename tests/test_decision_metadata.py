@@ -4,7 +4,7 @@ from pathlib import Path
 import pandas as pd
 
 from core.temporal_pairing import classification_policy
-from sources.solar1.download_solar1 import classify_mission_phase
+from sources.solar1.mission_phase import classify_solar1_interval
 
 
 def contract():
@@ -12,29 +12,30 @@ def contract():
 
 
 def test_june_regression_is_machine_labeled_pre_operational():
-    phase = classify_mission_phase(
+    phase = classify_solar1_interval(
         pd.Timestamp("2026-06-02T00:00:00Z"),
         pd.Timestamp("2026-06-05T00:00:00Z"),
         contract(),
     )
-    assert phase["interval_classification"] == "PRE_OPERATIONAL_COMMISSIONING_REGRESSION"
+    assert phase["label"] == "PRE_OPERATIONAL_COMMISSIONING_REGRESSION"
     assert phase["operational_validation_claim_allowed"] is False
+    assert phase["operational_status_source"].startswith("https://")
 
 
 def test_operational_and_boundary_crossing_intervals_are_distinct():
-    mixed = classify_mission_phase(
+    mixed = classify_solar1_interval(
         pd.Timestamp("2026-06-09T00:00:00Z"),
         pd.Timestamp("2026-06-11T00:00:00Z"),
         contract(),
     )
-    operational = classify_mission_phase(
+    operational = classify_solar1_interval(
         pd.Timestamp("2026-06-10T00:00:00Z"),
         pd.Timestamp("2026-06-12T00:00:00Z"),
         contract(),
     )
-    assert mixed["interval_classification"] == "CROSSES_OPERATIONAL_BOUNDARY"
+    assert mixed["label"] == "TRANSITION_SPANNING_OPERATIONAL_START"
     assert mixed["operational_validation_claim_allowed"] is False
-    assert operational["interval_classification"] == "OPERATIONAL"
+    assert operational["label"] == "OPERATIONAL"
     assert operational["operational_validation_claim_allowed"] is True
 
 

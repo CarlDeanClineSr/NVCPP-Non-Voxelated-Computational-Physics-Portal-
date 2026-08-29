@@ -75,6 +75,7 @@ def validate_contract(data: dict[str, Any]) -> list[str]:
     required = [
         "contract_version",
         "mission_phase.operational_start_utc",
+        "mission_phase.operational_status_source",
         "mission_phase.pre_operational_label",
         "mission_phase.mixed_interval_label",
         "mission_phase.operational_label",
@@ -99,6 +100,9 @@ def validate_contract(data: dict[str, Any]) -> list[str]:
     operational_start = _get(data, "mission_phase.operational_start_utc")
     if not _valid_aware_timestamp(operational_start):
         errors.append("mission_phase.operational_start_utc must be a timezone-aware ISO timestamp")
+    operational_source = _get(data, "mission_phase.operational_status_source")
+    if not isinstance(operational_source, str) or not operational_source.startswith("https://"):
+        errors.append("mission_phase.operational_status_source must be an HTTPS URL")
     phase_labels = [
         _get(data, "mission_phase.pre_operational_label"),
         _get(data, "mission_phase.mixed_interval_label"),
