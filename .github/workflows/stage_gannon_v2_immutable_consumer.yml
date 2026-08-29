@@ -1,0 +1,122 @@
+name: Stage Gannon V2 immutable consumer
+
+on:
+  push:
+    branches:
+      - feature/gannon-v2-immutable-consumer
+    paths:
+      - ".github/workflows/stage_gannon_v2_immutable_consumer.yml"
+
+permissions:
+  contents: write
+
+concurrency:
+  group: stage-gannon-v2-immutable-consumer
+  cancel-in-progress: false
+
+jobs:
+  stage:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: feature/gannon-v2-immutable-consumer
+          fetch-depth: 0
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Materialize the reviewed consumer files
+        shell: bash
+        run: |
+          set -euo pipefail
+          cat .staging/gannon_v2_consumer/part* \
+            | base64 --decode > /tmp/nvcpp_consumer_bundle.tar.gz
+          echo "00f200bcbc858452445e98945ba0223682ce699007aa08b8698073b0049bb4e6  /tmp/nvcpp_consumer_bundle.tar.gz" \
+            | sha256sum --check
+          tar -xzf /tmp/nvcpp_consumer_bundle.tar.gz -C .
+          git rm -r \
+            .staging/gannon_v2_consumer \
+            .github/workflows/stage_gannon_v2_immutable_consumer.yml
+
+      - name: Install locked dependencies
+        run: python -m pip install -r requirements.txt
+
+      - name: Verify immutable consumer without retrieving MAG
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m py_compile \
+            historical/gannon_holdout_v2_consumer.py \
+            tests/test_gannon_holdout_v2_consumer.py
+          python -m json.tool config/gannon_holdout_v2_consumer.v1.json >/dev/null
+          python tools/repository_security_scan.py
+          python -m pytest -q \
+            tests/test_gannon_holdout_v2_consumer.py \
+            tests/test_gannon_holdout_v2_registry.py \
+            tests/test_gannon_holdout_v2_preregistration.py
+          python -m historical.gannon_holdout_v2_consumer \
+            --contract config/gannon_holdout_v2_consumer.v1.json \
+            plan --output /tmp/gannon_v2_plan.json >/tmp/gannon_v2_plan.log
+          python - <<'PY'
+          import json
+          from pathlib import Path
+
+          plan = json.loads(Path('/tmp/gannon_v2_plan.json').read_text())
+          assert len(plan['include']) == 43
+          assert len({item['interval_id'] for item in plan['include']}) == 43
+          workflow = Path('.github/workflows/gannon_holdout_v2_consumer.yml').read_text()
+          assert 'workflow_dispatch:' in workflow
+          assert '\n  push:' not in workflow
+          assert 'pull_request:' not in workflow
+          source = Path('historical/gannon_holdout_v2_consumer.py').read_text().lower()
+          for forbidden in ('minimum_variance_analysis', 'common_surface_calculation'):
+              assert forbidden not in source
+          print('Immutable 43-row consumer plan verified; no MAG request executed')
+          PY
+
+      - name: Commit only the immutable-consumer files
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "NVCPP Consumer Builder"
+          git config user.email "actions@users.noreply.github.com"
+          git add \
+            historical/gannon_holdout_v2_consumer.py \
+            config/gannon_holdout_v2_consumer.v1.json \
+            tests/test_gannon_holdout_v2_consumer.py \
+            .github/workflows/gannon_holdout_v2_consumer.yml \
+            docs/GANNON_V2_IMMUTABLE_CONSUMER.md
+          python - <<'PY'
+          import subprocess
+
+          changed = set(
+              subprocess.check_output(
+                  ['git', 'diff', '--cached', '--name-only'], text=True
+              ).splitlines()
+          )
+          expected_additions = {
+              'historical/gannon_holdout_v2_consumer.py',
+              'config/gannon_holdout_v2_consumer.v1.json',
+              'tests/test_gannon_holdout_v2_consumer.py',
+              '.github/workflows/gannon_holdout_v2_consumer.yml',
+              'docs/GANNON_V2_IMMUTABLE_CONSUMER.md',
+          }
+          missing = expected_additions - changed
+          unexpected = {
+              path for path in changed
+              if path not in expected_additions
+              and not path.startswith('.staging/gannon_v2_consumer/part')
+              and path != '.github/workflows/stage_gannon_v2_immutable_consumer.yml'
+          }
+          if missing:
+              raise SystemExit(f'missing consumer paths: {sorted(missing)}')
+          if unexpected:
+              raise SystemExit(f'unexpected staged paths: {sorted(unexpected)}')
+          print('Staged paths:', *sorted(changed), sep='\n- ')
+          PY
+          git commit -m "feat: add immutable consumer for frozen Gannon V2 registry"
+          git push origin HEAD:feature/gannon-v2-immutable-consumer
