@@ -1,0 +1,122 @@
+name: NVCPP MAG Gate Event-Class Controls
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - feature/mag-gate-event-class-controls-v1
+    paths:
+      - "config/mag_gate_event_class_controls.v1.json"
+      - "historical/mag_gate_event_class_controls.py"
+      - "tests/test_mag_gate_event_class_controls.py"
+      - ".github/workflows/mag_gate_event_class_controls.yml"
+      - "provenance/mag_gate_control_selection_v1/**"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: nvcpp-mag-gate-event-class-controls
+  cancel-in-progress: true
+
+jobs:
+  controls:
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Install locked dependencies
+        run: python -m pip install -r requirements.txt
+
+      - name: Compile, validate, and run focused tests
+        run: |
+          python -m compileall -q \
+            historical/mag_gate_event_class_controls.py \
+            tests/test_mag_gate_event_class_controls.py
+          python -m json.tool config/mag_gate_event_class_controls.v1.json >/dev/null
+          python -m pytest -q tests/test_mag_gate_event_class_controls.py
+
+      - name: Verify frozen independent selection exists
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -f provenance/mag_gate_control_selection_v1/FROZEN_INVENTORY.json
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          path = Path("provenance/mag_gate_control_selection_v1/FROZEN_INVENTORY.json")
+          data = json.loads(path.read_text())
+          if data.get("status") != "FROZEN_BEFORE_SPACECRAFT_GATE_RETRIEVAL":
+              raise SystemExit("control dates are not frozen before MAG retrieval")
+          if data.get("spacecraft_gate_outputs_used") is not False:
+              raise SystemExit("control-date selection used spacecraft gate output")
+          print(json.dumps(data, indent=2)[:5000])
+          PY
+
+      - name: Run event-class controls without changing detector thresholds
+        run: |
+          python -m historical.mag_gate_event_class_controls \
+            --config config/mag_gate_event_class_controls.v1.json \
+            --outdir runs/audits/mag_gate_event_class_controls
+
+      - name: Enforce bounded result state
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import json
+          from pathlib import Path
+
+          path = Path(
+              "runs/audits/mag_gate_event_class_controls/"
+              "mag_gate_event_class_controls_manifest.json"
+          )
+          data = json.loads(path.read_text())
+          if data.get("status") != "SUCCESS":
+              raise SystemExit(
+                  f"event-class calibration is incomplete: {data.get('status')}; "
+                  f"failures={data.get('failed_intervals')}"
+              )
+          if data.get("event_interpretation_reopened") is not False:
+              raise SystemExit("Gannon interpretation was reopened")
+          if data.get("geometry_blocked") is not True:
+              raise SystemExit("geometry was unblocked before control completion")
+          if data.get("physical_mechanism_classified") is not False:
+              raise SystemExit("physical mechanism was classified")
+          if data.get("hard_null_combination_completed") is not False:
+              raise SystemExit("event-class stage falsely claims hard-null combination")
+          if data.get("common_surface_test_completed") is not False:
+              raise SystemExit("common-surface test was marked complete")
+          if data.get("ephemeris_propagation_test_completed") is not False:
+              raise SystemExit("ephemeris test was marked complete")
+
+          gate = data["frozen_gate"]
+          expected = {
+              "rotation_threshold_degrees": 45.0,
+              "magnitude_change_threshold_fraction": 0.25,
+              "timing_radii_minutes": [1, 2, 3, 5, 10, 15],
+          }
+          for key, value in expected.items():
+              if gate.get(key) != value:
+                  raise SystemExit(f"frozen gate changed at {key}")
+          print(json.dumps({
+              "status": data["status"],
+              "result_states": data["result_states"],
+              "successful_interval_counts": data["successful_interval_counts"],
+          }, indent=2))
+          PY
+
+      - name: Upload immutable event-class package
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: nvcpp-mag-gate-event-class-controls
+          path: runs/audits/mag_gate_event_class_controls
+          if-no-files-found: error
+          retention-days: 90
+          compression-level: 6

@@ -1,0 +1,1241 @@
+{
+  "audit_version": "1.0.0",
+  "common_surface_test_completed": false,
+  "completed_utc": "2026-08-29T12:30:33.135116+00:00",
+  "contract": {
+    "contract_id": "NVCPP-MAG-GATE-EVENT-CLASS-CONTROLS-v1",
+    "contract_version": "1.0.0",
+    "gate_contract_sha256": "831d48cefa9d8f26f93d13798148219039810ca40d2bc0e841888932cc3fa4e1",
+    "path": "config/mag_gate_event_class_controls.v1.json",
+    "sha256": "0ef0e07912d5e43be6bbba3161d10b392900b9872270d39a9c0c5f99a75c86ea"
+  },
+  "ephemeris_propagation_test_completed": false,
+  "event_interpretation_reopened": false,
+  "failed_intervals": [],
+  "frozen_gate": {
+    "canonical_cadence_seconds": 60,
+    "coordinate_frame": "GSE",
+    "logical_operator": "OR",
+    "magnitude_change_threshold_fraction": 0.25,
+    "required_previous_offset_seconds": 60,
+    "rotation_threshold_degrees": 45.0,
+    "timing_radii_minutes": [
+      1,
+      2,
+      3,
+      5,
+      10,
+      15
+    ]
+  },
+  "geometry_blocked": true,
+  "git_commit": "23374b130cd35b496eb9ad8d7153b8c66be87fc4",
+  "github_run_id": "33252561451",
+  "hard_null_combination_completed": false,
+  "interpretation_limits": [
+    "the 45-degree and 25-percent thresholds are unchanged from the Gannon development event",
+    "control dates were selected before spacecraft MAG gate retrieval",
+    "within-day and cross-day prevalence values are descriptive empirical distributions, not independent-minute binomial probabilities",
+    "no interpolation or forward fill is allowed",
+    "each vector diagnostic requires an exact preceding canonical minute",
+    "GSE rotation is not a GSM clock angle or geoeffectiveness claim",
+    "mismatched-day and circular-shift controls remain a separate hard-null stage",
+    "event-class controls do not establish one common moving surface",
+    "ephemeris, MVA, propagation, and physical classification remain blocked"
+  ],
+  "interval_results": [
+    {
+      "claims": {
+        "common_surface_test_completed": false,
+        "ephemeris_propagation_test_completed": false,
+        "physical_mechanism_classified": false
+      },
+      "control_class": "GANNON_DEVELOPMENT_EVENT",
+      "gate": {
+        "canonical_cadence_seconds": 60,
+        "coordinate_frame": "GSE",
+        "logical_operator": "OR",
+        "magnitude_change_threshold_fraction": 0.25,
+        "required_previous_offset_seconds": 60,
+        "rotation_threshold_degrees": 45.0,
+        "timing_radii_minutes": [
+          1,
+          2,
+          3,
+          5,
+          10,
+          15
+        ]
+      },
+      "interval_id": "GANNON_DEVELOPMENT_EVENT__20240511__GANNON_DEVELOPMENT_EVENT_2024-05-11",
+      "label": "GANNON_DEVELOPMENT_EVENT_2024-05-11",
+      "mission_gate_density": [
+        {
+          "both_gate_rows": 24,
+          "canonical_rows": 1437,
+          "contiguous_gate_runs": 46,
+          "evaluable_exact_previous_rows": 1433,
+          "gate_fraction_of_evaluable": 0.06001395673412421,
+          "gate_rows": 86,
+          "longest_contiguous_gate_run_minutes": 7,
+          "magnitude_gate_rows": 71,
+          "maximum_gap_seconds": 120.0,
+          "minimum_native_samples": 57,
+          "mission": "DSCOVR",
+          "rotation_gate_rows": 39
+        },
+        {
+          "both_gate_rows": 13,
+          "canonical_rows": 1440,
+          "contiguous_gate_runs": 50,
+          "evaluable_exact_previous_rows": 1439,
+          "gate_fraction_of_evaluable": 0.057678943710910355,
+          "gate_rows": 83,
+          "longest_contiguous_gate_run_minutes": 4,
+          "magnitude_gate_rows": 61,
+          "maximum_gap_seconds": 60.0,
+          "minimum_native_samples": 3,
+          "mission": "ACE",
+          "rotation_gate_rows": 35
+        },
+        {
+          "both_gate_rows": 19,
+          "canonical_rows": 1422,
+          "contiguous_gate_runs": 59,
+          "evaluable_exact_previous_rows": 1408,
+          "gate_fraction_of_evaluable": 0.0625,
+          "gate_rows": 88,
+          "longest_contiguous_gate_run_minutes": 4,
+          "magnitude_gate_rows": 60,
+          "maximum_gap_seconds": 240.0,
+          "minimum_native_samples": 18,
+          "mission": "WIND",
+          "rotation_gate_rows": 47
+        }
+      ],
+      "selection_rank": null,
+      "selection_source": "provenance/mag_gate_control_selection_v1/selected_control_intervals.v1.json",
+      "source_hashes": {
+        "ACE": {
+          "dataset_id": "AC_H0_MFI",
+          "info": {
+            "path": "runs/audits/mag_gate_event_class_controls/intervals/GANNON_DEVELOPMENT_EVENT__20240511__GANNON_DEVELOPMENT_EVENT_2024-05-11/raw/AC_H0_MFI/hapi_info.json",
+            "resolved_url": "https://cdaweb.gsfc.nasa.gov/hapi/info?id=AC_H0_MFI",
+            "sha256": "b08cac87be15bfaac5a64fbd4f69b387bf2cb0fd3211c201193fb5e29f1ce1a9",
+            "size_bytes": 1110
+          },
+          "raw": {
+            "path": "runs/audits/mag_gate_event_class_controls/intervals/GANNON_DEVELOPMENT_EVENT__20240511__GANNON_DEVELOPMENT_EVENT_2024-05-11/raw/AC_H0_MFI/raw.csv",
+            "resolved_url": "https://cdaweb.gsfc.nasa.gov/hapi/data?id=AC_H0_MFI&time.min=2024-05-11T00%3A00%3A00%2B00%3A00&time.max=2024-05-12T00%3A00%3A00%2B00%3A00&parameters=Magnitude%2CBGSEc%2CSC_pos_GSE&format=csv",
+            "rows": 5400,
+            "sha256": "83c4778b103267c3427e9474ede3c23be2949236e364b4ecdfe14353a7cc45aa",
+            "size_bytes": 438036
+          },
+          "requested_parameters": [
+            "Magnitude",
+            "BGSEc",
+            "SC_pos_GSE"
+          ]
+        },
+        "DSCOVR": {
+          "dataset_id": "DSCOVR_H0_MAG",
+          "variables": [
+            "B1GSE"
+          ]
+        },
+        "WIND": {
+          "dataset_id": "WI_H0_MFI",
+          "descriptor": {
+            "path": "runs/audits/mag_gate_event_class_controls/intervals/GANNON_DEVELOPMENT_EVENT__20240511__GANNON_DEVELOPMENT_EVENT_2024-05-11/raw/WI_H0_MFI/descriptor.json",
+            "resolved_url": "https://cdaweb.gsfc.nasa.gov/WS/cdasr/1/dataviews/sp_phys/datasets/WI_H0_MFI/data/20240511T000000Z,20240512T000000Z/B3GSE,B3F1?format=text",
+            "sha256": "5cf594a617da528f255aad1ec67b3bc176e6cee6dca83c746bf949200665e074",
+            "size_bytes": 296
+          },
+          "raw": {
+            "path": "runs/audits/mag_gate_event_class_controls/intervals/GANNON_DEVELOPMENT_EVENT__20240511__GANNON_DEVELOPMENT_EVENT_2024-05-11/raw/WI_H0_MFI/raw.txt",
+            "resolved_url": "https://cdaweb.gsfc.nasa.gov/tmp/wsmtggEm/wi_h0_mfi.txt",
+            "sha256": "9edf818e5857be16fe1d846504d4252776d1e588921f928b3a5dd51fc03c372d",
+            "size_bytes": 2571144
+          }
+        }
+      },
+      "start_utc": "2024-05-11T00:00:00+00:00",
+      "stop_utc": "2024-05-12T00:00:00+00:00",
+      "support_metrics": {
+        "all_evaluable_dscovr_anchors": {
+          "anchor_rows": 1404,
+          "joint_support_fraction_within_10_minutes": 0.24643874643874644,
+          "joint_support_fraction_within_15_minutes": 0.33618233618233617,
+          "joint_support_fraction_within_1_minutes": 0.051994301994301995,
+          "joint_support_fraction_within_2_minutes": 0.08262108262108261,
+          "joint_support_fraction_within_3_minutes": 0.10897435897435898,
+          "joint_support_fraction_within_5_minutes": 0.15313390313390313,
+          "joint_support_rows_within_10_minutes": 346,
+          "joint_support_rows_within_15_minutes": 472,
+          "joint_support_rows_within_1_minutes": 73,
+          "joint_support_rows_within_2_minutes": 116,
+          "joint_support_rows_within_3_minutes": 153,
+          "joint_support_rows_within_5_minutes": 215,
+          "strongest_span_le_3_minutes_fraction": 0.08050847457627118,
+          "strongest_span_le_3_minutes_rows": 38,
+          "strongest_span_median_minutes": 11.0,
+          "strongest_span_rows": 472
+        },
+        "dscovr_gate_anchors": {
+          "anchor_rows": 82,
+          "joint_support_fraction_within_10_minutes": 0.7804878048780488,
+          "joint_support_fraction_within_15_minutes": 0.9390243902439024,
+          "joint_support_fraction_within_1_minutes": 0.2682926829268293,
+          "joint_support_fraction_within_2_minutes": 0.4268292682926829,
+          "joint_support_fraction_within_3_minutes": 0.5121951219512195,
+          "joint_support_fraction_within_5_minutes": 0.6463414634146342,
+          "joint_support_rows_within_10_minutes": 64,
+          "joint_support_rows_within_15_minutes": 77,
+          "joint_support_rows_within_1_minutes": 22,
+          "joint_support_rows_within_2_minutes": 35,
+          "joint_support_rows_within_3_minutes": 42,
+          "joint_support_rows_within_5_minutes": 53,
+          "strongest_span_le_3_minutes_fraction": 0.15584415584415584,
+          "strongest_span_le_3_minutes_rows": 12,
+          "strongest_span_median_minutes": 9.0,
+          "strongest_span_rows": 77
+        }
+      }
+    },
+    {
+      "claims": {
+        "common_surface_test_completed": false,
+        "ephemeris_propagation_test_completed": false,
+        "physical_mechanism_classified": false
+      },
+      "control_class": "ISOLATED_SHOCK",
+      "gate": {
+        "canonical_cadence_seconds": 60,
+        "coordinate_frame": "GSE",
+        "logical_operator": "OR",
+        "magnitude_change_threshold_fraction": 0.25,
+        "required_previous_offset_seconds": 60,
+        "rotation_threshold_degrees": 45.0,
+        "timing_radii_minutes": [
+          1,
+          2,
+          3,
+          5,
+          10,
+          15
+        ]
+      },
+      "interval_id": "ISOLATED_SHOCK__20240628__ISOLATED_SHOCK_2024-06-28",
+      "label": "ISOLATED_SHOCK_2024-06-28",
+      "mission_gate_density": [
+        {
+          "both_gate_rows": 9,
+          "canonical_rows": 1439,
+          "contiguous_gate_runs": 42,
+          "evaluable_exact_previous_rows": 1437,
+          "gate_fraction_of_evaluable": 0.04036186499652053,
+          "gate_rows": 58,
+          "longest_contiguous_gate_run_minutes": 4,
+          "magnitude_gate_rows": 42,
+          "maximum_gap_seconds": 120.0,
+          "minimum_native_samples": 57,
+          "mission": "DSCOVR",
+          "rotation_gate_rows": 25
+        },
+        {
+          "both_gate_rows": 16,
+          "canonical_rows": 1440,
+          "contiguous_gate_runs": 37,
+          "evaluable_exact_previous_rows": 1439,
+          "gate_fraction_of_evaluable": 0.04378040305767894,
+          "gate_rows": 63,
+          "longest_contiguous_gate_run_minutes": 5,
+          "magnitude_gate_rows": 51,
+          "maximum_gap_seconds": 60.0,
+          "minimum_native_samples": 3,
+          "mission": "ACE",
+          "rotation_gate_rows": 28
+        },
+        {
+          "both_gate_rows": 15,
+          "canonical_rows": 1369,
+          "contiguous_gate_runs": 35,
+          "evaluable_exact_previous_rows": 1313,
+          "gate_fraction_of_evaluable": 0.04341203351104341,
+          "gate_rows": 57,
+          "longest_contiguous_gate_run_minutes": 6,
+          "magnitude_gate_rows": 48,
+          "maximum_gap_seconds": 300.0,
+          "minimum_native_samples": 18,
+          "mission": "WIND",
+          "rotation_gate_rows": 24
+        }
+      ],
+      "selection_rank": null,
+      "selection_source": "provenance/mag_gate_control_selection_v1/selected_control_intervals.v1.json",
+      "source_hashes": {
+        "ACE": {
+          "dataset_id": "AC_H0_MFI",
+          "info": {
+            "path": "runs/audits/mag_gate_event_class_controls/intervals/ISOLATED_SHOCK__20240628__ISOLATED_SHOCK_2024-06-28/raw/AC_H0_MFI/hapi_info.json",
+            "resolved_url": "https://cdaweb.gsfc.nasa.gov/hapi/info?id=AC_H0_MFI",
+            "sha256": "b08cac87be15bfaac5a64fbd4f69b387bf2cb0fd3211c201193fb5e29f1ce1a9",
+            "size_bytes": 1110
+          },
+          "raw": {
+            "path": "runs/audits/mag_gate_event_class_controls/intervals/ISOLATED_SHOCK__20240628__ISOLATED_SHOCK_2024-06-28/raw/AC_H0_MFI/raw.csv",
+            "resolved_url": "https://cdaweb.gsfc.nasa.gov/hapi/data?id=AC_H0_MFI&time.min=2024-06-28T00%3A00%3A00%2B00%3A00&time.max=2024-06-29T00%3A00%3A00%2B00%3A00&parameters=Magnitude%2CBGSEc%2CSC_pos_GSE&format=csv",
+            "rows": 5400,
+            "sha256": "ce98dfdb9073590677aaf11d691dccd803254bfed22cb2800caed90ff6c67e9b",
+            "size_bytes": 431341
+          },
+          "requested_parameters": [
+            "Magnitude",
+            "BGSEc",
+            "SC_pos_GSE"
+          ]
+        },
+        "DSCOVR": {
+          "dataset_id": "DSCOVR_H0_MAG",
+          "variables": [
+            "B1GSE"
+          ]
+        },
+        "WIND": {
+          "dataset_id": "WI_H0_MFI",
+          "descriptor": {
+            "path": "runs/audits/mag_gate_event_class_controls/intervals/ISOLATED_SHOCK__20240628__ISOLATED_SHOCK_2024-06-28/raw/WI_H0_MFI/descriptor.json",
+            "resolved_url": "https://cdaweb.gsfc.nasa.gov/WS/cdasr/1/dataviews/sp_phys/datasets/WI_H0_MFI/data/20240628T000000Z,20240629T000000Z/B3GSE,B3F1?format=text",
+            "sha256": "74ec23f2b56c6e77347452402522c2d874834ab4257bbfc447b840ce6fffa18e",
+            "size_bytes": 296
+          },
+          "raw": {
+            "path": "runs/audits/mag_gate_event_class_controls/intervals/ISOLATED_SHOCK__20240628__ISOLATED_SHOCK_2024-06-28/raw/WI_H0_MFI/raw.txt",
+            "resolved_url": "https://cdaweb.gsfc.nasa.gov/tmp/ws53BKzg/wi_h0_mfi.txt",
+            "sha256": "cdca547a32581a2d4ff1453f46804642fa3848d9793562b55118e269ccaf7e72",
+            "size_bytes": 2571144
+          }
+        }
+      },
+      "start_utc": "2024-06-28T00:00:00+00:00",
+      "stop_utc": "2024-06-29T00:00:00+00:00",
+      "support_metrics": {
+        "all_evaluable_dscovr_anchors": {
+          "anchor_rows": 1408,
+          "joint_support_fraction_within_10_minutes": 0.2265625,
+          "joint_support_fraction_within_15_minutes": 0.29261363636363635,
+          "joint_support_fraction_within_1_minutes": 0.03409090909090909,
+          "joint_support_fraction_within_2_minutes": 0.061079545454545456,
+          "joint_support_fraction_within_3_minutes": 0.08806818181818182,
+          "joint_support_fraction_within_5_minutes": 0.13494318181818182,
+          "joint_support_rows_within_10_minutes": 319,
+          "joint_support_rows_within_15_minutes": 412,
+          "joint_support_rows_within_1_minutes": 48,
+          "joint_support_rows_within_2_minutes": 86,
+          "joint_support_rows_within_3_minutes": 124,
+          "joint_support_rows_within_5_minutes": 190,
+          "strongest_span_le_3_minutes_fraction": 0.043689320388349516,
+          "strongest_span_le_3_minutes_rows": 18,
+          "strongest_span_median_minutes": 11.0,
+          "strongest_span_rows": 412
+        },
+        "dscovr_gate_anchors": {
+          "anchor_rows": 57,
+          "joint_support_fraction_within_10_minutes": 0.7017543859649122,
+          "joint_support_fraction_within_15_minutes": 0.8070175438596491,
+          "joint_support_fraction_within_1_minutes": 0.22807017543859648,
+          "joint_support_fraction_within_2_minutes": 0.3508771929824561,
+          "joint_support_fraction_within_3_minutes": 0.40350877192982454,
+          "joint_support_fraction_within_5_minutes": 0.43859649122807015,
+          "joint_support_rows_within_10_minutes": 40,
+          "joint_support_rows_within_15_minutes": 46,
+          "joint_support_rows_within_1_minutes": 13,
+          "joint_support_rows_within_2_minutes": 20,
+          "joint_support_rows_within_3_minutes": 23,
+          "joint_support_rows_within_5_minutes": 25,
+          "strongest_span_le_3_minutes_fraction": 0.021739130434782608,
+          "strongest_span_le_3_minutes_rows": 1,
+          "strongest_span_median_minutes": 12.0,
+          "strongest_span_rows": 46
+        }
+      }
+    },
+    {
+      "claims": {
+        "common_surface_test_completed": false,
+        "ephemeris_propagation_test_completed": false,
+        "physical_mechanism_classified": false
+      },
+      "control_class": "LOW_ACTIVITY",
+      "gate": {
+        "canonical_cadence_seconds": 60,
+        "coordinate_frame": "GSE",
+        "logical_operator": "OR",
+        "magnitude_change_threshold_fraction": 0.25,
+        "required_previous_offset_seconds": 60,
+        "rotation_threshold_degrees": 45.0,
+        "timing_radii_minutes": [
+          1,
+          2,
+          3,
+          5,
+          10,
+          15
+        ]
+      },
+      "interval_id": "LOW_ACTIVITY__20240113__LOW_ACTIVITY_2024-01-13",
+      "label": "LOW_ACTIVITY_2024-01-13",
+      "mission_gate_density": [
+        {
+          "both_gate_rows": 0,
+          "canonical_rows": 1271,
+          "contiguous_gate_runs": 4,
+          "evaluable_exact_previous_rows": 1265,
+          "gate_fraction_of_evaluable": 0.003952569169960474,
+          "gate_rows": 5,
+          "longest_contiguous_gate_run_minutes": 2,
+          "magnitude_gate_rows": 1,
+          "maximum_gap_seconds": 5100.0,
+          "minimum_native_samples": 57,
+          "mission": "DSCOVR",
+          "rotation_gate_rows": 4
+        },
+        {
+          "both_gate_rows": 0,
+          "canonical_rows": 1440,
+          "contiguous_gate_runs": 5,
+          "evaluable_exact_previous_rows": 1439,
+          "gate_fraction_of_evaluable": 0.0034746351633078527,
+          "gate_rows": 5,
+          "longest_contiguous_gate_run_minutes": 1,
+          "magnitude_gate_rows": 0,
+          "maximum_gap_seconds": 60.0,
+          "minimum_native_samples": 3,
+          "mission": "ACE",
+          "rotation_gate_rows": 5
+        },
+        {
+          "both_gate_rows": 0,
+          "canonical_rows": 1409,
+          "contiguous_gate_runs": 2,
+          "evaluable_exact_previous_rows": 1393,
+          "gate_fraction_of_evaluable": 0.0014357501794687725,
+          "gate_rows": 2,
+          "longest_contiguous_gate_run_minutes": 1,
+          "magnitude_gate_rows": 0,
+          "maximum_gap_seconds": 720.0,
+          "minimum_native_samples": 18,
+          "mission": "WIND",
+          "rotation_gate_rows": 2
+        }
+      ],
+      "selection_rank": null,
+      "selection_source": "provenance/mag_gate_control_selection_v1/selected_control_intervals.v1.json",
+      "source_hashes": {
+        "ACE": {
+          "dataset_id": "AC_H0_MFI",
+          "info": {
+            "path": "runs/audits/mag_gate_event_class_controls/intervals/LOW_ACTIVITY__20240113__LOW_ACTIVITY_2024-01-13/raw/AC_H0_MFI/hapi_info.json",
+            "resolved_url": "https://cdaweb.gsfc.nasa.gov/hapi/info?id=AC_H0_MFI",
+            "sha256": "b08cac87be15bfaac5a64fbd4f69b387bf2cb0fd3211c201193fb5e29f1ce1a9",
+            "size_bytes": 1110
+          },
+          "raw": {
+            "path": "runs/audits/mag_gate_event_class_controls/intervals/LOW_ACTIVITY__20240113__LOW_ACTIVITY_2024-01-13/raw/AC_H0_MFI/raw.csv",
+            "resolved_url": "https://cdaweb.gsfc.nasa.gov/hapi/data?id=AC_H0_MFI&time.min=2024-01-13T00%3A00%3A00%2B00%3A00&time.max=2024-01-14T00%3A00%3A00%2B00%3A00&parameters=Magnitude%2CBGSEc%2CSC_pos_GSE&format=csv",
+            "rows": 5400,
+            "sha256": "d3b65c527802d5eb2b1aee5e5d401bce7602482472f509e39e22a5416a1c18ea",
+            "size_bytes": 430207
+          },
+          "requested_parameters": [
+            "Magnitude",
+            "BGSEc",
+            "SC_pos_GSE"
+          ]
+        },
+        "DSCOVR": {
+          "dataset_id": "DSCOVR_H0_MAG",
+          "variables": [
+            "B1GSE"
+          ]
+        },
+        "WIND": {
+          "dataset_id": "WI_H0_MFI",
+          "descriptor": {
+            "path": "runs/audits/mag_gate_event_class_controls/intervals/LOW_ACTIVITY__20240113__LOW_ACTIVITY_2024-01-13/raw/WI_H0_MFI/descriptor.json",
+            "resolved_url": "https://cdaweb.gsfc.nasa.gov/WS/cdasr/1/dataviews/sp_phys/datasets/WI_H0_MFI/data/20240113T000000Z,20240114T000000Z/B3GSE,B3F1?format=text",
+            "sha256": "0607accf847e7f443cb1bc310441da8ed89213afaf0793465b94c76425353df3",
+            "size_bytes": 296
+          },
+          "raw": {
+            "path": "runs/audits/mag_gate_event_class_controls/intervals/LOW_ACTIVITY__20240113__LOW_ACTIVITY_2024-01-13/raw/WI_H0_MFI/raw.txt",
+            "resolved_url": "https://cdaweb.gsfc.nasa.gov/tmp/wshNM5pn/wi_h0_mfi.txt",
+            "sha256": "1b5c11c694623e3d774f952daf89d683f640c5108231ab93369870663e42d150",
+            "size_bytes": 2571144
+          }
+        }
+      },
+      "start_utc": "2024-01-13T00:00:00+00:00",
+      "stop_utc": "2024-01-14T00:00:00+00:00",
+      "support_metrics": {
+        "all_evaluable_dscovr_anchors": {
+          "anchor_rows": 1236,
+          "joint_support_fraction_within_10_minutes": 0.007281553398058253,
+          "joint_support_fraction_within_15_minutes": 0.015372168284789644,
+          "joint_support_fraction_within_1_minutes": 0.0,
+          "joint_support_fraction_within_2_minutes": 0.0,
+          "joint_support_fraction_within_3_minutes": 0.0,
+          "joint_support_fraction_within_5_minutes": 0.0,
+          "joint_support_rows_within_10_minutes": 9,
+          "joint_support_rows_within_15_minutes": 19,
+          "joint_support_rows_within_1_minutes": 0,
+          "joint_support_rows_within_2_minutes": 0,
+          "joint_support_rows_within_3_minutes": 0,
+          "joint_support_rows_within_5_minutes": 0,
+          "strongest_span_le_3_minutes_fraction": 0.0,
+          "strongest_span_le_3_minutes_rows": 0,
+          "strongest_span_median_minutes": 12.0,
+          "strongest_span_rows": 19
+        },
+        "dscovr_gate_anchors": {
+          "anchor_rows": 5,
+          "joint_support_fraction_within_10_minutes": 0.0,
+          "joint_support_fraction_within_15_minutes": 0.2,
+          "joint_support_fraction_within_1_minutes": 0.0,
+          "joint_support_fraction_within_2_minutes": 0.0,
+          "joint_support_fraction_within_3_minutes": 0.0,
+          "joint_support_fraction_within_5_minutes": 0.0,
+          "joint_support_rows_within_10_minutes": 0,
+          "joint_support_rows_within_15_minutes": 1,
+          "joint_support_rows_within_1_minutes": 0,
+          "joint_support_rows_within_2_minutes": 0,
+          "joint_support_rows_within_3_minutes": 0,
+          "joint_support_rows_within_5_minutes": 0,
+          "strongest_span_le_3_minutes_fraction": 0.0,
+          "strongest_span_le_3_minutes_rows": 0,
+          "strongest_span_median_minutes": 15.0,
+          "strongest_span_rows": 1
+        }
+      }
+    },
+    {
+      "claims": {
+        "common_surface_test_completed": false,
+        "ephemeris_propagation_test_completed": false,
+        "physical_mechanism_classified": false
+      },
+      "control_class": "LOW_ACTIVITY",
+      "gate": {
+        "canonical_cadence_seconds": 60,
+        "coordinate_frame": "GSE",
+        "logical_operator": "OR",
+        "magnitude_change_threshold_fraction": 0.25,
+        "required_previous_offset_seconds": 60,
+        "rotation_threshold_degrees": 45.0,
+        "timing_radii_minutes": [
+          1,
+          2,
+          3,
+          5,
+          10,
+          15
+        ]
+      },
+      "interval_id": "LOW_ACTIVITY__20240203__LOW_ACTIVITY_2024-02-03",
+      "label": "LOW_ACTIVITY_2024-02-03",
+      "mission_gate_density": [
+        {
+          "both_gate_rows": 4,
+          "canonical_rows": 1396,
+          "contiguous_gate_runs": 13,
+          "evaluable_exact_previous_rows": 1395,
+          "gate_fraction_of_evaluable": 0.012186379928315413,
+          "gate_rows": 17,
+          "longest_contiguous_gate_run_minutes": 4,
+          "magnitude_gate_rows": 13,
+          "maximum_gap_seconds": 60.0,
+          "minimum_native_samples": 57,
+          "mission": "DSCOVR",
+          "rotation_gate_rows": 8
+        },
+        {
+          "both_gate_rows": 3,
+          "canonical_rows": 1440,
+          "contiguous_gate_runs": 17,
+          "evaluable_exact_previous_rows": 1439,
+          "gate_fraction_of_evaluable": 0.015983321751216122,
+          "gate_rows": 23,
+          "longest_contiguous_gate_run_minutes": 3,
+          "magnitude_gate_rows": 18,
+          "maximum_gap_seconds": 60.0,
+          "minimum_native_samples": 3,
+          "mission": "ACE",
+          "rotation_gate_rows": 8
+        },
+        {
+          "both_gate_rows": 2,
+          "canonical_rows": 1424,
+          "contiguous_gate_runs": 6,
+          "evaluable_exact_previous_rows": 1413,
+          "gate_fraction_of_evaluable": 0.007077140835102618,
+          "gate_rows": 10,
+          "longest_contiguous_gate_run_minutes": 2,
+          "magnitude_gate_rows": 8,
+          "maximum_gap_seconds": 300.0,
+          "minimum_native_samples": 18,
+          "mission": "WIND",
+          "rotation_gate_rows": 4
+        }
+      ],
+      "selection_rank": null,
+      "selection_source": "provenance/mag_gate_control_selection_v1/selected_control_intervals.v1.json",
+      "source_hashes": {
+        "ACE": {
+          "dataset_id": "AC_H0_MFI",
+          "info": {
+            "path": "runs/audits/mag_gate_event_class_controls/intervals/LOW_ACTIVITY__20240203__LOW_ACTIVITY_2024-02-03/raw/AC_H0_MFI/hapi_info.json",
+            "resolved_url": "https://cdaweb.gsfc.nasa.gov/hapi/info?id=AC_H0_MFI",
+            "sha256": "b08cac87be15bfaac5a64fbd4f69b387bf2cb0fd3211c201193fb5e29f1ce1a9",
+            "size_bytes": 1110
+          },
+          "raw": {
+            "path": "runs/audits/mag_gate_event_class_controls/intervals/LOW_ACTIVITY__20240203__LOW_ACTIVITY_2024-02-03/raw/AC_H0_MFI/raw.csv",
+            "resolved_url": "https://cdaweb.gsfc.nasa.gov/hapi/data?id=AC_H0_MFI&time.min=2024-02-03T00%3A00%3A00%2B00%3A00&time.max=2024-02-04T00%3A00%3A00%2B00%3A00&parameters=Magnitude%2CBGSEc%2CSC_pos_GSE&format=csv",
+            "rows": 5400,
+            "sha256": "7dc49218a52616d50037139b62ec913d247faa2ac66efd4723e15e18e0da4228",
+            "size_bytes": 434342
+          },
+          "requested_parameters": [
+            "Magnitude",
+            "BGSEc",
+            "SC_pos_GSE"
+          ]
+        },
+        "DSCOVR": {
+          "dataset_id": "DSCOVR_H0_MAG",
+          "variables": [
+            "B1GSE"
+          ]
+        },
+        "WIND": {
+          "dataset_id": "WI_H0_MFI",
+          "descriptor": {
+            "path": "runs/audits/mag_gate_event_class_controls/intervals/LOW_ACTIVITY__20240203__LOW_ACTIVITY_2024-02-03/raw/WI_H0_MFI/descriptor.json",
+            "resolved_url": "https://cdaweb.gsfc.nasa.gov/WS/cdasr/1/dataviews/sp_phys/datasets/WI_H0_MFI/data/20240203T000000Z,20240204T000000Z/B3GSE,B3F1?format=text",
+            "sha256": "a76ee4725154f7270af9c78c297c818eedb30da5dd0a20ce587d680582b491d8",
+            "size_bytes": 296
+          },
+          "raw": {
+            "path": "runs/audits/mag_gate_event_class_controls/intervals/LOW_ACTIVITY__20240203__LOW_ACTIVITY_2024-02-03/raw/WI_H0_MFI/raw.txt",
+            "resolved_url": "https://cdaweb.gsfc.nasa.gov/tmp/wsSEQEqE/wi_h0_mfi.txt",
+            "sha256": "97fc14a49e3d17060a06afcf0bb59dc15a8541c4fad10e2bc6a179f714213a20",
+            "size_bytes": 2571144
+          }
+        }
+      },
+      "start_utc": "2024-02-03T00:00:00+00:00",
+      "stop_utc": "2024-02-04T00:00:00+00:00",
+      "support_metrics": {
+        "all_evaluable_dscovr_anchors": {
+          "anchor_rows": 1381,
+          "joint_support_fraction_within_10_minutes": 0.05141202027516292,
+          "joint_support_fraction_within_15_minutes": 0.08182476466328747,
+          "joint_support_fraction_within_1_minutes": 0.007965242577842143,
+          "joint_support_fraction_within_2_minutes": 0.013034033309196235,
+          "joint_support_fraction_within_3_minutes": 0.017378711078928313,
+          "joint_support_fraction_within_5_minutes": 0.02606806661839247,
+          "joint_support_rows_within_10_minutes": 71,
+          "joint_support_rows_within_15_minutes": 113,
+          "joint_support_rows_within_1_minutes": 11,
+          "joint_support_rows_within_2_minutes": 18,
+          "joint_support_rows_within_3_minutes": 24,
+          "joint_support_rows_within_5_minutes": 36,
+          "strongest_span_le_3_minutes_fraction": 0.0,
+          "strongest_span_le_3_minutes_rows": 0,
+          "strongest_span_median_minutes": 14.0,
+          "strongest_span_rows": 113
+        },
+        "dscovr_gate_anchors": {
+          "anchor_rows": 17,
+          "joint_support_fraction_within_10_minutes": 0.5294117647058824,
+          "joint_support_fraction_within_15_minutes": 0.6470588235294118,
+          "joint_support_fraction_within_1_minutes": 0.0,
+          "joint_support_fraction_within_2_minutes": 0.058823529411764705,
+          "joint_support_fraction_within_3_minutes": 0.11764705882352941,
+          "joint_support_fraction_within_5_minutes": 0.17647058823529413,
+          "joint_support_rows_within_10_minutes": 9,
+          "joint_support_rows_within_15_minutes": 11,
+          "joint_support_rows_within_1_minutes": 0,
+          "joint_support_rows_within_2_minutes": 1,
+          "joint_support_rows_within_3_minutes": 2,
+          "joint_support_rows_within_5_minutes": 3,
+          "strongest_span_le_3_minutes_fraction": 0.0,
+          "strongest_span_le_3_minutes_rows": 0,
+          "strongest_span_median_minutes": 13.0,
+          "strongest_span_rows": 11
+        }
+      }
+    },
+    {
+      "claims": {
+        "common_surface_test_completed": false,
+        "ephemeris_propagation_test_completed": false,
+        "physical_mechanism_classified": false
+      },
+      "control_class": "MILD_OR_GLANCING_STRUCTURE",
+      "gate": {
+        "canonical_cadence_seconds": 60,
+        "coordinate_frame": "GSE",
+        "logical_operator": "OR",
+        "magnitude_change_threshold_fraction": 0.25,
+        "required_previous_offset_seconds": 60,
+        "rotation_threshold_degrees": 45.0,
+        "timing_radii_minutes": [
+          1,
+          2,
+          3,
+          5,
+          10,
+          15
+        ]
+      },
+      "interval_id": "MILD_OR_GLANCING_STRUCTURE__20240928__MILD_OR_GLANCING_STRUCTURE_2024-09-28",
+      "label": "MILD_OR_GLANCING_STRUCTURE_2024-09-28",
+      "mission_gate_density": [
+        {
+          "both_gate_rows": 11,
+          "canonical_rows": 1306,
+          "contiguous_gate_runs": 28,
+          "evaluable_exact_previous_rows": 1303,
+          "gate_fraction_of_evaluable": 0.03223330775134305,
+          "gate_rows": 42,
+          "longest_contiguous_gate_run_minutes": 3,
+          "magnitude_gate_rows": 23,
+          "maximum_gap_seconds": 8040.0,
+          "minimum_native_samples": 57,
+          "mission": "DSCOVR",
+          "rotation_gate_rows": 30
+        },
+        {
+          "both_gate_rows": 6,
+          "canonical_rows": 1440,
+          "contiguous_gate_runs": 31,
+          "evaluable_exact_previous_rows": 1439,
+          "gate_fraction_of_evaluable": 0.02779708130646282,
+          "gate_rows": 40,
+          "longest_contiguous_gate_run_minutes": 3,
+          "magnitude_gate_rows": 19,
+          "maximum_gap_seconds": 60.0,
+          "minimum_native_samples": 3,
+          "mission": "ACE",
+          "rotation_gate_rows": 27
+        },
+        {
+          "both_gate_rows": 6,
+          "canonical_rows": 1410,
+          "contiguous_gate_runs": 23,
+          "evaluable_exact_previous_rows": 1397,
+          "gate_fraction_of_evaluable": 0.02863278453829635,
+          "gate_rows": 40,
+          "longest_contiguous_gate_run_minutes": 6,
+          "magnitude_gate_rows": 25,
+          "maximum_gap_seconds": 1080.0,
+          "minimum_native_samples": 18,
+          "mission": "WIND",
+          "rotation_gate_rows": 21
+        }
+      ],
+      "selection_rank": null,
+      "selection_source": "provenance/mag_gate_control_selection_v1/selected_control_intervals.v1.json",
+      "source_hashes": {
+        "ACE": {
+          "dataset_id": "AC_H0_MFI",
+          "info": {
+            "path": "runs/audits/mag_gate_event_class_controls/intervals/MILD_OR_GLANCING_STRUCTURE__20240928__MILD_OR_GLANCING_STRUCTURE_2024-09-28/raw/AC_H0_MFI/hapi_info.json",
+            "resolved_url": "https://cdaweb.gsfc.nasa.gov/hapi/info?id=AC_H0_MFI",
+            "sha256": "b08cac87be15bfaac5a64fbd4f69b387bf2cb0fd3211c201193fb5e29f1ce1a9",
+            "size_bytes": 1110
+          },
+          "raw": {
+            "path": "runs/audits/mag_gate_event_class_controls/intervals/MILD_OR_GLANCING_STRUCTURE__20240928__MILD_OR_GLANCING_STRUCTURE_2024-09-28/raw/AC_H0_MFI/raw.csv",
+            "resolved_url": "https://cdaweb.gsfc.nasa.gov/hapi/data?id=AC_H0_MFI&time.min=2024-09-28T00%3A00%3A00%2B00%3A00&time.max=2024-09-29T00%3A00%3A00%2B00%3A00&parameters=Magnitude%2CBGSEc%2CSC_pos_GSE&format=csv",
+            "rows": 5400,
+            "sha256": "26a954d934e53d6bbfb903ee536a1b8c58fffcda2f9bab7dce36f07dc5c3ef21",
+            "size_bytes": 435846
+          },
+          "requested_parameters": [
+            "Magnitude",
+            "BGSEc",
+            "SC_pos_GSE"
+          ]
+        },
+        "DSCOVR": {
+          "dataset_id": "DSCOVR_H0_MAG",
+          "variables": [
+            "B1GSE"
+          ]
+        },
+        "WIND": {
+          "dataset_id": "WI_H0_MFI",
+          "descriptor": {
+            "path": "runs/audits/mag_gate_event_class_controls/intervals/MILD_OR_GLANCING_STRUCTURE__20240928__MILD_OR_GLANCING_STRUCTURE_2024-09-28/raw/WI_H0_MFI/descriptor.json",
+            "resolved_url": "https://cdaweb.gsfc.nasa.gov/WS/cdasr/1/dataviews/sp_phys/datasets/WI_H0_MFI/data/20240928T000000Z,20240929T000000Z/B3GSE,B3F1?format=text",
+            "sha256": "2475aabd3785b9789e8ddbfc5833de783e32aab7996d393802841265222a65fc",
+            "size_bytes": 296
+          },
+          "raw": {
+            "path": "runs/audits/mag_gate_event_class_controls/intervals/MILD_OR_GLANCING_STRUCTURE__20240928__MILD_OR_GLANCING_STRUCTURE_2024-09-28/raw/WI_H0_MFI/raw.txt",
+            "resolved_url": "https://cdaweb.gsfc.nasa.gov/tmp/wsfuSqOT/wi_h0_mfi.txt",
+            "sha256": "57f6fc7e2e8c9a72615e7abbabc3bac0e8824148a8c124e44e1f832160e5b9fd",
+            "size_bytes": 2571144
+          }
+        }
+      },
+      "start_utc": "2024-09-28T00:00:00+00:00",
+      "stop_utc": "2024-09-29T00:00:00+00:00",
+      "support_metrics": {
+        "all_evaluable_dscovr_anchors": {
+          "anchor_rows": 1274,
+          "joint_support_fraction_within_10_minutes": 0.15855572998430142,
+          "joint_support_fraction_within_15_minutes": 0.25510204081632654,
+          "joint_support_fraction_within_1_minutes": 0.007849293563579277,
+          "joint_support_fraction_within_2_minutes": 0.0141287284144427,
+          "joint_support_fraction_within_3_minutes": 0.023547880690737835,
+          "joint_support_fraction_within_5_minutes": 0.054945054945054944,
+          "joint_support_rows_within_10_minutes": 202,
+          "joint_support_rows_within_15_minutes": 325,
+          "joint_support_rows_within_1_minutes": 10,
+          "joint_support_rows_within_2_minutes": 18,
+          "joint_support_rows_within_3_minutes": 30,
+          "joint_support_rows_within_5_minutes": 70,
+          "strongest_span_le_3_minutes_fraction": 0.024615384615384615,
+          "strongest_span_le_3_minutes_rows": 8,
+          "strongest_span_median_minutes": 12.0,
+          "strongest_span_rows": 325
+        },
+        "dscovr_gate_anchors": {
+          "anchor_rows": 42,
+          "joint_support_fraction_within_10_minutes": 0.35714285714285715,
+          "joint_support_fraction_within_15_minutes": 0.4523809523809524,
+          "joint_support_fraction_within_1_minutes": 0.0,
+          "joint_support_fraction_within_2_minutes": 0.0,
+          "joint_support_fraction_within_3_minutes": 0.023809523809523808,
+          "joint_support_fraction_within_5_minutes": 0.09523809523809523,
+          "joint_support_rows_within_10_minutes": 15,
+          "joint_support_rows_within_15_minutes": 19,
+          "joint_support_rows_within_1_minutes": 0,
+          "joint_support_rows_within_2_minutes": 0,
+          "joint_support_rows_within_3_minutes": 1,
+          "joint_support_rows_within_5_minutes": 4,
+          "strongest_span_le_3_minutes_fraction": 0.0,
+          "strongest_span_le_3_minutes_rows": 0,
+          "strongest_span_median_minutes": 11.0,
+          "strongest_span_rows": 19
+        }
+      }
+    },
+    {
+      "claims": {
+        "common_surface_test_completed": false,
+        "ephemeris_propagation_test_completed": false,
+        "physical_mechanism_classified": false
+      },
+      "control_class": "MODERATE_ACTIVITY",
+      "gate": {
+        "canonical_cadence_seconds": 60,
+        "coordinate_frame": "GSE",
+        "logical_operator": "OR",
+        "magnitude_change_threshold_fraction": 0.25,
+        "required_previous_offset_seconds": 60,
+        "rotation_threshold_degrees": 45.0,
+        "timing_radii_minutes": [
+          1,
+          2,
+          3,
+          5,
+          10,
+          15
+        ]
+      },
+      "interval_id": "MODERATE_ACTIVITY__20240104__MODERATE_ACTIVITY_2024-01-04",
+      "label": "MODERATE_ACTIVITY_2024-01-04",
+      "mission_gate_density": [
+        {
+          "both_gate_rows": 0,
+          "canonical_rows": 1273,
+          "contiguous_gate_runs": 12,
+          "evaluable_exact_previous_rows": 1269,
+          "gate_fraction_of_evaluable": 0.009456264775413711,
+          "gate_rows": 12,
+          "longest_contiguous_gate_run_minutes": 1,
+          "magnitude_gate_rows": 2,
+          "maximum_gap_seconds": 5340.0,
+          "minimum_native_samples": 59,
+          "mission": "DSCOVR",
+          "rotation_gate_rows": 10
+        },
+        {
+          "both_gate_rows": 3,
+          "canonical_rows": 1440,
+          "contiguous_gate_runs": 17,
+          "evaluable_exact_previous_rows": 1439,
+          "gate_fraction_of_evaluable": 0.01389854065323141,
+          "gate_rows": 20,
+          "longest_contiguous_gate_run_minutes": 2,
+          "magnitude_gate_rows": 8,
+          "maximum_gap_seconds": 60.0,
+          "minimum_native_samples": 3,
+          "mission": "ACE",
+          "rotation_gate_rows": 15
+        },
+        {
+          "both_gate_rows": 3,
+          "canonical_rows": 1427,
+          "contiguous_gate_runs": 11,
+          "evaluable_exact_previous_rows": 1414,
+          "gate_fraction_of_evaluable": 0.009900990099009901,
+          "gate_rows": 14,
+          "longest_contiguous_gate_run_minutes": 2,
+          "magnitude_gate_rows": 9,
+          "maximum_gap_seconds": 180.0,
+          "minimum_native_samples": 18,
+          "mission": "WIND",
+          "rotation_gate_rows": 8
+        }
+      ],
+      "selection_rank": null,
+      "selection_source": "provenance/mag_gate_control_selection_v1/selected_control_intervals.v1.json",
+      "source_hashes": {
+        "ACE": {
+          "dataset_id": "AC_H0_MFI",
+          "info": {
+            "path": "runs/audits/mag_gate_event_class_controls/intervals/MODERATE_ACTIVITY__20240104__MODERATE_ACTIVITY_2024-01-04/raw/AC_H0_MFI/hapi_info.json",
+            "resolved_url": "https://cdaweb.gsfc.nasa.gov/hapi/info?id=AC_H0_MFI",
+            "sha256": "b08cac87be15bfaac5a64fbd4f69b387bf2cb0fd3211c201193fb5e29f1ce1a9",
+            "size_bytes": 1110
+          },
+          "raw": {
+            "path": "runs/audits/mag_gate_event_class_controls/intervals/MODERATE_ACTIVITY__20240104__MODERATE_ACTIVITY_2024-01-04/raw/AC_H0_MFI/raw.csv",
+            "resolved_url": "https://cdaweb.gsfc.nasa.gov/hapi/data?id=AC_H0_MFI&time.min=2024-01-04T00%3A00%3A00%2B00%3A00&time.max=2024-01-05T00%3A00%3A00%2B00%3A00&parameters=Magnitude%2CBGSEc%2CSC_pos_GSE&format=csv",
+            "rows": 5400,
+            "sha256": "6bc6545fc28a4b6d1b938d0d6e6e01ba55b7ef530feb6c441c77addb7879ad63",
+            "size_bytes": 418040
+          },
+          "requested_parameters": [
+            "Magnitude",
+            "BGSEc",
+            "SC_pos_GSE"
+          ]
+        },
+        "DSCOVR": {
+          "dataset_id": "DSCOVR_H0_MAG",
+          "variables": [
+            "B1GSE"
+          ]
+        },
+        "WIND": {
+          "dataset_id": "WI_H0_MFI",
+          "descriptor": {
+            "path": "runs/audits/mag_gate_event_class_controls/intervals/MODERATE_ACTIVITY__20240104__MODERATE_ACTIVITY_2024-01-04/raw/WI_H0_MFI/descriptor.json",
+            "resolved_url": "https://cdaweb.gsfc.nasa.gov/WS/cdasr/1/dataviews/sp_phys/datasets/WI_H0_MFI/data/20240104T000000Z,20240105T000000Z/B3GSE,B3F1?format=text",
+            "sha256": "bd5664824d260ce8fd31b62e2286cc7a781e336d143cb60f5ad0669de62b9da5",
+            "size_bytes": 296
+          },
+          "raw": {
+            "path": "runs/audits/mag_gate_event_class_controls/intervals/MODERATE_ACTIVITY__20240104__MODERATE_ACTIVITY_2024-01-04/raw/WI_H0_MFI/raw.txt",
+            "resolved_url": "https://cdaweb.gsfc.nasa.gov/tmp/wsbWwERg/wi_h0_mfi.txt",
+            "sha256": "88e2f61df539c73a3131abaf5cd9122e996db594a455f73d8657a9515093943e",
+            "size_bytes": 2571144
+          }
+        }
+      },
+      "start_utc": "2024-01-04T00:00:00+00:00",
+      "stop_utc": "2024-01-05T00:00:00+00:00",
+      "support_metrics": {
+        "all_evaluable_dscovr_anchors": {
+          "anchor_rows": 1240,
+          "joint_support_fraction_within_10_minutes": 0.04516129032258064,
+          "joint_support_fraction_within_15_minutes": 0.09112903225806451,
+          "joint_support_fraction_within_1_minutes": 0.0008064516129032258,
+          "joint_support_fraction_within_2_minutes": 0.0032258064516129032,
+          "joint_support_fraction_within_3_minutes": 0.0064516129032258064,
+          "joint_support_fraction_within_5_minutes": 0.014516129032258065,
+          "joint_support_rows_within_10_minutes": 56,
+          "joint_support_rows_within_15_minutes": 113,
+          "joint_support_rows_within_1_minutes": 1,
+          "joint_support_rows_within_2_minutes": 4,
+          "joint_support_rows_within_3_minutes": 8,
+          "joint_support_rows_within_5_minutes": 18,
+          "strongest_span_le_3_minutes_fraction": 0.04424778761061947,
+          "strongest_span_le_3_minutes_rows": 5,
+          "strongest_span_median_minutes": 13.0,
+          "strongest_span_rows": 113
+        },
+        "dscovr_gate_anchors": {
+          "anchor_rows": 12,
+          "joint_support_fraction_within_10_minutes": 0.25,
+          "joint_support_fraction_within_15_minutes": 0.4166666666666667,
+          "joint_support_fraction_within_1_minutes": 0.0,
+          "joint_support_fraction_within_2_minutes": 0.0,
+          "joint_support_fraction_within_3_minutes": 0.0,
+          "joint_support_fraction_within_5_minutes": 0.08333333333333333,
+          "joint_support_rows_within_10_minutes": 3,
+          "joint_support_rows_within_15_minutes": 5,
+          "joint_support_rows_within_1_minutes": 0,
+          "joint_support_rows_within_2_minutes": 0,
+          "joint_support_rows_within_3_minutes": 0,
+          "joint_support_rows_within_5_minutes": 1,
+          "strongest_span_le_3_minutes_fraction": 0.0,
+          "strongest_span_le_3_minutes_rows": 0,
+          "strongest_span_median_minutes": 13.0,
+          "strongest_span_rows": 5
+        }
+      }
+    },
+    {
+      "claims": {
+        "common_surface_test_completed": false,
+        "ephemeris_propagation_test_completed": false,
+        "physical_mechanism_classified": false
+      },
+      "control_class": "MODERATE_ACTIVITY",
+      "gate": {
+        "canonical_cadence_seconds": 60,
+        "coordinate_frame": "GSE",
+        "logical_operator": "OR",
+        "magnitude_change_threshold_fraction": 0.25,
+        "required_previous_offset_seconds": 60,
+        "rotation_threshold_degrees": 45.0,
+        "timing_radii_minutes": [
+          1,
+          2,
+          3,
+          5,
+          10,
+          15
+        ]
+      },
+      "interval_id": "MODERATE_ACTIVITY__20240123__MODERATE_ACTIVITY_2024-01-23",
+      "label": "MODERATE_ACTIVITY_2024-01-23",
+      "mission_gate_density": [
+        {
+          "both_gate_rows": 2,
+          "canonical_rows": 1312,
+          "contiguous_gate_runs": 40,
+          "evaluable_exact_previous_rows": 1309,
+          "gate_fraction_of_evaluable": 0.03972498090145149,
+          "gate_rows": 52,
+          "longest_contiguous_gate_run_minutes": 6,
+          "magnitude_gate_rows": 36,
+          "maximum_gap_seconds": 6780.0,
+          "minimum_native_samples": 57,
+          "mission": "DSCOVR",
+          "rotation_gate_rows": 18
+        },
+        {
+          "both_gate_rows": 12,
+          "canonical_rows": 1209,
+          "contiguous_gate_runs": 31,
+          "evaluable_exact_previous_rows": 1207,
+          "gate_fraction_of_evaluable": 0.037282518641259324,
+          "gate_rows": 45,
+          "longest_contiguous_gate_run_minutes": 4,
+          "magnitude_gate_rows": 31,
+          "maximum_gap_seconds": 13920.0,
+          "minimum_native_samples": 3,
+          "mission": "ACE",
+          "rotation_gate_rows": 26
+        },
+        {
+          "both_gate_rows": 2,
+          "canonical_rows": 1418,
+          "contiguous_gate_runs": 43,
+          "evaluable_exact_previous_rows": 1400,
+          "gate_fraction_of_evaluable": 0.04,
+          "gate_rows": 56,
+          "longest_contiguous_gate_run_minutes": 4,
+          "magnitude_gate_rows": 38,
+          "maximum_gap_seconds": 240.0,
+          "minimum_native_samples": 18,
+          "mission": "WIND",
+          "rotation_gate_rows": 20
+        }
+      ],
+      "selection_rank": null,
+      "selection_source": "provenance/mag_gate_control_selection_v1/selected_control_intervals.v1.json",
+      "source_hashes": {
+        "ACE": {
+          "dataset_id": "AC_H0_MFI",
+          "info": {
+            "path": "runs/audits/mag_gate_event_class_controls/intervals/MODERATE_ACTIVITY__20240123__MODERATE_ACTIVITY_2024-01-23/raw/AC_H0_MFI/hapi_info.json",
+            "resolved_url": "https://cdaweb.gsfc.nasa.gov/hapi/info?id=AC_H0_MFI",
+            "sha256": "b08cac87be15bfaac5a64fbd4f69b387bf2cb0fd3211c201193fb5e29f1ce1a9",
+            "size_bytes": 1110
+          },
+          "raw": {
+            "path": "runs/audits/mag_gate_event_class_controls/intervals/MODERATE_ACTIVITY__20240123__MODERATE_ACTIVITY_2024-01-23/raw/AC_H0_MFI/raw.csv",
+            "resolved_url": "https://cdaweb.gsfc.nasa.gov/hapi/data?id=AC_H0_MFI&time.min=2024-01-23T00%3A00%3A00%2B00%3A00&time.max=2024-01-24T00%3A00%3A00%2B00%3A00&parameters=Magnitude%2CBGSEc%2CSC_pos_GSE&format=csv",
+            "rows": 5400,
+            "sha256": "050f72704b24825190a518b584fdd42b6180bede4ead24817f13ccbbc4650a7e",
+            "size_bytes": 433908
+          },
+          "requested_parameters": [
+            "Magnitude",
+            "BGSEc",
+            "SC_pos_GSE"
+          ]
+        },
+        "DSCOVR": {
+          "dataset_id": "DSCOVR_H0_MAG",
+          "variables": [
+            "B1GSE"
+          ]
+        },
+        "WIND": {
+          "dataset_id": "WI_H0_MFI",
+          "descriptor": {
+            "path": "runs/audits/mag_gate_event_class_controls/intervals/MODERATE_ACTIVITY__20240123__MODERATE_ACTIVITY_2024-01-23/raw/WI_H0_MFI/descriptor.json",
+            "resolved_url": "https://cdaweb.gsfc.nasa.gov/WS/cdasr/1/dataviews/sp_phys/datasets/WI_H0_MFI/data/20240123T000000Z,20240124T000000Z/B3GSE,B3F1?format=text",
+            "sha256": "7f86336ebd083dae26c754be51f2d64038a190241bf31b19f7bba4f32bcd8266",
+            "size_bytes": 296
+          },
+          "raw": {
+            "path": "runs/audits/mag_gate_event_class_controls/intervals/MODERATE_ACTIVITY__20240123__MODERATE_ACTIVITY_2024-01-23/raw/WI_H0_MFI/raw.txt",
+            "resolved_url": "https://cdaweb.gsfc.nasa.gov/tmp/wsHbHXqr/wi_h0_mfi.txt",
+            "sha256": "ddefcc83743a9b002a4fb9a2bba55ebd3b3e2e80b4f28412ef271888eeb9cbca",
+            "size_bytes": 2571144
+          }
+        }
+      },
+      "start_utc": "2024-01-23T00:00:00+00:00",
+      "stop_utc": "2024-01-24T00:00:00+00:00",
+      "support_metrics": {
+        "all_evaluable_dscovr_anchors": {
+          "anchor_rows": 1280,
+          "joint_support_fraction_within_10_minutes": 0.15390625,
+          "joint_support_fraction_within_15_minutes": 0.24609375,
+          "joint_support_fraction_within_1_minutes": 0.0109375,
+          "joint_support_fraction_within_2_minutes": 0.02265625,
+          "joint_support_fraction_within_3_minutes": 0.0359375,
+          "joint_support_fraction_within_5_minutes": 0.06953125,
+          "joint_support_rows_within_10_minutes": 197,
+          "joint_support_rows_within_15_minutes": 315,
+          "joint_support_rows_within_1_minutes": 14,
+          "joint_support_rows_within_2_minutes": 29,
+          "joint_support_rows_within_3_minutes": 46,
+          "joint_support_rows_within_5_minutes": 89,
+          "strongest_span_le_3_minutes_fraction": 0.022222222222222223,
+          "strongest_span_le_3_minutes_rows": 7,
+          "strongest_span_median_minutes": 14.0,
+          "strongest_span_rows": 315
+        },
+        "dscovr_gate_anchors": {
+          "anchor_rows": 52,
+          "joint_support_fraction_within_10_minutes": 0.5,
+          "joint_support_fraction_within_15_minutes": 0.5576923076923077,
+          "joint_support_fraction_within_1_minutes": 0.07692307692307693,
+          "joint_support_fraction_within_2_minutes": 0.19230769230769232,
+          "joint_support_fraction_within_3_minutes": 0.28846153846153844,
+          "joint_support_fraction_within_5_minutes": 0.38461538461538464,
+          "joint_support_rows_within_10_minutes": 26,
+          "joint_support_rows_within_15_minutes": 29,
+          "joint_support_rows_within_1_minutes": 4,
+          "joint_support_rows_within_2_minutes": 10,
+          "joint_support_rows_within_3_minutes": 15,
+          "joint_support_rows_within_5_minutes": 20,
+          "strongest_span_le_3_minutes_fraction": 0.06896551724137931,
+          "strongest_span_le_3_minutes_rows": 2,
+          "strongest_span_median_minutes": 14.0,
+          "strongest_span_rows": 29
+        }
+      }
+    }
+  ],
+  "physical_mechanism_classified": false,
+  "raw_telemetry_committed": false,
+  "result_states": [
+    "EVENT_CLASS_CONTROL_DISTRIBUTIONS_MEASURED",
+    "GEOMETRY_REMAINS_BLOCKED"
+  ],
+  "selected_intervals": [
+    {
+      "control_class": "LOW_ACTIVITY",
+      "label": "LOW_ACTIVITY_2024-01-13",
+      "selection_rank": null,
+      "selection_source": "provenance/mag_gate_control_selection_v1/selected_control_intervals.v1.json",
+      "start_utc": "2024-01-13T00:00:00+00:00",
+      "stop_utc": "2024-01-14T00:00:00+00:00"
+    },
+    {
+      "control_class": "LOW_ACTIVITY",
+      "label": "LOW_ACTIVITY_2024-02-03",
+      "selection_rank": null,
+      "selection_source": "provenance/mag_gate_control_selection_v1/selected_control_intervals.v1.json",
+      "start_utc": "2024-02-03T00:00:00+00:00",
+      "stop_utc": "2024-02-04T00:00:00+00:00"
+    },
+    {
+      "control_class": "MODERATE_ACTIVITY",
+      "label": "MODERATE_ACTIVITY_2024-01-04",
+      "selection_rank": null,
+      "selection_source": "provenance/mag_gate_control_selection_v1/selected_control_intervals.v1.json",
+      "start_utc": "2024-01-04T00:00:00+00:00",
+      "stop_utc": "2024-01-05T00:00:00+00:00"
+    },
+    {
+      "control_class": "MODERATE_ACTIVITY",
+      "label": "MODERATE_ACTIVITY_2024-01-23",
+      "selection_rank": null,
+      "selection_source": "provenance/mag_gate_control_selection_v1/selected_control_intervals.v1.json",
+      "start_utc": "2024-01-23T00:00:00+00:00",
+      "stop_utc": "2024-01-24T00:00:00+00:00"
+    },
+    {
+      "control_class": "ISOLATED_SHOCK",
+      "label": "ISOLATED_SHOCK_2024-06-28",
+      "selection_rank": null,
+      "selection_source": "provenance/mag_gate_control_selection_v1/selected_control_intervals.v1.json",
+      "start_utc": "2024-06-28T00:00:00+00:00",
+      "stop_utc": "2024-06-29T00:00:00+00:00"
+    },
+    {
+      "control_class": "MILD_OR_GLANCING_STRUCTURE",
+      "label": "MILD_OR_GLANCING_STRUCTURE_2024-09-28",
+      "selection_rank": null,
+      "selection_source": "provenance/mag_gate_control_selection_v1/selected_control_intervals.v1.json",
+      "start_utc": "2024-09-28T00:00:00+00:00",
+      "stop_utc": "2024-09-29T00:00:00+00:00"
+    },
+    {
+      "control_class": "GANNON_DEVELOPMENT_EVENT",
+      "label": "GANNON_DEVELOPMENT_EVENT_2024-05-11",
+      "selection_rank": null,
+      "selection_source": "provenance/mag_gate_control_selection_v1/selected_control_intervals.v1.json",
+      "start_utc": "2024-05-11T00:00:00+00:00",
+      "stop_utc": "2024-05-12T00:00:00+00:00"
+    }
+  ],
+  "selection_provenance": {
+    "deduplicated_class_day_records": 9,
+    "discovered_candidate_records": 9,
+    "inventory_path": "provenance/mag_gate_control_selection_v1/FROZEN_INVENTORY.json",
+    "inventory_sha256": "ccbe6888519e0b568cfff2d66996aba55e831a4bc10dd0eeba1a37ed10c48f1c",
+    "selected_counts": {
+      "GANNON_DEVELOPMENT_EVENT": 1,
+      "ISOLATED_SHOCK": 1,
+      "LOW_ACTIVITY": 2,
+      "MILD_OR_GLANCING_STRUCTURE": 1,
+      "MODERATE_ACTIVITY": 2
+    },
+    "selection_root": "provenance/mag_gate_control_selection_v1",
+    "spacecraft_gate_outputs_used": false
+  },
+  "status": "SUCCESS",
+  "successful_interval_counts": {
+    "GANNON_DEVELOPMENT_EVENT": 1,
+    "ISOLATED_SHOCK": 1,
+    "LOW_ACTIVITY": 2,
+    "MILD_OR_GLANCING_STRUCTURE": 1,
+    "MODERATE_ACTIVITY": 2
+  }
+}

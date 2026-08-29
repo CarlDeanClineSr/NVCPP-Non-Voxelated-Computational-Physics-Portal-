@@ -1,0 +1,67 @@
+{
+  "contract_id": "NVCPP-MAG-GATE-EVENT-CLASS-CONTROLS-v1",
+  "contract_version": "1.0.0",
+  "selection_evidence_root": "provenance/mag_gate_control_selection_v1",
+  "gate_contract": "config/gannon_gate_density.v1.json",
+  "frozen_gate": {
+    "coordinate_frame": "GSE",
+    "canonical_cadence_seconds": 60,
+    "required_previous_offset_seconds": 60,
+    "rotation_threshold_degrees": 45.0,
+    "magnitude_change_threshold_fraction": 0.25,
+    "logical_operator": "OR",
+    "timing_radii_minutes": [1, 2, 3, 5, 10, 15]
+  },
+  "required_control_classes": {
+    "LOW_ACTIVITY": 1,
+    "MODERATE_ACTIVITY": 1,
+    "ISOLATED_SHOCK": 1,
+    "MILD_OR_GLANCING_STRUCTURE": 1,
+    "GANNON_DEVELOPMENT_EVENT": 1
+  },
+  "source_contracts": {
+    "DSCOVR": {
+      "provider": "NASA CDAWeb",
+      "dataset_id": "DSCOVR_H0_MAG",
+      "variables": ["B1GSE"],
+      "canonical_minimum_native_samples": 57
+    },
+    "ACE": {
+      "provider": "NASA CDAWeb HAPI",
+      "dataset_id": "AC_H0_MFI",
+      "parameters": ["Magnitude", "BGSEc", "SC_pos_GSE"],
+      "canonical_minimum_native_samples": 3
+    },
+    "WIND": {
+      "provider": "NASA CDAWeb CDAS REST",
+      "dataset_id": "WI_H0_MFI",
+      "variables": ["B3GSE", "B3F1"],
+      "canonical_minimum_native_samples": 18
+    }
+  },
+  "aggregation": {
+    "evaluate_only_complete_utc_days": true,
+    "candidate_anchor_population": "DSCOVR gate rows with complete independent timing windows",
+    "report_interval_values_before_class_aggregation": true,
+    "class_summary_statistics": ["count", "median", "minimum", "maximum"],
+    "temporal_dependence_warning_required": true
+  },
+  "result_states": [
+    "BACKGROUND_CALIBRATION_INCOMPLETE",
+    "EVENT_CLASS_CONTROL_DISTRIBUTIONS_MEASURED",
+    "GATE_NONSELECTIVE_ACROSS_EVENT_CLASSES",
+    "GATE_SELECTIVE_FOR_DISTURBED_INTERVALS_ONLY",
+    "GEOMETRY_REMAINS_BLOCKED"
+  ],
+  "interpretation_limits": [
+    "the 45-degree and 25-percent thresholds are unchanged from the Gannon development event",
+    "control dates were selected before spacecraft MAG gate retrieval",
+    "within-day and cross-day prevalence values are descriptive empirical distributions, not independent-minute binomial probabilities",
+    "no interpolation or forward fill is allowed",
+    "each vector diagnostic requires an exact preceding canonical minute",
+    "GSE rotation is not a GSM clock angle or geoeffectiveness claim",
+    "mismatched-day and circular-shift controls remain a separate hard-null stage",
+    "event-class controls do not establish one common moving surface",
+    "ephemeris, MVA, propagation, and physical classification remain blocked"
+  ]
+}
