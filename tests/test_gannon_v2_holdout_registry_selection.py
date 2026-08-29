@@ -35,6 +35,9 @@ def test_selection_contract_preserves_preregistered_detector_boundary() -> None:
     assert selection["global_rules"]["clustering_output_access_allowed"] is False
     assert selection["global_rules"]["replacement_after_mag_inspection_allowed"] is False
     assert selection["global_rules"]["excluded_years"] == [2024]
+    assert selection["global_rules"]["catalog_coverage_stop_utc_exclusive"] == "2026-07-01T00:00:00Z"
+    late = next(era for era in selection["mission_eras"] if era["id"] == "ERA_DSCOVR_ACE_WIND_LATE_2025_2026")
+    assert late["stop_utc"] == "2026-07-01T00:00:00Z"
 
     assert prereg["detector"] == {
         "coordinate_frame": "GSE",

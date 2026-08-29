@@ -1,6 +1,6 @@
 {
   "selection_contract_id": "NVCPP-GANNON-HOLDOUT-V2-CATALOG-SELECTION-v1",
-  "selection_contract_version": "1.0.1-catalog-feasibility",
+  "selection_contract_version": "1.0.2-catalog-coverage",
   "status": "FROZEN_BEFORE_HOLDOUT_MAG_RETRIEVAL",
   "parent_preregistration": {
     "path": "config/gannon_holdout_v2.preregistered.json",
@@ -15,6 +15,20 @@
       "change": "COMPLEX_INTERACTING_EJECTA era targets changed from 3/4/3 to 2/5/3 for 2016-2019, 2020-2023, and 2025-2026 respectively.",
       "total_class_target_changed": false,
       "minimum_intervals_per_class_changed": false,
+      "detector_changed": false,
+      "primary_clustering_hypothesis_changed": false,
+      "timing_radii_changed": false,
+      "magnetic_data_inspected": false,
+      "gate_outputs_inspected": false,
+      "candidate_scores_inspected": false
+    },
+    {
+      "amendment_id": "CATALOG_COVERAGE_002",
+      "state_when_applied": "BEFORE_FINAL_REGISTRY_FREEZE_AND_BEFORE_ANY_SPACECRAFT_MAG_RETRIEVAL",
+      "independent_catalog_observation": "The first catalog-only candidate list could select a GFZ Kp day after the independent Richardson-Cane event catalog coverage. Absence of a catalog event outside source coverage cannot support an event-free classification.",
+      "change": "End the late 2025-2026 mission era at the exclusive cutoff 2026-07-01T00:00:00Z.",
+      "total_class_target_changed": false,
+      "class_era_targets_changed": false,
       "detector_changed": false,
       "primary_clustering_hypothesis_changed": false,
       "timing_radii_changed": false,
@@ -47,7 +61,9 @@
     "candidate_score_access_allowed": false,
     "clustering_output_access_allowed": false,
     "replacement_after_mag_inspection_allowed": false,
-    "excluded_years": [2024],
+    "excluded_years": [
+      2024
+    ],
     "selection_year_start": 2016,
     "selection_year_stop_inclusive": 2026,
     "minimum_spacing_days_within_class": 30,
@@ -63,27 +79,41 @@
       "2024-05-11",
       "2024-06-28",
       "2024-09-28"
-    ]
+    ],
+    "catalog_coverage_stop_utc_exclusive": "2026-07-01T00:00:00Z",
+    "catalog_coverage_policy": "Every selected interval reference/start must precede 2026-07-01T00:00:00Z. A missing catalog event after the source coverage boundary is not evidence of an event-free quiet or moderate day."
   },
   "mission_eras": [
     {
       "id": "ERA_DSCOVR_ACE_WIND_2016_2019",
       "start_utc": "2016-01-01T00:00:00Z",
       "stop_utc": "2020-01-01T00:00:00Z",
-      "expected_missions": ["DSCOVR", "ACE", "WIND"]
+      "expected_missions": [
+        "DSCOVR",
+        "ACE",
+        "WIND"
+      ]
     },
     {
       "id": "ERA_DSCOVR_ACE_WIND_2020_2023",
       "start_utc": "2020-01-01T00:00:00Z",
       "stop_utc": "2024-01-01T00:00:00Z",
-      "expected_missions": ["DSCOVR", "ACE", "WIND"]
+      "expected_missions": [
+        "DSCOVR",
+        "ACE",
+        "WIND"
+      ]
     },
     {
       "id": "ERA_DSCOVR_ACE_WIND_LATE_2025_2026",
       "start_utc": "2025-01-01T00:00:00Z",
-      "stop_utc": "2027-01-01T00:00:00Z",
-      "expected_missions": ["DSCOVR", "ACE", "WIND"],
-      "availability_warning": "actual product availability is tested only after the registry is frozen; missing ACE or another mission becomes INCOMPLETE_MULTIPOINT or ERA_ACE_UNAVAILABLE"
+      "stop_utc": "2026-07-01T00:00:00Z",
+      "expected_missions": [
+        "DSCOVR",
+        "ACE",
+        "WIND"
+      ],
+      "availability_warning": "The prospective registry is frozen only through 2026-06-30, inside the independent event-catalog coverage available at selection time. Actual MAG availability is tested later; a missing mission becomes INCOMPLETE_MULTIPOINT or ERA_ACE_UNAVAILABLE."
     }
   ],
   "classes": {
