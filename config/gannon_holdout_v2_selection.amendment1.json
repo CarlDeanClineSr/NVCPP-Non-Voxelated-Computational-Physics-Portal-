@@ -1,0 +1,60 @@
+{
+  "amendment_id": "NVCPP-GANNON-V2-HOLDOUT-SELECTION-AMENDMENT-1",
+  "amendment_version": "1.0.0",
+  "status": "FROZEN_BEFORE_HOLDOUT_MAG_RETRIEVAL",
+  "parent_selection_contract": "config/gannon_holdout_v2_selection.v1.json",
+  "triggering_freeze_run_id": 33262316832,
+  "triggering_result": "COMPLEX_CLASS_UNDERFILLED",
+  "observed_catalog_only_feasibility": {
+    "class": "COMPLEX_INTERACTING_EJECTA",
+    "original_target_count": 12,
+    "qualifying_candidates_after_unchanged_spacing": 7,
+    "failed_before_spacecraft_mag_retrieval": true,
+    "spacecraft_mag_retrieved": false,
+    "mag_values_inspected": false,
+    "gate_outputs_inspected": false,
+    "clustering_outputs_inspected": false
+  },
+  "amendment": {
+    "type": "AMEND_N_ONLY",
+    "COMPLEX_INTERACTING_EJECTA": {
+      "selection_criteria_changed": false,
+      "independent_source_changed": false,
+      "cluster_window_hours_changed": false,
+      "minimum_spacing_days_changed": false,
+      "original_target_count": 12,
+      "effective_policy": "SELECT_ALL_QUALIFYING_SPACED_CANDIDATES",
+      "minimum_publishable_count": 7,
+      "maximum_count": 12,
+      "expected_count_from_triggering_catalog_snapshot": 7
+    },
+    "unchanged_class_targets": {
+      "QUIET_SOLAR_WIND": 12,
+      "MODERATE_VARIABILITY": 12,
+      "ISOLATED_SHOCK_OR_SHEATH": 12
+    }
+  },
+  "unchanged_science_fields": {
+    "rotation_threshold_degrees": 45.0,
+    "magnitude_change_threshold_fraction": 0.25,
+    "canonical_cadence_seconds": 60,
+    "required_previous_offset_seconds": 60,
+    "coordinate_frame": "GSE",
+    "timing_radii_minutes": [1, 2, 3, 5, 10, 15],
+    "nearest_joint_support_radius_minutes_max": 2,
+    "strongest_three_spacecraft_span_minutes_max": 3,
+    "interpolation": "NONE",
+    "forward_fill": "NONE"
+  },
+  "prohibited_actions": [
+    "do not change the 48-hour Richardson-Cane complex-cluster rule",
+    "do not change the 75-day spacing rule",
+    "do not add a second complex-event catalog in this amendment",
+    "do not replace or reroll quiet, moderate, or isolated selections",
+    "do not inspect DSCOVR, ACE, or Wind MAG before registry publication",
+    "do not substitute dates after MAG, gate, or clustering inspection",
+    "do not reopen the 10:59 interpretation",
+    "do not open geometry, MVA, propagation, common-surface, or physical-class analysis"
+  ],
+  "interpretation": "The COMPLEX class denominator is allowed to be smaller because the independent catalog plus the already-frozen selection and spacing rules supplied only seven qualifying spaced candidates. Unequal class sizes are reported explicitly; the class is not padded with look-alike dates."
+}
