@@ -23,28 +23,20 @@ jobs:
         with:
           python-version: "3.12"
           cache: pip
-      - name: Apply schema-order edit only
+      - name: Apply remaining schema-order edit
         shell: bash
         run: |
           set -euo pipefail
           python - <<'PY'
           from pathlib import Path
 
-          replacements = {
-              Path("historical/select_mag_gate_control_intervals.py"): (
-                  '["F", "flow_speed", "SYM_H", "percent_interp"]',
-                  '["percent_interp", "F", "flow_speed", "SYM_H"]',
-              ),
-              Path("tests/test_mag_gate_control_selection.py"): (
-                  '["F", "flow_speed", "SYM_H", "percent_interp"]',
-                  '["percent_interp", "F", "flow_speed", "SYM_H"]',
-              ),
-          }
-          for path, (old, new) in replacements.items():
-              text = path.read_text(encoding="utf-8")
-              if text.count(old) != 1:
-                  raise SystemExit(f"{path}: expected one frozen-order occurrence")
-              path.write_text(text.replace(old, new), encoding="utf-8")
+          path = Path("historical/select_mag_gate_control_intervals.py")
+          text = path.read_text(encoding="utf-8")
+          old = '["F", "flow_speed", "SYM_H", "percent_interp"]'
+          new = '["percent_interp", "F", "flow_speed", "SYM_H"]'
+          if text.count(old) != 1:
+              raise SystemExit("selector source: expected one frozen-order occurrence")
+          path.write_text(text.replace(old, new), encoding="utf-8")
           PY
       - name: Install and validate
         run: |
@@ -58,6 +50,6 @@ jobs:
           set -euo pipefail
           git config user.name "NVCPP Audit Installer"
           git config user.email "actions@users.noreply.github.com"
-          git add historical/select_mag_gate_control_intervals.py tests/test_mag_gate_control_selection.py
+          git add historical/select_mag_gate_control_intervals.py
           git commit -m "fix: honor OMNI HAPI parameter order"
           git push origin HEAD:feature/gate-control-harness-v1
