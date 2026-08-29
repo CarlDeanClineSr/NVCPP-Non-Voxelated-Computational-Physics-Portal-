@@ -1,0 +1,98 @@
+name: Apply event-reference metadata hardening
+
+on:
+  push:
+    branches:
+      - feature/event-reference-overlay-v1
+    paths:
+      - ".github/workflows/apply_event_reference_metadata_patch.yml"
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: feature/event-reference-overlay-v1
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - name: Apply exact source and README patches
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+
+          def replace_once(path: str, old: str, new: str) -> None:
+              file = Path(path)
+              text = file.read_text(encoding="utf-8")
+              if text.count(old) != 1:
+                  raise SystemExit(f"{path}: expected one exact patch match, found {text.count(old)}")
+              file.write_text(text.replace(old, new), encoding="utf-8")
+
+          replace_once(
+              "sources/solar1/download_solar1.py",
+              '''def _identity_from_info(info: dict[str, Any], vector_parameter: str) -> dict[str, Any]:\n''',
+              '''def classify_mission_phase(\n    analysis_start: pd.Timestamp,\n    analysis_end: pd.Timestamp,\n    contract: dict[str, Any],\n) -> dict[str, Any]:\n    operational_start = pd.to_datetime(\n        contract["mission_phase"]["operational_start_utc"], utc=True\n    )\n    if analysis_end <= operational_start:\n        classification = contract["mission_phase"]["pre_operational_label"]\n        operational_claim_allowed = False\n    elif analysis_start >= operational_start:\n        classification = contract["mission_phase"]["operational_label"]\n        operational_claim_allowed = True\n    else:\n        classification = contract["mission_phase"]["mixed_interval_label"]\n        operational_claim_allowed = False\n    return {\n        "operational_start_utc": operational_start.isoformat(),\n        "analysis_start_utc": analysis_start.isoformat(),\n        "analysis_end_utc": analysis_end.isoformat(),\n        "interval_classification": classification,\n        "operational_validation_claim_allowed": operational_claim_allowed,\n    }\n\n\ndef _identity_from_info(info: dict[str, Any], vector_parameter: str) -> dict[str, Any]:\n''',
+          )
+          replace_once(
+              "sources/solar1/download_solar1.py",
+              '''        start = pd.to_datetime(start_time, utc=True)\n        analysis = pd.to_datetime(analysis_start, utc=True)\n        end = pd.to_datetime(end_time, utc=True)\n        pre_roll = pd.Timedelta(hours=contract["physics"]["pre_roll_hours"])\n''',
+              '''        start = pd.to_datetime(start_time, utc=True)\n        analysis = pd.to_datetime(analysis_start, utc=True)\n        end = pd.to_datetime(end_time, utc=True)\n        phase = classify_mission_phase(analysis, end, contract)\n        manifest["mission_phase"] = phase\n        pre_roll = pd.Timedelta(hours=contract["physics"]["pre_roll_hours"])\n''',
+          )
+          replace_once(
+              "sources/solar1/download_solar1.py",
+              '''                    f"- Protocol: `{PROTOCOL_ID}` version `{PROTOCOL_VERSION}`",\n                    f"- Retrieval: {start_time} to {end_time}",\n''',
+              '''                    f"- Protocol: `{PROTOCOL_ID}` version `{PROTOCOL_VERSION}`",\n                    f"- Mission phase: `{phase['interval_classification']}`",\n                    f"- Operational validation claim allowed: **{phase['operational_validation_claim_allowed']}**",\n                    f"- Retrieval: {start_time} to {end_time}",\n''',
+          )
+
+          replace_once(
+              "core/temporal_pairing.py",
+              '''POSITIVE_LAG_DEFINITION = (\n    "positive lag L compares DSCOVR(t) with SOLAR-1(t+L); "\n    "positive values mean the SOLAR-1 feature occurs later"\n)\n''',
+              '''POSITIVE_LAG_DEFINITION = (\n    "positive lag L compares DSCOVR(t) with SOLAR-1(t+L); "\n    "positive values mean the SOLAR-1 feature occurs later"\n)\nCOHERENCE_MIN_R = 0.70\nLOOK_ELSEWHERE_MAX_P = 0.01\nLAG_IMPROVEMENT_MIN = 0.02\nPLATEAU_995_MAX_LAGS = 3\nBOOTSTRAP_MODE_MIN_FRACTION = 0.60\nBOOTSTRAP_95_MAX_SPAN_MINUTES = 2.0\nSEGMENT_MAX_SPAN_MINUTES = 2\n\n\ndef classification_policy() -> dict[str, Any]:\n    return {\n        "coherence": {\n            "best_pearson_r_minimum": COHERENCE_MIN_R,\n            "look_elsewhere_p_value_maximum": LOOK_ELSEWHERE_MAX_P,\n        },\n        "lag_candidate": {\n            "improvement_over_zero_lag_minimum": LAG_IMPROVEMENT_MIN,\n            "peak_plateau_99_5_percent_max_lags": PLATEAU_995_MAX_LAGS,\n            "bootstrap_mode_fraction_minimum": BOOTSTRAP_MODE_MIN_FRACTION,\n            "bootstrap_95_percent_span_max_minutes": BOOTSTRAP_95_MAX_SPAN_MINUTES,\n            "daily_segment_span_max_minutes": SEGMENT_MAX_SPAN_MINUTES,\n            "ephemeris_still_required": True,\n        },\n    }\n''',
+          )
+          replace_once(
+              "core/temporal_pairing.py",
+              '''    coherent = best_r >= 0.70 and null_p is not None and null_p <= 0.01\n''',
+              '''    coherent = (\n        best_r >= COHERENCE_MIN_R\n        and null_p is not None\n        and null_p <= LOOK_ELSEWHERE_MAX_P\n    )\n''',
+          )
+          replace_once(
+              "core/temporal_pairing.py",
+              '''        improvement >= 0.02\n        and len(plateau_995) <= 3\n        and mode_fraction >= 0.60\n        and bootstrap_span <= 2\n        and segment_span <= 2\n''',
+              '''        improvement >= LAG_IMPROVEMENT_MIN\n        and len(plateau_995) <= PLATEAU_995_MAX_LAGS\n        and mode_fraction >= BOOTSTRAP_MODE_MIN_FRACTION\n        and bootstrap_span <= BOOTSTRAP_95_MAX_SPAN_MINUTES\n        and segment_span <= SEGMENT_MAX_SPAN_MINUTES\n''',
+          )
+          replace_once(
+              "core/temporal_pairing.py",
+              '''            "block_bootstrap_minutes": block_minutes,\n        },\n''',
+              '''            "block_bootstrap_minutes": block_minutes,\n            "classification_thresholds": classification_policy(),\n        },\n''',
+          )
+
+          replace_once(
+              "README.md",
+              '''```text\nB0(t) = median{B(τ): t - 24 h < τ < t}\nratio_B24M = B / B0\ndelta_B24M = (B - B0) / B0\nchi_B24M = abs(delta_B24M)\n```\n''',
+              '''```text\nB(t) = |<B_GSE>_1min|\nB0(t) = median{B(τ): t - 24 h <= τ < t}\nratio_B24M = B / B0\ndelta_B24M = (B - B0) / B0\nchi_B24M = abs(delta_B24M)\n```\n''',
+          )
+          replace_once(
+              "README.md",
+              '''- `docs/TEACHING_ENGINE.md`\n- `docs/DRIVE_PREFLIGHT.md`\n''',
+              '''- `docs/TEACHING_ENGINE.md`\n- `docs/EVENT_REFERENCE_OVERLAY.md`\n- `docs/DRIVE_PREFLIGHT.md`\n''',
+          )
+          PY
+      - name: Install and validate
+        run: |
+          python -m pip install -r requirements.txt
+          python -m compileall -q core historical observatory pipelines sources tests tools
+          python -m sources.solar1.validate_contract config/solar1_mag_contract.v1.json
+          python -m pytest -q
+      - name: Commit tested patches
+        run: |
+          git config user.name "NVCPP Audit Patcher"
+          git config user.email "actions@users.noreply.github.com"
+          git add README.md core/temporal_pairing.py sources/solar1/download_solar1.py
+          git commit -m "feat: expose event, phase, and pairing decision metadata"
+          git push origin HEAD:feature/event-reference-overlay-v1
