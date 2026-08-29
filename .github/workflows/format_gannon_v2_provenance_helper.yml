@@ -1,0 +1,110 @@
+name: Format Gannon V2 provenance helper
+
+on:
+  push:
+    branches:
+      - hardening/gannon-v2-source-magnitude-provenance
+    paths:
+      - ".github/workflows/format_gannon_v2_provenance_helper.yml"
+
+permissions:
+  contents: write
+
+jobs:
+  format:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: hardening/gannon-v2-source-magnitude-provenance
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - name: Replace helper with readable formatting
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          from pathlib import Path
+
+          path = Path("historical/gannon_holdout_v2_consumer.py")
+          text = path.read_text(encoding="utf-8")
+          start = text.index("def canonical_magnitude_provenance(")
+          stop = text.index("\ndef _slice_analysis", start)
+          helper = '''def canonical_magnitude_provenance(mission: str) -> dict[str, Any]:
+              """Describe exactly how canonical |B| is constructed for one source."""
+
+              records: dict[str, dict[str, Any]] = {
+                  "DSCOVR": {
+                      "dataset_id": "DSCOVR_H0_MAG",
+                      "component_source": "B1GSE",
+                      "component_columns": [
+                          "resolved B1GSE Bx GSE component",
+                          "resolved B1GSE By GSE component",
+                          "resolved B1GSE Bz GSE component",
+                      ],
+                      "provider_reported_magnitude_parameter": None,
+                      "provider_reported_magnitude_role": "NOT_PRESENT_IN_REQUEST",
+                  },
+                  "ACE": {
+                      "dataset_id": "AC_H0_MFI",
+                      "component_source": "BGSEc",
+                      "component_columns": ["BGSEc_x", "BGSEc_y", "BGSEc_z"],
+                      "provider_reported_magnitude_parameter": "Magnitude",
+                      "provider_reported_magnitude_role": "AUDIT_ONLY",
+                  },
+                  "WIND": {
+                      "dataset_id": "WI_H0_MFI",
+                      "component_source": "B3GSE",
+                      "component_columns": ["B3GSE_x", "B3GSE_y", "B3GSE_z"],
+                      "provider_reported_magnitude_parameter": "B3F1",
+                      "provider_reported_magnitude_role": "AUDIT_ONLY",
+                  },
+              }
+              if mission not in records:
+                  raise HoldoutConsumerError(
+                      f"unsupported canonical magnitude provenance mission: {mission}"
+                  )
+              return {
+                  **records[mission],
+                  "coordinate_frame": "GSE",
+                  "canonical_quantity": "B_mag_nT",
+                  "provider_reported_magnitude_used_for_canonical_B": False,
+                  "operation_order": [
+                      "average native vector components within each canonical UTC minute",
+                      "calculate Euclidean norm from the three component means",
+                  ],
+                  "formula": (
+                      "B_mag_nT = sqrt(mean(Bx_GSE)^2 + mean(By_GSE)^2 + "
+                      "mean(Bz_GSE)^2)"
+                  ),
+                  "nonhomologous_source_warning": (
+                      "provider scalar magnitude fields are retained only for source audit; "
+                      "they are not averaged into or substituted for canonical B_mag_nT"
+                  ),
+              }
+          '''.replace("          ", "")
+          updated = text[:start] + helper + text[stop:]
+          if updated == text:
+              raise SystemExit("formatting cleanup produced no change")
+          path.write_text(updated, encoding="utf-8")
+          PY
+      - name: Install and test
+        run: |
+          python -m pip install -r requirements.txt
+          python -m compileall -q historical tests
+          python -m pytest -q \
+            tests/test_gannon_holdout_v2_consumer.py \
+            tests/test_gannon_holdout_v2_source_provenance.py
+      - name: Commit formatting cleanup
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "NVCPP Provenance Hardening"
+          git config user.email "actions@users.noreply.github.com"
+          git add historical/gannon_holdout_v2_consumer.py
+          git commit -m "style: format source-magnitude provenance helper"
+          git push origin HEAD:hardening/gannon-v2-source-magnitude-provenance
