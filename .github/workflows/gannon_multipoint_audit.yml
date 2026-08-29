@@ -1,0 +1,70 @@
+name: NVCPP Gannon Multipoint MAG-plus-Plasma Audit
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - feature/gannon-multipoint-v1
+    paths:
+      - "historical/gannon_multipoint_audit.py"
+      - "tests/test_gannon_multipoint.py"
+      - ".github/workflows/gannon_multipoint_audit.yml"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: nvcpp-gannon-multipoint-audit
+  cancel-in-progress: true
+
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - name: Install locked dependencies
+        run: python -m pip install -r requirements.txt
+      - name: Compile and run focused tests
+        run: |
+          python -m compileall -q historical/gannon_multipoint_audit.py tests/test_gannon_multipoint.py
+          python -m pytest -q tests/test_gannon_multipoint.py
+      - name: Run bounded three-spacecraft audit
+        run: |
+          python -m historical.gannon_multipoint_audit \
+            --start 2024-05-11T10:30:00Z \
+            --stop 2024-05-11T11:30:00Z \
+            --candidate-time 2024-05-11T10:59:00Z \
+            --outdir runs/audits/gannon_multipoint
+      - name: Verify successful unresolved classification
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+
+          path = Path("runs/audits/gannon_multipoint/gannon_multipoint_manifest.json")
+          data = json.loads(path.read_text())
+          if data.get("status") != "SUCCESS":
+              raise SystemExit(f"audit status is {data.get('status')!r}")
+          if data.get("mechanism_classification") != "UNRESOLVED":
+              raise SystemExit("mechanism was promoted beyond the evidence")
+          if data.get("ephemeris_propagation_test_completed") is not False:
+              raise SystemExit("ephemeris test state is not explicitly false")
+          selected = data.get("selected_structures", {})
+          if not all(selected.get(name) for name in ("DSCOVR", "ACE", "WIND")):
+              raise SystemExit("one or more spacecraft lack a selected structure")
+          print(data.get("classification"))
+          PY
+      - name: Upload immutable audit package
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: nvcpp-gannon-multipoint-audit
+          path: runs/audits/gannon_multipoint
+          if-no-files-found: error
+          retention-days: 90
+          compression-level: 6
