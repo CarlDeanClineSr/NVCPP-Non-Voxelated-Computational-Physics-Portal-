@@ -1,0 +1,24 @@
+{
+  "class_denominators": {
+    "COMPLEX_INTERACTING_EJECTA": 7,
+    "ISOLATED_SHOCK_OR_SHEATH": 12,
+    "MODERATE_VARIABILITY": 12,
+    "QUIET_SOLAR_WIND": 12
+  },
+  "clustering_outputs_inspected": false,
+  "effective_selection_contract": "config/gannon_holdout_v2_selection.effective.amendment1.json",
+  "failed_freeze_run_id": 33262316832,
+  "failed_stage": "catalog-only interval selection",
+  "gate_outputs_inspected": false,
+  "geometry_state": "CLOSED",
+  "mag_values_inspected": false,
+  "published_registry_path": "config/gannon_holdout_v2.registry.json",
+  "reason": "The first independent catalog-only freeze attempt stopped before registry publication because the unchanged COMPLEX_INTERACTING_EJECTA selector produced only 7 candidates satisfying the frozen spacing rule while the original target was 12.",
+  "registry_file_expected_when_published": "config/gannon_holdout_v2.registry.json",
+  "replacement_or_substitution_authorized": false,
+  "selection_amendment": "config/gannon_holdout_v2_selection.amendment1.json",
+  "spacecraft_mag_retrieved": false,
+  "state_id": "NVCPP-GANNON-V2-HOLDOUT-REGISTRY-STATE-v1",
+  "status": "HOLD_OUT_REGISTRY_PUBLISHED",
+  "total_intervals": 43
+}

@@ -1,0 +1,1589 @@
+{
+  "class_denominators": {
+    "COMPLEX_INTERACTING_EJECTA": 7,
+    "ISOLATED_SHOCK_OR_SHEATH": 12,
+    "MODERATE_VARIABILITY": 12,
+    "QUIET_SOLAR_WIND": 12
+  },
+  "created_utc": "2026-08-29T18:45:40.148744+00:00",
+  "future_evaluation_policy": {
+    "class_specific_reporting_required": true,
+    "failed_fetch_state": "INCOMPLETE_MULTIPOINT",
+    "geometry_default_state": "CLOSED",
+    "registered_denominator_is_immutable": true,
+    "substitution_after_mag_or_gate_inspection_allowed": false
+  },
+  "interpretation_limits": [
+    "Kp quiet does not prove featureless upstream L1 plasma",
+    "absence from one ICME catalog does not prove absence of every uncataloged structure",
+    "isolated means isolated under the named catalog and frozen gap rule",
+    "complex means multiple catalog entries under the frozen 48-hour rule, not a physical-topology classification",
+    "the COMPLEX class has an amended prospective denominator of seven because the unchanged catalog and spacing selector supplied seven candidates before any spacecraft MAG inspection",
+    "mission-era tags do not guarantee product retrieval; later source failure remains INCOMPLETE_MULTIPOINT",
+    "no holdout interval may be replaced after spacecraft MAG, gate, or clustering inspection",
+    "no geometry, MVA, propagation, common-surface, or physical-class analysis is authorized by this selection stage"
+  ],
+  "intervals": [
+    {
+      "class": "QUIET_SOLAR_WIND",
+      "clustering_output_inspected_before_freeze": false,
+      "failure_policy": "INCOMPLETE_MULTIPOINT_RETAIN_IN_DENOMINATOR",
+      "gate_output_inspected_before_freeze": false,
+      "independent_evidence": {
+        "catalog_exclusion": "no Richardson-Cane disturbance/ICME interval in the one-day-expanded exclusion window",
+        "kp_date_utc": "2016-10-21T00:00:00+00:00",
+        "kp_max": 0.667,
+        "kp_mean": 0.16662500000000002,
+        "kp_values": [
+          0.0,
+          0.667,
+          0.333,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.333
+        ]
+      },
+      "interval_id": "V2-QUIET_SOLAR_WIND-01-20161021T0000Z",
+      "mag_inspected_before_freeze": false,
+      "mission_era_tag": "DSCOVR_ACE_WIND_EXPECTED",
+      "mission_product_availability_verified_by_metadata_only": false,
+      "replacement_after_scoring_allowed": false,
+      "selection_rule": "GFZ daily Kp maximum <=2.0 and daily Kp mean <=1.0; no Richardson-Cane disturbance or ICME interval in the one-day-expanded exclusion window; deterministic activity rank, year diversity, and >=60-day spacing",
+      "source_ids": [
+        "GFZ_KP",
+        "RICHARDSON_CANE_ICME"
+      ],
+      "start_utc": "2016-10-21T00:00:00Z",
+      "stop_utc": "2016-10-22T00:00:00Z",
+      "v1_inspected_window": false
+    },
+    {
+      "class": "QUIET_SOLAR_WIND",
+      "clustering_output_inspected_before_freeze": false,
+      "failure_policy": "INCOMPLETE_MULTIPOINT_RETAIN_IN_DENOMINATOR",
+      "gate_output_inspected_before_freeze": false,
+      "independent_evidence": {
+        "catalog_exclusion": "no Richardson-Cane disturbance/ICME interval in the one-day-expanded exclusion window",
+        "kp_date_utc": "2017-11-06T00:00:00+00:00",
+        "kp_max": 0.667,
+        "kp_mean": 0.125,
+        "kp_values": [
+          0.667,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.333
+        ]
+      },
+      "interval_id": "V2-QUIET_SOLAR_WIND-02-20171106T0000Z",
+      "mag_inspected_before_freeze": false,
+      "mission_era_tag": "DSCOVR_ACE_WIND_EXPECTED",
+      "mission_product_availability_verified_by_metadata_only": false,
+      "replacement_after_scoring_allowed": false,
+      "selection_rule": "GFZ daily Kp maximum <=2.0 and daily Kp mean <=1.0; no Richardson-Cane disturbance or ICME interval in the one-day-expanded exclusion window; deterministic activity rank, year diversity, and >=60-day spacing",
+      "source_ids": [
+        "GFZ_KP",
+        "RICHARDSON_CANE_ICME"
+      ],
+      "start_utc": "2017-11-06T00:00:00Z",
+      "stop_utc": "2017-11-07T00:00:00Z",
+      "v1_inspected_window": false
+    },
+    {
+      "class": "QUIET_SOLAR_WIND",
+      "clustering_output_inspected_before_freeze": false,
+      "failure_policy": "INCOMPLETE_MULTIPOINT_RETAIN_IN_DENOMINATOR",
+      "gate_output_inspected_before_freeze": false,
+      "independent_evidence": {
+        "catalog_exclusion": "no Richardson-Cane disturbance/ICME interval in the one-day-expanded exclusion window",
+        "kp_date_utc": "2018-10-18T00:00:00+00:00",
+        "kp_max": 0.333,
+        "kp_mean": 0.08325,
+        "kp_values": [
+          0.333,
+          0.0,
+          0.333,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0
+        ]
+      },
+      "interval_id": "V2-QUIET_SOLAR_WIND-03-20181018T0000Z",
+      "mag_inspected_before_freeze": false,
+      "mission_era_tag": "DSCOVR_ACE_WIND_EXPECTED",
+      "mission_product_availability_verified_by_metadata_only": false,
+      "replacement_after_scoring_allowed": false,
+      "selection_rule": "GFZ daily Kp maximum <=2.0 and daily Kp mean <=1.0; no Richardson-Cane disturbance or ICME interval in the one-day-expanded exclusion window; deterministic activity rank, year diversity, and >=60-day spacing",
+      "source_ids": [
+        "GFZ_KP",
+        "RICHARDSON_CANE_ICME"
+      ],
+      "start_utc": "2018-10-18T00:00:00Z",
+      "stop_utc": "2018-10-19T00:00:00Z",
+      "v1_inspected_window": false
+    },
+    {
+      "class": "QUIET_SOLAR_WIND",
+      "clustering_output_inspected_before_freeze": false,
+      "failure_policy": "INCOMPLETE_MULTIPOINT_RETAIN_IN_DENOMINATOR",
+      "gate_output_inspected_before_freeze": false,
+      "independent_evidence": {
+        "catalog_exclusion": "no Richardson-Cane disturbance/ICME interval in the one-day-expanded exclusion window",
+        "kp_date_utc": "2019-11-18T00:00:00+00:00",
+        "kp_max": 0.333,
+        "kp_mean": 0.041625,
+        "kp_values": [
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.333,
+          0.0
+        ]
+      },
+      "interval_id": "V2-QUIET_SOLAR_WIND-04-20191118T0000Z",
+      "mag_inspected_before_freeze": false,
+      "mission_era_tag": "DSCOVR_ACE_WIND_EXPECTED",
+      "mission_product_availability_verified_by_metadata_only": false,
+      "replacement_after_scoring_allowed": false,
+      "selection_rule": "GFZ daily Kp maximum <=2.0 and daily Kp mean <=1.0; no Richardson-Cane disturbance or ICME interval in the one-day-expanded exclusion window; deterministic activity rank, year diversity, and >=60-day spacing",
+      "source_ids": [
+        "GFZ_KP",
+        "RICHARDSON_CANE_ICME"
+      ],
+      "start_utc": "2019-11-18T00:00:00Z",
+      "stop_utc": "2019-11-19T00:00:00Z",
+      "v1_inspected_window": false
+    },
+    {
+      "class": "QUIET_SOLAR_WIND",
+      "clustering_output_inspected_before_freeze": false,
+      "failure_policy": "INCOMPLETE_MULTIPOINT_RETAIN_IN_DENOMINATOR",
+      "gate_output_inspected_before_freeze": false,
+      "independent_evidence": {
+        "catalog_exclusion": "no Richardson-Cane disturbance/ICME interval in the one-day-expanded exclusion window",
+        "kp_date_utc": "2020-10-14T00:00:00+00:00",
+        "kp_max": 0.0,
+        "kp_mean": 0.0,
+        "kp_values": [
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0
+        ]
+      },
+      "interval_id": "V2-QUIET_SOLAR_WIND-05-20201014T0000Z",
+      "mag_inspected_before_freeze": false,
+      "mission_era_tag": "DSCOVR_ACE_WIND_EXPECTED",
+      "mission_product_availability_verified_by_metadata_only": false,
+      "replacement_after_scoring_allowed": false,
+      "selection_rule": "GFZ daily Kp maximum <=2.0 and daily Kp mean <=1.0; no Richardson-Cane disturbance or ICME interval in the one-day-expanded exclusion window; deterministic activity rank, year diversity, and >=60-day spacing",
+      "source_ids": [
+        "GFZ_KP",
+        "RICHARDSON_CANE_ICME"
+      ],
+      "start_utc": "2020-10-14T00:00:00Z",
+      "stop_utc": "2020-10-15T00:00:00Z",
+      "v1_inspected_window": false
+    },
+    {
+      "class": "QUIET_SOLAR_WIND",
+      "clustering_output_inspected_before_freeze": false,
+      "failure_policy": "INCOMPLETE_MULTIPOINT_RETAIN_IN_DENOMINATOR",
+      "gate_output_inspected_before_freeze": false,
+      "independent_evidence": {
+        "catalog_exclusion": "no Richardson-Cane disturbance/ICME interval in the one-day-expanded exclusion window",
+        "kp_date_utc": "2021-01-02T00:00:00+00:00",
+        "kp_max": 0.333,
+        "kp_mean": 0.08325,
+        "kp_values": [
+          0.333,
+          0.0,
+          0.0,
+          0.333,
+          0.0,
+          0.0,
+          0.0,
+          0.0
+        ]
+      },
+      "interval_id": "V2-QUIET_SOLAR_WIND-06-20210102T0000Z",
+      "mag_inspected_before_freeze": false,
+      "mission_era_tag": "DSCOVR_ACE_WIND_EXPECTED",
+      "mission_product_availability_verified_by_metadata_only": false,
+      "replacement_after_scoring_allowed": false,
+      "selection_rule": "GFZ daily Kp maximum <=2.0 and daily Kp mean <=1.0; no Richardson-Cane disturbance or ICME interval in the one-day-expanded exclusion window; deterministic activity rank, year diversity, and >=60-day spacing",
+      "source_ids": [
+        "GFZ_KP",
+        "RICHARDSON_CANE_ICME"
+      ],
+      "start_utc": "2021-01-02T00:00:00Z",
+      "stop_utc": "2021-01-03T00:00:00Z",
+      "v1_inspected_window": false
+    },
+    {
+      "class": "QUIET_SOLAR_WIND",
+      "clustering_output_inspected_before_freeze": false,
+      "failure_policy": "INCOMPLETE_MULTIPOINT_RETAIN_IN_DENOMINATOR",
+      "gate_output_inspected_before_freeze": false,
+      "independent_evidence": {
+        "catalog_exclusion": "no Richardson-Cane disturbance/ICME interval in the one-day-expanded exclusion window",
+        "kp_date_utc": "2022-01-07T00:00:00+00:00",
+        "kp_max": 0.0,
+        "kp_mean": 0.0,
+        "kp_values": [
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0
+        ]
+      },
+      "interval_id": "V2-QUIET_SOLAR_WIND-07-20220107T0000Z",
+      "mag_inspected_before_freeze": false,
+      "mission_era_tag": "DSCOVR_ACE_WIND_EXPECTED",
+      "mission_product_availability_verified_by_metadata_only": false,
+      "replacement_after_scoring_allowed": false,
+      "selection_rule": "GFZ daily Kp maximum <=2.0 and daily Kp mean <=1.0; no Richardson-Cane disturbance or ICME interval in the one-day-expanded exclusion window; deterministic activity rank, year diversity, and >=60-day spacing",
+      "source_ids": [
+        "GFZ_KP",
+        "RICHARDSON_CANE_ICME"
+      ],
+      "start_utc": "2022-01-07T00:00:00Z",
+      "stop_utc": "2022-01-08T00:00:00Z",
+      "v1_inspected_window": false
+    },
+    {
+      "class": "QUIET_SOLAR_WIND",
+      "clustering_output_inspected_before_freeze": false,
+      "failure_policy": "INCOMPLETE_MULTIPOINT_RETAIN_IN_DENOMINATOR",
+      "gate_output_inspected_before_freeze": false,
+      "independent_evidence": {
+        "catalog_exclusion": "no Richardson-Cane disturbance/ICME interval in the one-day-expanded exclusion window",
+        "kp_date_utc": "2023-10-17T00:00:00+00:00",
+        "kp_max": 0.667,
+        "kp_mean": 0.249875,
+        "kp_values": [
+          0.0,
+          0.0,
+          0.333,
+          0.333,
+          0.333,
+          0.333,
+          0.0,
+          0.667
+        ]
+      },
+      "interval_id": "V2-QUIET_SOLAR_WIND-08-20231017T0000Z",
+      "mag_inspected_before_freeze": false,
+      "mission_era_tag": "DSCOVR_ACE_WIND_EXPECTED",
+      "mission_product_availability_verified_by_metadata_only": false,
+      "replacement_after_scoring_allowed": false,
+      "selection_rule": "GFZ daily Kp maximum <=2.0 and daily Kp mean <=1.0; no Richardson-Cane disturbance or ICME interval in the one-day-expanded exclusion window; deterministic activity rank, year diversity, and >=60-day spacing",
+      "source_ids": [
+        "GFZ_KP",
+        "RICHARDSON_CANE_ICME"
+      ],
+      "start_utc": "2023-10-17T00:00:00Z",
+      "stop_utc": "2023-10-18T00:00:00Z",
+      "v1_inspected_window": false
+    },
+    {
+      "class": "QUIET_SOLAR_WIND",
+      "clustering_output_inspected_before_freeze": false,
+      "failure_policy": "INCOMPLETE_MULTIPOINT_RETAIN_IN_DENOMINATOR",
+      "gate_output_inspected_before_freeze": false,
+      "independent_evidence": {
+        "catalog_exclusion": "no Richardson-Cane disturbance/ICME interval in the one-day-expanded exclusion window",
+        "kp_date_utc": "2024-02-19T00:00:00+00:00",
+        "kp_max": 0.333,
+        "kp_mean": 0.12487500000000001,
+        "kp_values": [
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.333,
+          0.0,
+          0.333,
+          0.333
+        ]
+      },
+      "interval_id": "V2-QUIET_SOLAR_WIND-09-20240219T0000Z",
+      "mag_inspected_before_freeze": false,
+      "mission_era_tag": "DSCOVR_ACE_WIND_EXPECTED",
+      "mission_product_availability_verified_by_metadata_only": false,
+      "replacement_after_scoring_allowed": false,
+      "selection_rule": "GFZ daily Kp maximum <=2.0 and daily Kp mean <=1.0; no Richardson-Cane disturbance or ICME interval in the one-day-expanded exclusion window; deterministic activity rank, year diversity, and >=60-day spacing",
+      "source_ids": [
+        "GFZ_KP",
+        "RICHARDSON_CANE_ICME"
+      ],
+      "start_utc": "2024-02-19T00:00:00Z",
+      "stop_utc": "2024-02-20T00:00:00Z",
+      "v1_inspected_window": false
+    },
+    {
+      "class": "QUIET_SOLAR_WIND",
+      "clustering_output_inspected_before_freeze": false,
+      "failure_policy": "INCOMPLETE_MULTIPOINT_RETAIN_IN_DENOMINATOR",
+      "gate_output_inspected_before_freeze": false,
+      "independent_evidence": {
+        "catalog_exclusion": "no Richardson-Cane disturbance/ICME interval in the one-day-expanded exclusion window",
+        "kp_date_utc": "2022-11-10T00:00:00+00:00",
+        "kp_max": 0.333,
+        "kp_mean": 0.041625,
+        "kp_values": [
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.333,
+          0.0
+        ]
+      },
+      "interval_id": "V2-QUIET_SOLAR_WIND-10-20221110T0000Z",
+      "mag_inspected_before_freeze": false,
+      "mission_era_tag": "DSCOVR_ACE_WIND_EXPECTED",
+      "mission_product_availability_verified_by_metadata_only": false,
+      "replacement_after_scoring_allowed": false,
+      "selection_rule": "GFZ daily Kp maximum <=2.0 and daily Kp mean <=1.0; no Richardson-Cane disturbance or ICME interval in the one-day-expanded exclusion window; deterministic activity rank, year diversity, and >=60-day spacing",
+      "source_ids": [
+        "GFZ_KP",
+        "RICHARDSON_CANE_ICME"
+      ],
+      "start_utc": "2022-11-10T00:00:00Z",
+      "stop_utc": "2022-11-11T00:00:00Z",
+      "v1_inspected_window": false
+    },
+    {
+      "class": "QUIET_SOLAR_WIND",
+      "clustering_output_inspected_before_freeze": false,
+      "failure_policy": "INCOMPLETE_MULTIPOINT_RETAIN_IN_DENOMINATOR",
+      "gate_output_inspected_before_freeze": false,
+      "independent_evidence": {
+        "catalog_exclusion": "no Richardson-Cane disturbance/ICME interval in the one-day-expanded exclusion window",
+        "kp_date_utc": "2019-01-02T00:00:00+00:00",
+        "kp_max": 0.333,
+        "kp_mean": 0.08325,
+        "kp_values": [
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.333,
+          0.333,
+          0.0,
+          0.0
+        ]
+      },
+      "interval_id": "V2-QUIET_SOLAR_WIND-11-20190102T0000Z",
+      "mag_inspected_before_freeze": false,
+      "mission_era_tag": "DSCOVR_ACE_WIND_EXPECTED",
+      "mission_product_availability_verified_by_metadata_only": false,
+      "replacement_after_scoring_allowed": false,
+      "selection_rule": "GFZ daily Kp maximum <=2.0 and daily Kp mean <=1.0; no Richardson-Cane disturbance or ICME interval in the one-day-expanded exclusion window; deterministic activity rank, year diversity, and >=60-day spacing",
+      "source_ids": [
+        "GFZ_KP",
+        "RICHARDSON_CANE_ICME"
+      ],
+      "start_utc": "2019-01-02T00:00:00Z",
+      "stop_utc": "2019-01-03T00:00:00Z",
+      "v1_inspected_window": false
+    },
+    {
+      "class": "QUIET_SOLAR_WIND",
+      "clustering_output_inspected_before_freeze": false,
+      "failure_policy": "INCOMPLETE_MULTIPOINT_RETAIN_IN_DENOMINATOR",
+      "gate_output_inspected_before_freeze": false,
+      "independent_evidence": {
+        "catalog_exclusion": "no Richardson-Cane disturbance/ICME interval in the one-day-expanded exclusion window",
+        "kp_date_utc": "2020-01-20T00:00:00+00:00",
+        "kp_max": 0.333,
+        "kp_mean": 0.08325,
+        "kp_values": [
+          0.0,
+          0.333,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.333,
+          0.0
+        ]
+      },
+      "interval_id": "V2-QUIET_SOLAR_WIND-12-20200120T0000Z",
+      "mag_inspected_before_freeze": false,
+      "mission_era_tag": "DSCOVR_ACE_WIND_EXPECTED",
+      "mission_product_availability_verified_by_metadata_only": false,
+      "replacement_after_scoring_allowed": false,
+      "selection_rule": "GFZ daily Kp maximum <=2.0 and daily Kp mean <=1.0; no Richardson-Cane disturbance or ICME interval in the one-day-expanded exclusion window; deterministic activity rank, year diversity, and >=60-day spacing",
+      "source_ids": [
+        "GFZ_KP",
+        "RICHARDSON_CANE_ICME"
+      ],
+      "start_utc": "2020-01-20T00:00:00Z",
+      "stop_utc": "2020-01-21T00:00:00Z",
+      "v1_inspected_window": false
+    },
+    {
+      "class": "MODERATE_VARIABILITY",
+      "clustering_output_inspected_before_freeze": false,
+      "failure_policy": "INCOMPLETE_MULTIPOINT_RETAIN_IN_DENOMINATOR",
+      "gate_output_inspected_before_freeze": false,
+      "independent_evidence": {
+        "catalog_exclusion": "no Richardson-Cane disturbance/ICME interval in the one-day-expanded exclusion window",
+        "kp_date_utc": "2016-08-17T00:00:00+00:00",
+        "kp_max": 3.0,
+        "kp_mean": 1.75,
+        "kp_values": [
+          2.667,
+          3.0,
+          1.333,
+          1.0,
+          1.333,
+          0.333,
+          1.667,
+          2.667
+        ]
+      },
+      "interval_id": "V2-MODERATE_VARIABILITY-01-20160817T0000Z",
+      "mag_inspected_before_freeze": false,
+      "mission_era_tag": "DSCOVR_ACE_WIND_EXPECTED",
+      "mission_product_availability_verified_by_metadata_only": false,
+      "replacement_after_scoring_allowed": false,
+      "selection_rule": "GFZ daily Kp maximum between 3.0 and 4.0 inclusive and daily Kp mean between 1.0 and 2.5 inclusive; no Richardson-Cane disturbance or ICME interval in the one-day-expanded exclusion window; deterministic target-activity rank, year diversity, and >=60-day spacing",
+      "source_ids": [
+        "GFZ_KP",
+        "RICHARDSON_CANE_ICME"
+      ],
+      "start_utc": "2016-08-17T00:00:00Z",
+      "stop_utc": "2016-08-18T00:00:00Z",
+      "v1_inspected_window": false
+    },
+    {
+      "class": "MODERATE_VARIABILITY",
+      "clustering_output_inspected_before_freeze": false,
+      "failure_policy": "INCOMPLETE_MULTIPOINT_RETAIN_IN_DENOMINATOR",
+      "gate_output_inspected_before_freeze": false,
+      "independent_evidence": {
+        "catalog_exclusion": "no Richardson-Cane disturbance/ICME interval in the one-day-expanded exclusion window",
+        "kp_date_utc": "2017-06-03T00:00:00+00:00",
+        "kp_max": 3.667,
+        "kp_mean": 1.75,
+        "kp_values": [
+          0.333,
+          0.333,
+          1.667,
+          2.0,
+          3.333,
+          3.667,
+          1.667,
+          1.0
+        ]
+      },
+      "interval_id": "V2-MODERATE_VARIABILITY-02-20170603T0000Z",
+      "mag_inspected_before_freeze": false,
+      "mission_era_tag": "DSCOVR_ACE_WIND_EXPECTED",
+      "mission_product_availability_verified_by_metadata_only": false,
+      "replacement_after_scoring_allowed": false,
+      "selection_rule": "GFZ daily Kp maximum between 3.0 and 4.0 inclusive and daily Kp mean between 1.0 and 2.5 inclusive; no Richardson-Cane disturbance or ICME interval in the one-day-expanded exclusion window; deterministic target-activity rank, year diversity, and >=60-day spacing",
+      "source_ids": [
+        "GFZ_KP",
+        "RICHARDSON_CANE_ICME"
+      ],
+      "start_utc": "2017-06-03T00:00:00Z",
+      "stop_utc": "2017-06-04T00:00:00Z",
+      "v1_inspected_window": false
+    },
+    {
+      "class": "MODERATE_VARIABILITY",
+      "clustering_output_inspected_before_freeze": false,
+      "failure_policy": "INCOMPLETE_MULTIPOINT_RETAIN_IN_DENOMINATOR",
+      "gate_output_inspected_before_freeze": false,
+      "independent_evidence": {
+        "catalog_exclusion": "no Richardson-Cane disturbance/ICME interval in the one-day-expanded exclusion window",
+        "kp_date_utc": "2018-03-14T00:00:00+00:00",
+        "kp_max": 4.0,
+        "kp_mean": 1.75,
+        "kp_values": [
+          0.333,
+          0.333,
+          1.0,
+          0.667,
+          1.333,
+          4.0,
+          2.667,
+          3.667
+        ]
+      },
+      "interval_id": "V2-MODERATE_VARIABILITY-03-20180314T0000Z",
+      "mag_inspected_before_freeze": false,
+      "mission_era_tag": "DSCOVR_ACE_WIND_EXPECTED",
+      "mission_product_availability_verified_by_metadata_only": false,
+      "replacement_after_scoring_allowed": false,
+      "selection_rule": "GFZ daily Kp maximum between 3.0 and 4.0 inclusive and daily Kp mean between 1.0 and 2.5 inclusive; no Richardson-Cane disturbance or ICME interval in the one-day-expanded exclusion window; deterministic target-activity rank, year diversity, and >=60-day spacing",
+      "source_ids": [
+        "GFZ_KP",
+        "RICHARDSON_CANE_ICME"
+      ],
+      "start_utc": "2018-03-14T00:00:00Z",
+      "stop_utc": "2018-03-15T00:00:00Z",
+      "v1_inspected_window": false
+    },
+    {
+      "class": "MODERATE_VARIABILITY",
+      "clustering_output_inspected_before_freeze": false,
+      "failure_policy": "INCOMPLETE_MULTIPOINT_RETAIN_IN_DENOMINATOR",
+      "gate_output_inspected_before_freeze": false,
+      "independent_evidence": {
+        "catalog_exclusion": "no Richardson-Cane disturbance/ICME interval in the one-day-expanded exclusion window",
+        "kp_date_utc": "2019-10-05T00:00:00+00:00",
+        "kp_max": 3.0,
+        "kp_mean": 1.708375,
+        "kp_values": [
+          1.333,
+          1.333,
+          1.0,
+          2.0,
+          1.667,
+          1.667,
+          1.667,
+          3.0
+        ]
+      },
+      "interval_id": "V2-MODERATE_VARIABILITY-04-20191005T0000Z",
+      "mag_inspected_before_freeze": false,
+      "mission_era_tag": "DSCOVR_ACE_WIND_EXPECTED",
+      "mission_product_availability_verified_by_metadata_only": false,
+      "replacement_after_scoring_allowed": false,
+      "selection_rule": "GFZ daily Kp maximum between 3.0 and 4.0 inclusive and daily Kp mean between 1.0 and 2.5 inclusive; no Richardson-Cane disturbance or ICME interval in the one-day-expanded exclusion window; deterministic target-activity rank, year diversity, and >=60-day spacing",
+      "source_ids": [
+        "GFZ_KP",
+        "RICHARDSON_CANE_ICME"
+      ],
+      "start_utc": "2019-10-05T00:00:00Z",
+      "stop_utc": "2019-10-06T00:00:00Z",
+      "v1_inspected_window": false
+    },
+    {
+      "class": "MODERATE_VARIABILITY",
+      "clustering_output_inspected_before_freeze": false,
+      "failure_policy": "INCOMPLETE_MULTIPOINT_RETAIN_IN_DENOMINATOR",
+      "gate_output_inspected_before_freeze": false,
+      "independent_evidence": {
+        "catalog_exclusion": "no Richardson-Cane disturbance/ICME interval in the one-day-expanded exclusion window",
+        "kp_date_utc": "2020-04-03T00:00:00+00:00",
+        "kp_max": 3.667,
+        "kp_mean": 1.75,
+        "kp_values": [
+          2.333,
+          2.0,
+          0.667,
+          0.667,
+          1.0,
+          1.333,
+          2.333,
+          3.667
+        ]
+      },
+      "interval_id": "V2-MODERATE_VARIABILITY-05-20200403T0000Z",
+      "mag_inspected_before_freeze": false,
+      "mission_era_tag": "DSCOVR_ACE_WIND_EXPECTED",
+      "mission_product_availability_verified_by_metadata_only": false,
+      "replacement_after_scoring_allowed": false,
+      "selection_rule": "GFZ daily Kp maximum between 3.0 and 4.0 inclusive and daily Kp mean between 1.0 and 2.5 inclusive; no Richardson-Cane disturbance or ICME interval in the one-day-expanded exclusion window; deterministic target-activity rank, year diversity, and >=60-day spacing",
+      "source_ids": [
+        "GFZ_KP",
+        "RICHARDSON_CANE_ICME"
+      ],
+      "start_utc": "2020-04-03T00:00:00Z",
+      "stop_utc": "2020-04-04T00:00:00Z",
+      "v1_inspected_window": false
+    },
+    {
+      "class": "MODERATE_VARIABILITY",
+      "clustering_output_inspected_before_freeze": false,
+      "failure_policy": "INCOMPLETE_MULTIPOINT_RETAIN_IN_DENOMINATOR",
+      "gate_output_inspected_before_freeze": false,
+      "independent_evidence": {
+        "catalog_exclusion": "no Richardson-Cane disturbance/ICME interval in the one-day-expanded exclusion window",
+        "kp_date_utc": "2021-08-16T00:00:00+00:00",
+        "kp_max": 3.0,
+        "kp_mean": 1.75,
+        "kp_values": [
+          3.0,
+          2.333,
+          1.333,
+          1.0,
+          2.0,
+          1.667,
+          0.667,
+          2.0
+        ]
+      },
+      "interval_id": "V2-MODERATE_VARIABILITY-06-20210816T0000Z",
+      "mag_inspected_before_freeze": false,
+      "mission_era_tag": "DSCOVR_ACE_WIND_EXPECTED",
+      "mission_product_availability_verified_by_metadata_only": false,
+      "replacement_after_scoring_allowed": false,
+      "selection_rule": "GFZ daily Kp maximum between 3.0 and 4.0 inclusive and daily Kp mean between 1.0 and 2.5 inclusive; no Richardson-Cane disturbance or ICME interval in the one-day-expanded exclusion window; deterministic target-activity rank, year diversity, and >=60-day spacing",
+      "source_ids": [
+        "GFZ_KP",
+        "RICHARDSON_CANE_ICME"
+      ],
+      "start_utc": "2021-08-16T00:00:00Z",
+      "stop_utc": "2021-08-17T00:00:00Z",
+      "v1_inspected_window": false
+    },
+    {
+      "class": "MODERATE_VARIABILITY",
+      "clustering_output_inspected_before_freeze": false,
+      "failure_policy": "INCOMPLETE_MULTIPOINT_RETAIN_IN_DENOMINATOR",
+      "gate_output_inspected_before_freeze": false,
+      "independent_evidence": {
+        "catalog_exclusion": "no Richardson-Cane disturbance/ICME interval in the one-day-expanded exclusion window",
+        "kp_date_utc": "2022-06-11T00:00:00+00:00",
+        "kp_max": 3.0,
+        "kp_mean": 1.75,
+        "kp_values": [
+          2.0,
+          2.0,
+          3.0,
+          1.0,
+          1.333,
+          1.667,
+          1.333,
+          1.667
+        ]
+      },
+      "interval_id": "V2-MODERATE_VARIABILITY-07-20220611T0000Z",
+      "mag_inspected_before_freeze": false,
+      "mission_era_tag": "DSCOVR_ACE_WIND_EXPECTED",
+      "mission_product_availability_verified_by_metadata_only": false,
+      "replacement_after_scoring_allowed": false,
+      "selection_rule": "GFZ daily Kp maximum between 3.0 and 4.0 inclusive and daily Kp mean between 1.0 and 2.5 inclusive; no Richardson-Cane disturbance or ICME interval in the one-day-expanded exclusion window; deterministic target-activity rank, year diversity, and >=60-day spacing",
+      "source_ids": [
+        "GFZ_KP",
+        "RICHARDSON_CANE_ICME"
+      ],
+      "start_utc": "2022-06-11T00:00:00Z",
+      "stop_utc": "2022-06-12T00:00:00Z",
+      "v1_inspected_window": false
+    },
+    {
+      "class": "MODERATE_VARIABILITY",
+      "clustering_output_inspected_before_freeze": false,
+      "failure_policy": "INCOMPLETE_MULTIPOINT_RETAIN_IN_DENOMINATOR",
+      "gate_output_inspected_before_freeze": false,
+      "independent_evidence": {
+        "catalog_exclusion": "no Richardson-Cane disturbance/ICME interval in the one-day-expanded exclusion window",
+        "kp_date_utc": "2023-01-08T00:00:00+00:00",
+        "kp_max": 3.0,
+        "kp_mean": 1.75,
+        "kp_values": [
+          2.0,
+          2.333,
+          2.0,
+          1.667,
+          3.0,
+          1.333,
+          1.0,
+          0.667
+        ]
+      },
+      "interval_id": "V2-MODERATE_VARIABILITY-08-20230108T0000Z",
+      "mag_inspected_before_freeze": false,
+      "mission_era_tag": "DSCOVR_ACE_WIND_EXPECTED",
+      "mission_product_availability_verified_by_metadata_only": false,
+      "replacement_after_scoring_allowed": false,
+      "selection_rule": "GFZ daily Kp maximum between 3.0 and 4.0 inclusive and daily Kp mean between 1.0 and 2.5 inclusive; no Richardson-Cane disturbance or ICME interval in the one-day-expanded exclusion window; deterministic target-activity rank, year diversity, and >=60-day spacing",
+      "source_ids": [
+        "GFZ_KP",
+        "RICHARDSON_CANE_ICME"
+      ],
+      "start_utc": "2023-01-08T00:00:00Z",
+      "stop_utc": "2023-01-09T00:00:00Z",
+      "v1_inspected_window": false
+    },
+    {
+      "class": "MODERATE_VARIABILITY",
+      "clustering_output_inspected_before_freeze": false,
+      "failure_policy": "INCOMPLETE_MULTIPOINT_RETAIN_IN_DENOMINATOR",
+      "gate_output_inspected_before_freeze": false,
+      "independent_evidence": {
+        "catalog_exclusion": "no Richardson-Cane disturbance/ICME interval in the one-day-expanded exclusion window",
+        "kp_date_utc": "2024-03-13T00:00:00+00:00",
+        "kp_max": 3.333,
+        "kp_mean": 1.83325,
+        "kp_values": [
+          1.0,
+          0.333,
+          3.333,
+          2.0,
+          2.333,
+          3.0,
+          2.0,
+          0.667
+        ]
+      },
+      "interval_id": "V2-MODERATE_VARIABILITY-09-20240313T0000Z",
+      "mag_inspected_before_freeze": false,
+      "mission_era_tag": "DSCOVR_ACE_WIND_EXPECTED",
+      "mission_product_availability_verified_by_metadata_only": false,
+      "replacement_after_scoring_allowed": false,
+      "selection_rule": "GFZ daily Kp maximum between 3.0 and 4.0 inclusive and daily Kp mean between 1.0 and 2.5 inclusive; no Richardson-Cane disturbance or ICME interval in the one-day-expanded exclusion window; deterministic target-activity rank, year diversity, and >=60-day spacing",
+      "source_ids": [
+        "GFZ_KP",
+        "RICHARDSON_CANE_ICME"
+      ],
+      "start_utc": "2024-03-13T00:00:00Z",
+      "stop_utc": "2024-03-14T00:00:00Z",
+      "v1_inspected_window": false
+    },
+    {
+      "class": "MODERATE_VARIABILITY",
+      "clustering_output_inspected_before_freeze": false,
+      "failure_policy": "INCOMPLETE_MULTIPOINT_RETAIN_IN_DENOMINATOR",
+      "gate_output_inspected_before_freeze": false,
+      "independent_evidence": {
+        "catalog_exclusion": "no Richardson-Cane disturbance/ICME interval in the one-day-expanded exclusion window",
+        "kp_date_utc": "2020-08-04T00:00:00+00:00",
+        "kp_max": 3.333,
+        "kp_mean": 1.749875,
+        "kp_values": [
+          2.0,
+          3.333,
+          1.333,
+          1.667,
+          1.333,
+          1.333,
+          1.333,
+          1.667
+        ]
+      },
+      "interval_id": "V2-MODERATE_VARIABILITY-10-20200804T0000Z",
+      "mag_inspected_before_freeze": false,
+      "mission_era_tag": "DSCOVR_ACE_WIND_EXPECTED",
+      "mission_product_availability_verified_by_metadata_only": false,
+      "replacement_after_scoring_allowed": false,
+      "selection_rule": "GFZ daily Kp maximum between 3.0 and 4.0 inclusive and daily Kp mean between 1.0 and 2.5 inclusive; no Richardson-Cane disturbance or ICME interval in the one-day-expanded exclusion window; deterministic target-activity rank, year diversity, and >=60-day spacing",
+      "source_ids": [
+        "GFZ_KP",
+        "RICHARDSON_CANE_ICME"
+      ],
+      "start_utc": "2020-08-04T00:00:00Z",
+      "stop_utc": "2020-08-05T00:00:00Z",
+      "v1_inspected_window": false
+    },
+    {
+      "class": "MODERATE_VARIABILITY",
+      "clustering_output_inspected_before_freeze": false,
+      "failure_policy": "INCOMPLETE_MULTIPOINT_RETAIN_IN_DENOMINATOR",
+      "gate_output_inspected_before_freeze": false,
+      "independent_evidence": {
+        "catalog_exclusion": "no Richardson-Cane disturbance/ICME interval in the one-day-expanded exclusion window",
+        "kp_date_utc": "2021-12-05T00:00:00+00:00",
+        "kp_max": 3.0,
+        "kp_mean": 1.749875,
+        "kp_values": [
+          1.333,
+          2.0,
+          0.333,
+          1.0,
+          1.333,
+          3.0,
+          2.667,
+          2.333
+        ]
+      },
+      "interval_id": "V2-MODERATE_VARIABILITY-11-20211205T0000Z",
+      "mag_inspected_before_freeze": false,
+      "mission_era_tag": "DSCOVR_ACE_WIND_EXPECTED",
+      "mission_product_availability_verified_by_metadata_only": false,
+      "replacement_after_scoring_allowed": false,
+      "selection_rule": "GFZ daily Kp maximum between 3.0 and 4.0 inclusive and daily Kp mean between 1.0 and 2.5 inclusive; no Richardson-Cane disturbance or ICME interval in the one-day-expanded exclusion window; deterministic target-activity rank, year diversity, and >=60-day spacing",
+      "source_ids": [
+        "GFZ_KP",
+        "RICHARDSON_CANE_ICME"
+      ],
+      "start_utc": "2021-12-05T00:00:00Z",
+      "stop_utc": "2021-12-06T00:00:00Z",
+      "v1_inspected_window": false
+    },
+    {
+      "class": "MODERATE_VARIABILITY",
+      "clustering_output_inspected_before_freeze": false,
+      "failure_policy": "INCOMPLETE_MULTIPOINT_RETAIN_IN_DENOMINATOR",
+      "gate_output_inspected_before_freeze": false,
+      "independent_evidence": {
+        "catalog_exclusion": "no Richardson-Cane disturbance/ICME interval in the one-day-expanded exclusion window",
+        "kp_date_utc": "2023-04-06T00:00:00+00:00",
+        "kp_max": 3.0,
+        "kp_mean": 1.749875,
+        "kp_values": [
+          1.333,
+          1.333,
+          1.0,
+          2.333,
+          2.0,
+          1.0,
+          3.0,
+          2.0
+        ]
+      },
+      "interval_id": "V2-MODERATE_VARIABILITY-12-20230406T0000Z",
+      "mag_inspected_before_freeze": false,
+      "mission_era_tag": "DSCOVR_ACE_WIND_EXPECTED",
+      "mission_product_availability_verified_by_metadata_only": false,
+      "replacement_after_scoring_allowed": false,
+      "selection_rule": "GFZ daily Kp maximum between 3.0 and 4.0 inclusive and daily Kp mean between 1.0 and 2.5 inclusive; no Richardson-Cane disturbance or ICME interval in the one-day-expanded exclusion window; deterministic target-activity rank, year diversity, and >=60-day spacing",
+      "source_ids": [
+        "GFZ_KP",
+        "RICHARDSON_CANE_ICME"
+      ],
+      "start_utc": "2023-04-06T00:00:00Z",
+      "stop_utc": "2023-04-07T00:00:00Z",
+      "v1_inspected_window": false
+    },
+    {
+      "class": "ISOLATED_SHOCK_OR_SHEATH",
+      "clustering_output_inspected_before_freeze": false,
+      "failure_policy": "INCOMPLETE_MULTIPOINT_RETAIN_IN_DENOMINATOR",
+      "gate_output_inspected_before_freeze": false,
+      "independent_evidence": {
+        "catalog_id": "RC-20161012T2212-0510",
+        "catalog_row_sha256": "ee0f5caecf988b133eba218302ba4dda68df0e2f6af543b3d5150747241cb90b",
+        "catalog_spacecraft_context": "near-Earth ACE/Wind ICME catalog",
+        "disturbance_time_utc": "2016-10-12T22:12:00+00:00",
+        "icme_end_utc": "2016-10-14T16:00:00+00:00",
+        "icme_start_utc": "2016-10-13T06:00:00+00:00",
+        "nearest_catalog_disturbance_gap_hours": 547.8
+      },
+      "interval_id": "V2-ISOLATED_SHOCK_OR_SHEATH-01-20161012T1612Z",
+      "mag_inspected_before_freeze": false,
+      "mission_era_tag": "DSCOVR_ACE_WIND_EXPECTED",
+      "mission_product_availability_verified_by_metadata_only": false,
+      "replacement_after_scoring_allowed": false,
+      "selection_rule": "Richardson-Cane disturbance/ICME entry with >=120 hours to the nearest listed disturbance and catalog ICME duration between 6 and 96 hours; 24-hour interval begins six hours before the disturbance; deterministic isolation rank, year diversity, and >=75-day spacing",
+      "source_ids": [
+        "RICHARDSON_CANE_ICME"
+      ],
+      "start_utc": "2016-10-12T16:12:00Z",
+      "stop_utc": "2016-10-13T16:12:00Z",
+      "v1_inspected_window": false
+    },
+    {
+      "class": "ISOLATED_SHOCK_OR_SHEATH",
+      "clustering_output_inspected_before_freeze": false,
+      "failure_policy": "INCOMPLETE_MULTIPOINT_RETAIN_IN_DENOMINATOR",
+      "gate_output_inspected_before_freeze": false,
+      "independent_evidence": {
+        "catalog_id": "RC-20171225T0000-0522",
+        "catalog_row_sha256": "c859486cc377a5410bdb85efc41d8fbb4c27656d9f4b5f19ec576ae5119c7b16",
+        "catalog_spacecraft_context": "near-Earth ACE/Wind ICME catalog",
+        "disturbance_time_utc": "2017-12-25T00:00:00+00:00",
+        "icme_end_utc": null,
+        "icme_start_utc": "2017-12-26T04:00:00+00:00",
+        "nearest_catalog_disturbance_gap_hours": 1794.15
+      },
+      "interval_id": "V2-ISOLATED_SHOCK_OR_SHEATH-02-20171224T1800Z",
+      "mag_inspected_before_freeze": false,
+      "mission_era_tag": "DSCOVR_ACE_WIND_EXPECTED",
+      "mission_product_availability_verified_by_metadata_only": false,
+      "replacement_after_scoring_allowed": false,
+      "selection_rule": "Richardson-Cane disturbance/ICME entry with >=120 hours to the nearest listed disturbance and catalog ICME duration between 6 and 96 hours; 24-hour interval begins six hours before the disturbance; deterministic isolation rank, year diversity, and >=75-day spacing",
+      "source_ids": [
+        "RICHARDSON_CANE_ICME"
+      ],
+      "start_utc": "2017-12-24T18:00:00Z",
+      "stop_utc": "2017-12-25T18:00:00Z",
+      "v1_inspected_window": false
+    },
+    {
+      "class": "ISOLATED_SHOCK_OR_SHEATH",
+      "clustering_output_inspected_before_freeze": false,
+      "failure_policy": "INCOMPLETE_MULTIPOINT_RETAIN_IN_DENOMINATOR",
+      "gate_output_inspected_before_freeze": false,
+      "independent_evidence": {
+        "catalog_id": "RC-20180825T0200-0530",
+        "catalog_row_sha256": "80f9cf4ae3d2598090e83f6dd66021b93e5a161cfc87eb80a6d572f37f8a22d1",
+        "catalog_spacecraft_context": "near-Earth ACE/Wind ICME catalog",
+        "disturbance_time_utc": "2018-08-25T02:00:00+00:00",
+        "icme_end_utc": "2018-08-26T12:00:00+00:00",
+        "icme_start_utc": "2018-08-25T12:00:00+00:00",
+        "nearest_catalog_disturbance_gap_hours": 698.0
+      },
+      "interval_id": "V2-ISOLATED_SHOCK_OR_SHEATH-03-20180824T2000Z",
+      "mag_inspected_before_freeze": false,
+      "mission_era_tag": "DSCOVR_ACE_WIND_EXPECTED",
+      "mission_product_availability_verified_by_metadata_only": false,
+      "replacement_after_scoring_allowed": false,
+      "selection_rule": "Richardson-Cane disturbance/ICME entry with >=120 hours to the nearest listed disturbance and catalog ICME duration between 6 and 96 hours; 24-hour interval begins six hours before the disturbance; deterministic isolation rank, year diversity, and >=75-day spacing",
+      "source_ids": [
+        "RICHARDSON_CANE_ICME"
+      ],
+      "start_utc": "2018-08-24T20:00:00Z",
+      "stop_utc": "2018-08-25T20:00:00Z",
+      "v1_inspected_window": false
+    },
+    {
+      "class": "ISOLATED_SHOCK_OR_SHEATH",
+      "clustering_output_inspected_before_freeze": false,
+      "failure_policy": "INCOMPLETE_MULTIPOINT_RETAIN_IN_DENOMINATOR",
+      "gate_output_inspected_before_freeze": false,
+      "independent_evidence": {
+        "catalog_id": "RC-20191111T0600-0539",
+        "catalog_row_sha256": "257030ee4c578727d2b2045b9ebe6189b4cca291acaec86f6337f48169fdaeec",
+        "catalog_spacecraft_context": "near-Earth ACE/Wind ICME catalog",
+        "disturbance_time_utc": "2019-11-11T06:00:00+00:00",
+        "icme_end_utc": "2019-11-12T12:00:00+00:00",
+        "icme_start_utc": "2019-11-11T10:00:00+00:00",
+        "nearest_catalog_disturbance_gap_hours": 298.0
+      },
+      "interval_id": "V2-ISOLATED_SHOCK_OR_SHEATH-04-20191111T0000Z",
+      "mag_inspected_before_freeze": false,
+      "mission_era_tag": "DSCOVR_ACE_WIND_EXPECTED",
+      "mission_product_availability_verified_by_metadata_only": false,
+      "replacement_after_scoring_allowed": false,
+      "selection_rule": "Richardson-Cane disturbance/ICME entry with >=120 hours to the nearest listed disturbance and catalog ICME duration between 6 and 96 hours; 24-hour interval begins six hours before the disturbance; deterministic isolation rank, year diversity, and >=75-day spacing",
+      "source_ids": [
+        "RICHARDSON_CANE_ICME"
+      ],
+      "start_utc": "2019-11-11T00:00:00Z",
+      "stop_utc": "2019-11-12T00:00:00Z",
+      "v1_inspected_window": false
+    },
+    {
+      "class": "ISOLATED_SHOCK_OR_SHEATH",
+      "clustering_output_inspected_before_freeze": false,
+      "failure_policy": "INCOMPLETE_MULTIPOINT_RETAIN_IN_DENOMINATOR",
+      "gate_output_inspected_before_freeze": false,
+      "independent_evidence": {
+        "catalog_id": "RC-20200420T0231-0542",
+        "catalog_row_sha256": "59af9d0ae06692a503faccd412307bf214e975b8db200a9bae282965406e82f0",
+        "catalog_spacecraft_context": "near-Earth ACE/Wind ICME catalog",
+        "disturbance_time_utc": "2020-04-20T02:31:00+00:00",
+        "icme_end_utc": "2020-04-21T04:00:00+00:00",
+        "icme_start_utc": "2020-04-20T09:00:00+00:00",
+        "nearest_catalog_disturbance_gap_hours": 2560.516666666667
+      },
+      "interval_id": "V2-ISOLATED_SHOCK_OR_SHEATH-05-20200419T2031Z",
+      "mag_inspected_before_freeze": false,
+      "mission_era_tag": "DSCOVR_ACE_WIND_EXPECTED",
+      "mission_product_availability_verified_by_metadata_only": false,
+      "replacement_after_scoring_allowed": false,
+      "selection_rule": "Richardson-Cane disturbance/ICME entry with >=120 hours to the nearest listed disturbance and catalog ICME duration between 6 and 96 hours; 24-hour interval begins six hours before the disturbance; deterministic isolation rank, year diversity, and >=75-day spacing",
+      "source_ids": [
+        "RICHARDSON_CANE_ICME"
+      ],
+      "start_utc": "2020-04-19T20:31:00Z",
+      "stop_utc": "2020-04-20T20:31:00Z",
+      "v1_inspected_window": false
+    },
+    {
+      "class": "ISOLATED_SHOCK_OR_SHEATH",
+      "clustering_output_inspected_before_freeze": false,
+      "failure_policy": "INCOMPLETE_MULTIPOINT_RETAIN_IN_DENOMINATOR",
+      "gate_output_inspected_before_freeze": false,
+      "independent_evidence": {
+        "catalog_id": "RC-20210223T0200-0546",
+        "catalog_row_sha256": "225b7a32e082a3f0b0d260b0272d62b48845d6d8753d4d4007abc6294841e294",
+        "catalog_spacecraft_context": "near-Earth ACE/Wind ICME catalog",
+        "disturbance_time_utc": "2021-02-23T02:00:00+00:00",
+        "icme_end_utc": "2021-02-24T15:00:00+00:00",
+        "icme_start_utc": "2021-02-23T08:00:00+00:00",
+        "nearest_catalog_disturbance_gap_hours": 1799.8333333333333
+      },
+      "interval_id": "V2-ISOLATED_SHOCK_OR_SHEATH-06-20210222T2000Z",
+      "mag_inspected_before_freeze": false,
+      "mission_era_tag": "DSCOVR_ACE_WIND_EXPECTED",
+      "mission_product_availability_verified_by_metadata_only": false,
+      "replacement_after_scoring_allowed": false,
+      "selection_rule": "Richardson-Cane disturbance/ICME entry with >=120 hours to the nearest listed disturbance and catalog ICME duration between 6 and 96 hours; 24-hour interval begins six hours before the disturbance; deterministic isolation rank, year diversity, and >=75-day spacing",
+      "source_ids": [
+        "RICHARDSON_CANE_ICME"
+      ],
+      "start_utc": "2021-02-22T20:00:00Z",
+      "stop_utc": "2021-02-23T20:00:00Z",
+      "v1_inspected_window": false
+    },
+    {
+      "class": "ISOLATED_SHOCK_OR_SHEATH",
+      "clustering_output_inspected_before_freeze": false,
+      "failure_policy": "INCOMPLETE_MULTIPOINT_RETAIN_IN_DENOMINATOR",
+      "gate_output_inspected_before_freeze": false,
+      "independent_evidence": {
+        "catalog_id": "RC-20220313T1047-0561",
+        "catalog_row_sha256": "656b92d103d415bb2fac5c314ce33190a3dd8b79b247fe3e77024dc95b83ffd4",
+        "catalog_spacecraft_context": "near-Earth ACE/Wind ICME catalog",
+        "disturbance_time_utc": "2022-03-13T10:47:00+00:00",
+        "icme_end_utc": "2022-03-15T19:00:00+00:00",
+        "icme_start_utc": "2022-03-13T21:00:00+00:00",
+        "nearest_catalog_disturbance_gap_hours": 423.6166666666667
+      },
+      "interval_id": "V2-ISOLATED_SHOCK_OR_SHEATH-07-20220313T0447Z",
+      "mag_inspected_before_freeze": false,
+      "mission_era_tag": "DSCOVR_ACE_WIND_EXPECTED",
+      "mission_product_availability_verified_by_metadata_only": false,
+      "replacement_after_scoring_allowed": false,
+      "selection_rule": "Richardson-Cane disturbance/ICME entry with >=120 hours to the nearest listed disturbance and catalog ICME duration between 6 and 96 hours; 24-hour interval begins six hours before the disturbance; deterministic isolation rank, year diversity, and >=75-day spacing",
+      "source_ids": [
+        "RICHARDSON_CANE_ICME"
+      ],
+      "start_utc": "2022-03-13T04:47:00Z",
+      "stop_utc": "2022-03-14T04:47:00Z",
+      "v1_inspected_window": false
+    },
+    {
+      "class": "ISOLATED_SHOCK_OR_SHEATH",
+      "clustering_output_inspected_before_freeze": false,
+      "failure_policy": "INCOMPLETE_MULTIPOINT_RETAIN_IN_DENOMINATOR",
+      "gate_output_inspected_before_freeze": false,
+      "independent_evidence": {
+        "catalog_id": "RC-20230103T2100-0577",
+        "catalog_row_sha256": "bdf67564b972f3f8c4df9dde968cefebd04b273dbe5eb19910a96aed86dc02af",
+        "catalog_spacecraft_context": "near-Earth ACE/Wind ICME catalog",
+        "disturbance_time_utc": "2023-01-03T21:00:00+00:00",
+        "icme_end_utc": "2023-01-05T22:00:00+00:00",
+        "icme_start_utc": "2023-01-04T02:00:00+00:00",
+        "nearest_catalog_disturbance_gap_hours": 1257.0
+      },
+      "interval_id": "V2-ISOLATED_SHOCK_OR_SHEATH-08-20230103T1500Z",
+      "mag_inspected_before_freeze": false,
+      "mission_era_tag": "DSCOVR_ACE_WIND_EXPECTED",
+      "mission_product_availability_verified_by_metadata_only": false,
+      "replacement_after_scoring_allowed": false,
+      "selection_rule": "Richardson-Cane disturbance/ICME entry with >=120 hours to the nearest listed disturbance and catalog ICME duration between 6 and 96 hours; 24-hour interval begins six hours before the disturbance; deterministic isolation rank, year diversity, and >=75-day spacing",
+      "source_ids": [
+        "RICHARDSON_CANE_ICME"
+      ],
+      "start_utc": "2023-01-03T15:00:00Z",
+      "stop_utc": "2023-01-04T15:00:00Z",
+      "v1_inspected_window": false
+    },
+    {
+      "class": "ISOLATED_SHOCK_OR_SHEATH",
+      "clustering_output_inspected_before_freeze": false,
+      "failure_policy": "INCOMPLETE_MULTIPOINT_RETAIN_IN_DENOMINATOR",
+      "gate_output_inspected_before_freeze": false,
+      "independent_evidence": {
+        "catalog_id": "RC-20240430T1222-0610",
+        "catalog_row_sha256": "336e0660b62a0eee3fc30e34fc1ec0944c27195c8aa18818e41b013271c9af13",
+        "catalog_spacecraft_context": "near-Earth ACE/Wind ICME catalog",
+        "disturbance_time_utc": "2024-04-30T12:22:00+00:00",
+        "icme_end_utc": "2024-05-02T00:00:00+00:00",
+        "icme_start_utc": "2024-05-01T00:00:00+00:00",
+        "nearest_catalog_disturbance_gap_hours": 885.8
+      },
+      "interval_id": "V2-ISOLATED_SHOCK_OR_SHEATH-09-20240430T0622Z",
+      "mag_inspected_before_freeze": false,
+      "mission_era_tag": "DSCOVR_ACE_WIND_EXPECTED",
+      "mission_product_availability_verified_by_metadata_only": false,
+      "replacement_after_scoring_allowed": false,
+      "selection_rule": "Richardson-Cane disturbance/ICME entry with >=120 hours to the nearest listed disturbance and catalog ICME duration between 6 and 96 hours; 24-hour interval begins six hours before the disturbance; deterministic isolation rank, year diversity, and >=75-day spacing",
+      "source_ids": [
+        "RICHARDSON_CANE_ICME"
+      ],
+      "start_utc": "2024-04-30T06:22:00Z",
+      "stop_utc": "2024-05-01T06:22:00Z",
+      "v1_inspected_window": false
+    },
+    {
+      "class": "ISOLATED_SHOCK_OR_SHEATH",
+      "clustering_output_inspected_before_freeze": false,
+      "failure_policy": "INCOMPLETE_MULTIPOINT_RETAIN_IN_DENOMINATOR",
+      "gate_output_inspected_before_freeze": false,
+      "independent_evidence": {
+        "catalog_id": "RC-20201005T0806-0543",
+        "catalog_row_sha256": "0d6b46fe40d60a19d8b079e4372711cd8e908cde4a69d8eb1cf360326afea21f",
+        "catalog_spacecraft_context": "near-Earth ACE/Wind ICME catalog",
+        "disturbance_time_utc": "2020-10-05T08:06:00+00:00",
+        "icme_end_utc": "2020-10-06T14:00:00+00:00",
+        "icme_start_utc": "2020-10-05T17:00:00+00:00",
+        "nearest_catalog_disturbance_gap_hours": 1578.0666666666666
+      },
+      "interval_id": "V2-ISOLATED_SHOCK_OR_SHEATH-10-20201005T0206Z",
+      "mag_inspected_before_freeze": false,
+      "mission_era_tag": "DSCOVR_ACE_WIND_EXPECTED",
+      "mission_product_availability_verified_by_metadata_only": false,
+      "replacement_after_scoring_allowed": false,
+      "selection_rule": "Richardson-Cane disturbance/ICME entry with >=120 hours to the nearest listed disturbance and catalog ICME duration between 6 and 96 hours; 24-hour interval begins six hours before the disturbance; deterministic isolation rank, year diversity, and >=75-day spacing",
+      "source_ids": [
+        "RICHARDSON_CANE_ICME"
+      ],
+      "start_utc": "2020-10-05T02:06:00Z",
+      "stop_utc": "2020-10-06T02:06:00Z",
+      "v1_inspected_window": false
+    },
+    {
+      "class": "ISOLATED_SHOCK_OR_SHEATH",
+      "clustering_output_inspected_before_freeze": false,
+      "failure_policy": "INCOMPLETE_MULTIPOINT_RETAIN_IN_DENOMINATOR",
+      "gate_output_inspected_before_freeze": false,
+      "independent_evidence": {
+        "catalog_id": "RC-20170527T1534-0517",
+        "catalog_row_sha256": "be6a12640bb41d096d9e4254c182e93215ce9ce7931a01f09fefcee431216ec2",
+        "catalog_spacecraft_context": "near-Earth ACE/Wind ICME catalog",
+        "disturbance_time_utc": "2017-05-27T15:34:00+00:00",
+        "icme_end_utc": "2017-05-29T14:00:00+00:00",
+        "icme_start_utc": "2017-05-27T22:00:00+00:00",
+        "nearest_catalog_disturbance_gap_hours": 1056.5666666666666
+      },
+      "interval_id": "V2-ISOLATED_SHOCK_OR_SHEATH-11-20170527T0934Z",
+      "mag_inspected_before_freeze": false,
+      "mission_era_tag": "DSCOVR_ACE_WIND_EXPECTED",
+      "mission_product_availability_verified_by_metadata_only": false,
+      "replacement_after_scoring_allowed": false,
+      "selection_rule": "Richardson-Cane disturbance/ICME entry with >=120 hours to the nearest listed disturbance and catalog ICME duration between 6 and 96 hours; 24-hour interval begins six hours before the disturbance; deterministic isolation rank, year diversity, and >=75-day spacing",
+      "source_ids": [
+        "RICHARDSON_CANE_ICME"
+      ],
+      "start_utc": "2017-05-27T09:34:00Z",
+      "stop_utc": "2017-05-28T09:34:00Z",
+      "v1_inspected_window": false
+    },
+    {
+      "class": "ISOLATED_SHOCK_OR_SHEATH",
+      "clustering_output_inspected_before_freeze": false,
+      "failure_policy": "INCOMPLETE_MULTIPOINT_RETAIN_IN_DENOMINATOR",
+      "gate_output_inspected_before_freeze": false,
+      "independent_evidence": {
+        "catalog_id": "RC-20210705T0141-0549",
+        "catalog_row_sha256": "29507f9f65f9294473b4e41567e2816b06573aa9eee3b0c1b12bdd17d013b34f",
+        "catalog_spacecraft_context": "near-Earth ACE/Wind ICME catalog",
+        "disturbance_time_utc": "2021-07-05T01:41:00+00:00",
+        "icme_end_utc": "2021-07-06T02:00:00+00:00",
+        "icme_start_utc": "2021-07-05T04:00:00+00:00",
+        "nearest_catalog_disturbance_gap_hours": 948.95
+      },
+      "interval_id": "V2-ISOLATED_SHOCK_OR_SHEATH-12-20210704T1941Z",
+      "mag_inspected_before_freeze": false,
+      "mission_era_tag": "DSCOVR_ACE_WIND_EXPECTED",
+      "mission_product_availability_verified_by_metadata_only": false,
+      "replacement_after_scoring_allowed": false,
+      "selection_rule": "Richardson-Cane disturbance/ICME entry with >=120 hours to the nearest listed disturbance and catalog ICME duration between 6 and 96 hours; 24-hour interval begins six hours before the disturbance; deterministic isolation rank, year diversity, and >=75-day spacing",
+      "source_ids": [
+        "RICHARDSON_CANE_ICME"
+      ],
+      "start_utc": "2021-07-04T19:41:00Z",
+      "stop_utc": "2021-07-05T19:41:00Z",
+      "v1_inspected_window": false
+    },
+    {
+      "class": "COMPLEX_INTERACTING_EJECTA",
+      "clustering_output_inspected_before_freeze": false,
+      "failure_policy": "INCOMPLETE_MULTIPOINT_RETAIN_IN_DENOMINATOR",
+      "gate_output_inspected_before_freeze": false,
+      "independent_evidence": {
+        "catalog_members": [
+          {
+            "catalog_id": "RC-20160724T1500-0507",
+            "catalog_row_sha256": "22d2325d6c251635150ba02b85d87abcafb459a340271aafb37449e019728259",
+            "disturbance_time": "2016-07-24T15:00:00+00:00",
+            "icme_end": "2016-07-25T16:00:00+00:00",
+            "icme_start": "2016-07-24T21:00:00+00:00"
+          },
+          {
+            "catalog_id": "RC-20160725T2200-0508",
+            "catalog_row_sha256": "7d79a5351b372ba5447d59c24db6f03cf584b42ceee932992b4717be7ff04d37",
+            "disturbance_time": "2016-07-25T22:00:00+00:00",
+            "icme_end": "NaT",
+            "icme_start": "2016-07-26T10:00:00+00:00"
+          }
+        ],
+        "catalog_spacecraft_context": "near-Earth ACE/Wind ICME catalog",
+        "cluster_member_count": 2,
+        "cluster_span_hours": 31.0
+      },
+      "interval_id": "V2-COMPLEX_INTERACTING_EJECTA-01-20160724T1830Z",
+      "mag_inspected_before_freeze": false,
+      "mission_era_tag": "DSCOVR_ACE_WIND_EXPECTED",
+      "mission_product_availability_verified_by_metadata_only": false,
+      "replacement_after_scoring_allowed": false,
+      "selection_rule": "at least two Richardson-Cane disturbance entries begin within 48 hours; 24-hour interval centered on the midpoint of the first two disturbances; deterministic member-count/time-span rank, year diversity, and >=75-day spacing",
+      "source_ids": [
+        "RICHARDSON_CANE_ICME"
+      ],
+      "start_utc": "2016-07-24T18:30:00Z",
+      "stop_utc": "2016-07-25T18:30:00Z",
+      "v1_inspected_window": false
+    },
+    {
+      "class": "COMPLEX_INTERACTING_EJECTA",
+      "clustering_output_inspected_before_freeze": false,
+      "failure_policy": "INCOMPLETE_MULTIPOINT_RETAIN_IN_DENOMINATOR",
+      "gate_output_inspected_before_freeze": false,
+      "independent_evidence": {
+        "catalog_members": [
+          {
+            "catalog_id": "RC-20170906T2347-0520",
+            "catalog_row_sha256": "e5c58e454f0894def575ecdde46386221b43f7f49bf277bf57eeaa716d6c17c3",
+            "disturbance_time": "2017-09-06T23:47:00+00:00",
+            "icme_end": "2017-09-08T04:00:00+00:00",
+            "icme_start": "2017-09-07T20:00:00+00:00"
+          },
+          {
+            "catalog_id": "RC-20170907T2302-0521",
+            "catalog_row_sha256": "c6ecd49abe30bf7029ea6dcd312449ddc9ac7ce21d6e8e4922792512a2bb2417",
+            "disturbance_time": "2017-09-07T23:02:00+00:00",
+            "icme_end": "2017-09-10T21:00:00+00:00",
+            "icme_start": "2017-09-08T11:00:00+00:00"
+          }
+        ],
+        "catalog_spacecraft_context": "near-Earth ACE/Wind ICME catalog",
+        "cluster_member_count": 2,
+        "cluster_span_hours": 23.25
+      },
+      "interval_id": "V2-COMPLEX_INTERACTING_EJECTA-02-20170906T2324Z",
+      "mag_inspected_before_freeze": false,
+      "mission_era_tag": "DSCOVR_ACE_WIND_EXPECTED",
+      "mission_product_availability_verified_by_metadata_only": false,
+      "replacement_after_scoring_allowed": false,
+      "selection_rule": "at least two Richardson-Cane disturbance entries begin within 48 hours; 24-hour interval centered on the midpoint of the first two disturbances; deterministic member-count/time-span rank, year diversity, and >=75-day spacing",
+      "source_ids": [
+        "RICHARDSON_CANE_ICME"
+      ],
+      "start_utc": "2017-09-06T23:24:30Z",
+      "stop_utc": "2017-09-07T23:24:30Z",
+      "v1_inspected_window": false
+    },
+    {
+      "class": "COMPLEX_INTERACTING_EJECTA",
+      "clustering_output_inspected_before_freeze": false,
+      "failure_policy": "INCOMPLETE_MULTIPOINT_RETAIN_IN_DENOMINATOR",
+      "gate_output_inspected_before_freeze": false,
+      "independent_evidence": {
+        "catalog_members": [
+          {
+            "catalog_id": "RC-20220707T0900-0566",
+            "catalog_row_sha256": "68682acb9f596d337fa26726c746404c4390f3ee42e10affe5dcb68cd1b8a6b1",
+            "disturbance_time": "2022-07-07T09:00:00+00:00",
+            "icme_end": "2022-07-08T08:00:00+00:00",
+            "icme_start": "2022-07-07T12:00:00+00:00"
+          },
+          {
+            "catalog_id": "RC-20220708T0200-0567",
+            "catalog_row_sha256": "70b413c00ab29c2f657c9a4af5951e182d357f1b16631f0b2506000ab4fe2ed9",
+            "disturbance_time": "2022-07-08T02:00:00+00:00",
+            "icme_end": "2022-07-08T19:00:00+00:00",
+            "icme_start": "2022-07-08T11:00:00+00:00"
+          }
+        ],
+        "catalog_spacecraft_context": "near-Earth ACE/Wind ICME catalog",
+        "cluster_member_count": 2,
+        "cluster_span_hours": 17.0
+      },
+      "interval_id": "V2-COMPLEX_INTERACTING_EJECTA-03-20220707T0530Z",
+      "mag_inspected_before_freeze": false,
+      "mission_era_tag": "DSCOVR_ACE_WIND_EXPECTED",
+      "mission_product_availability_verified_by_metadata_only": false,
+      "replacement_after_scoring_allowed": false,
+      "selection_rule": "at least two Richardson-Cane disturbance entries begin within 48 hours; 24-hour interval centered on the midpoint of the first two disturbances; deterministic member-count/time-span rank, year diversity, and >=75-day spacing",
+      "source_ids": [
+        "RICHARDSON_CANE_ICME"
+      ],
+      "start_utc": "2022-07-07T05:30:00Z",
+      "stop_utc": "2022-07-08T05:30:00Z",
+      "v1_inspected_window": false
+    },
+    {
+      "class": "COMPLEX_INTERACTING_EJECTA",
+      "clustering_output_inspected_before_freeze": false,
+      "failure_policy": "INCOMPLETE_MULTIPOINT_RETAIN_IN_DENOMINATOR",
+      "gate_output_inspected_before_freeze": false,
+      "independent_evidence": {
+        "catalog_members": [
+          {
+            "catalog_id": "RC-20230917T0234-0595",
+            "catalog_row_sha256": "a0d47b323e37e3717b7d86101d94efd242d0d2125f40ac82db1c3f812375af2a",
+            "disturbance_time": "2023-09-17T02:34:00+00:00",
+            "icme_end": "2023-09-19T00:00:00+00:00",
+            "icme_start": "2023-09-18T02:00:00+00:00"
+          },
+          {
+            "catalog_id": "RC-20230918T1331-0596",
+            "catalog_row_sha256": "1b469fa0a49651250f473ec1969356ab730f6fbc91e2d20e4daffc1ae8054016",
+            "disturbance_time": "2023-09-18T13:31:00+00:00",
+            "icme_end": "2023-09-21T10:00:00+00:00",
+            "icme_start": "2023-09-19T08:00:00+00:00"
+          }
+        ],
+        "catalog_spacecraft_context": "near-Earth ACE/Wind ICME catalog",
+        "cluster_member_count": 2,
+        "cluster_span_hours": 34.95
+      },
+      "interval_id": "V2-COMPLEX_INTERACTING_EJECTA-04-20230917T0802Z",
+      "mag_inspected_before_freeze": false,
+      "mission_era_tag": "DSCOVR_ACE_WIND_EXPECTED",
+      "mission_product_availability_verified_by_metadata_only": false,
+      "replacement_after_scoring_allowed": false,
+      "selection_rule": "at least two Richardson-Cane disturbance entries begin within 48 hours; 24-hour interval centered on the midpoint of the first two disturbances; deterministic member-count/time-span rank, year diversity, and >=75-day spacing",
+      "source_ids": [
+        "RICHARDSON_CANE_ICME"
+      ],
+      "start_utc": "2023-09-17T08:02:30Z",
+      "stop_utc": "2023-09-18T08:02:30Z",
+      "v1_inspected_window": false
+    },
+    {
+      "class": "COMPLEX_INTERACTING_EJECTA",
+      "clustering_output_inspected_before_freeze": false,
+      "failure_policy": "INCOMPLETE_MULTIPOINT_RETAIN_IN_DENOMINATOR",
+      "gate_output_inspected_before_freeze": false,
+      "independent_evidence": {
+        "catalog_members": [
+          {
+            "catalog_id": "RC-20230227T1000-0578",
+            "catalog_row_sha256": "de1ee6994bc19cd5f0c83a9ac7bc1c097d4ffff84d5ae07f791a4ef92e2e1afe",
+            "disturbance_time": "2023-02-27T10:00:00+00:00",
+            "icme_end": "2023-02-28T17:00:00+00:00",
+            "icme_start": "2023-02-27T20:00:00+00:00"
+          },
+          {
+            "catalog_id": "RC-20230301T0000-0579",
+            "catalog_row_sha256": "bb13768abea8138691ec999ed2872fcd7d787109ced59588576972402f67d36b",
+            "disturbance_time": "2023-03-01T00:00:00+00:00",
+            "icme_end": "2023-03-01T21:00:00+00:00",
+            "icme_start": "2023-03-01T09:00:00+00:00"
+          }
+        ],
+        "catalog_spacecraft_context": "near-Earth ACE/Wind ICME catalog",
+        "cluster_member_count": 2,
+        "cluster_span_hours": 38.0
+      },
+      "interval_id": "V2-COMPLEX_INTERACTING_EJECTA-05-20230227T1700Z",
+      "mag_inspected_before_freeze": false,
+      "mission_era_tag": "DSCOVR_ACE_WIND_EXPECTED",
+      "mission_product_availability_verified_by_metadata_only": false,
+      "replacement_after_scoring_allowed": false,
+      "selection_rule": "at least two Richardson-Cane disturbance entries begin within 48 hours; 24-hour interval centered on the midpoint of the first two disturbances; deterministic member-count/time-span rank, year diversity, and >=75-day spacing",
+      "source_ids": [
+        "RICHARDSON_CANE_ICME"
+      ],
+      "start_utc": "2023-02-27T17:00:00Z",
+      "stop_utc": "2023-02-28T17:00:00Z",
+      "v1_inspected_window": false
+    },
+    {
+      "class": "COMPLEX_INTERACTING_EJECTA",
+      "clustering_output_inspected_before_freeze": false,
+      "failure_policy": "INCOMPLETE_MULTIPOINT_RETAIN_IN_DENOMINATOR",
+      "gate_output_inspected_before_freeze": false,
+      "independent_evidence": {
+        "catalog_members": [
+          {
+            "catalog_id": "RC-20220412T1122-0564",
+            "catalog_row_sha256": "f60c644a39b1be5a414f5f9d74715bb5b46ccabc6b12032b2a68d2a9707cd782",
+            "disturbance_time": "2022-04-12T11:22:00+00:00",
+            "icme_end": "2022-04-13T22:00:00+00:00",
+            "icme_start": "2022-04-13T02:00:00+00:00"
+          },
+          {
+            "catalog_id": "RC-20220414T0900-0565",
+            "catalog_row_sha256": "aa9d78ab27bb92fd554af3542adda690af618a760218587c8e010a7760a56a08",
+            "disturbance_time": "2022-04-14T09:00:00+00:00",
+            "icme_end": "2022-04-15T02:00:00+00:00",
+            "icme_start": "2022-04-14T13:00:00+00:00"
+          }
+        ],
+        "catalog_spacecraft_context": "near-Earth ACE/Wind ICME catalog",
+        "cluster_member_count": 2,
+        "cluster_span_hours": 45.63333333333333
+      },
+      "interval_id": "V2-COMPLEX_INTERACTING_EJECTA-06-20220412T2211Z",
+      "mag_inspected_before_freeze": false,
+      "mission_era_tag": "DSCOVR_ACE_WIND_EXPECTED",
+      "mission_product_availability_verified_by_metadata_only": false,
+      "replacement_after_scoring_allowed": false,
+      "selection_rule": "at least two Richardson-Cane disturbance entries begin within 48 hours; 24-hour interval centered on the midpoint of the first two disturbances; deterministic member-count/time-span rank, year diversity, and >=75-day spacing",
+      "source_ids": [
+        "RICHARDSON_CANE_ICME"
+      ],
+      "start_utc": "2022-04-12T22:11:00Z",
+      "stop_utc": "2022-04-13T22:11:00Z",
+      "v1_inspected_window": false
+    },
+    {
+      "class": "COMPLEX_INTERACTING_EJECTA",
+      "clustering_output_inspected_before_freeze": false,
+      "failure_policy": "INCOMPLETE_MULTIPOINT_RETAIN_IN_DENOMINATOR",
+      "gate_output_inspected_before_freeze": false,
+      "independent_evidence": {
+        "catalog_members": [
+          {
+            "catalog_id": "RC-20231215T1148-0602",
+            "catalog_row_sha256": "d8fbd8f688156ea6bccad315cec9fed883166a46b0458e7b6a7d4c45d90b7651",
+            "disturbance_time": "2023-12-15T11:48:00+00:00",
+            "icme_end": "2023-12-16T12:00:00+00:00",
+            "icme_start": "2023-12-15T22:00:00+00:00"
+          },
+          {
+            "catalog_id": "RC-20231217T0739-0603",
+            "catalog_row_sha256": "4220c05abf5bc8a0064be3dd1be980f3df556de4ce3518a56a9524553d0e8b17",
+            "disturbance_time": "2023-12-17T07:39:00+00:00",
+            "icme_end": "2023-12-18T15:00:00+00:00",
+            "icme_start": "2023-12-17T22:00:00+00:00"
+          }
+        ],
+        "catalog_spacecraft_context": "near-Earth ACE/Wind ICME catalog",
+        "cluster_member_count": 2,
+        "cluster_span_hours": 43.85
+      },
+      "interval_id": "V2-COMPLEX_INTERACTING_EJECTA-07-20231215T2143Z",
+      "mag_inspected_before_freeze": false,
+      "mission_era_tag": "DSCOVR_ACE_WIND_EXPECTED",
+      "mission_product_availability_verified_by_metadata_only": false,
+      "replacement_after_scoring_allowed": false,
+      "selection_rule": "at least two Richardson-Cane disturbance entries begin within 48 hours; 24-hour interval centered on the midpoint of the first two disturbances; deterministic member-count/time-span rank, year diversity, and >=75-day spacing",
+      "source_ids": [
+        "RICHARDSON_CANE_ICME"
+      ],
+      "start_utc": "2023-12-15T21:43:30Z",
+      "stop_utc": "2023-12-16T21:43:30Z",
+      "v1_inspected_window": false
+    }
+  ],
+  "parent_preregistration": "config/gannon_holdout_v2.preregistered.json",
+  "recent_era_status": "2025-2026 intervals are not counted in this primary registry because complete independent event-catalog coverage was not frozen here; no recent date was inferred quiet merely from absent metadata",
+  "registry_content_sha256": "d6db5682347b958d2f3f9b26c404563c6cb97f1c514525ae30c7c797fa2b8e7b",
+  "registry_id": "NVCPP-GANNON-V2-PROSPECTIVE-HOLDOUT-REGISTRY-v1",
+  "registry_version": "1.0.0",
+  "selection_contract": {
+    "path": "config/gannon_holdout_v2_selection.effective.amendment1.json",
+    "sha256": "4bf994057e1c76a11dbb9eb38adddb38d56c3fb31efa6c18eba013c0fc04c9c0"
+  },
+  "selection_firewall": {
+    "allowed_inputs": [
+      "GFZ_KP",
+      "RICHARDSON_CANE_ICME"
+    ],
+    "clustering_outputs_inspected": false,
+    "gate_outputs_inspected": false,
+    "mag_values_inspected": false,
+    "spacecraft_mag_retrieved": false
+  },
+  "selection_sources": {
+    "GFZ_KP": {
+      "resolved_url": "https://kp.gfz.de/app/files/Kp_ap_Ap_SN_F107_since_1932.txt",
+      "sha256": "97e2ef5f874058c8208f6162564598f2b3296d8d41bed91d834bea545e71ce30",
+      "size_bytes": 5500858
+    },
+    "RICHARDSON_CANE_ICME": {
+      "parsed_event_rows": 549,
+      "resolved_url": "https://izw1.caltech.edu/ACE/ASC/DATA/level3/icmetable2.htm",
+      "selection_pool_event_rows": 103,
+      "sha256": "f6f22e3b47805f86149f885424fc4ef095f5863d224a11a13972318e47abcb83",
+      "size_bytes": 273401
+    }
+  },
+  "selector_commit": "6df747bf83bfedd8d5bec2be2d89ae7bfa877e7b",
+  "selector_version": "1.0.0",
+  "status": "FROZEN_BEFORE_HOLDOUT_MAG_RETRIEVAL",
+  "v1_excluded_dates_with_padding": [
+    "2024-01-02",
+    "2024-01-03",
+    "2024-01-04",
+    "2024-01-05",
+    "2024-01-06",
+    "2024-01-07",
+    "2024-01-11",
+    "2024-01-12",
+    "2024-01-13",
+    "2024-01-14",
+    "2024-01-15",
+    "2024-01-16",
+    "2024-01-21",
+    "2024-01-22",
+    "2024-01-23",
+    "2024-01-24",
+    "2024-01-25",
+    "2024-01-26",
+    "2024-02-01",
+    "2024-02-02",
+    "2024-02-03",
+    "2024-02-04",
+    "2024-02-05",
+    "2024-02-06",
+    "2024-03-15",
+    "2024-03-16",
+    "2024-03-17",
+    "2024-03-18",
+    "2024-03-19",
+    "2024-03-20",
+    "2024-04-07",
+    "2024-04-08",
+    "2024-04-09",
+    "2024-04-10",
+    "2024-04-11",
+    "2024-04-12",
+    "2024-04-18",
+    "2024-04-19",
+    "2024-04-20",
+    "2024-04-21",
+    "2024-04-22",
+    "2024-05-02",
+    "2024-05-03",
+    "2024-05-04",
+    "2024-05-05",
+    "2024-05-06",
+    "2024-05-09",
+    "2024-05-10",
+    "2024-05-11",
+    "2024-05-12",
+    "2024-05-13",
+    "2024-05-14",
+    "2024-05-16",
+    "2024-05-17",
+    "2024-05-18",
+    "2024-05-19",
+    "2024-05-20",
+    "2024-05-30",
+    "2024-05-31",
+    "2024-06-01",
+    "2024-06-02",
+    "2024-06-03",
+    "2024-06-26",
+    "2024-06-27",
+    "2024-06-28",
+    "2024-06-29",
+    "2024-06-30",
+    "2024-07-01",
+    "2024-09-26",
+    "2024-09-27",
+    "2024-09-28",
+    "2024-09-29",
+    "2024-09-30",
+    "2024-10-01",
+    "2026-08-27",
+    "2026-08-28",
+    "2026-08-29",
+    "2026-08-30",
+    "2026-08-31"
+  ],
+  "v1_exclusion_files_scanned": [
+    "config/gannon_gate_density.v1.json",
+    "config/mag_gate_control_intervals.v1.json",
+    "config/mag_gate_event_class_controls.v1.json",
+    "config/mag_gate_controls.v1.json",
+    "provenance/mag_gate_control_selection_v1/FROZEN_INVENTORY.json"
+  ]
+}
