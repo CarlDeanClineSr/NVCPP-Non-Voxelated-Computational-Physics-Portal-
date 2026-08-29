@@ -1,0 +1,148 @@
+{
+  "created_utc": "2026-08-29T12:12:58.667832+00:00",
+  "gate_outputs_inspected_before_selection": false,
+  "interpretation_limits": [
+    "the OMNI composite is used only to select low- and middle-activity dates, not to calculate spacecraft gates",
+    "low-activity and moderate labels are relative to this frozen search pool, not universal solar-wind classes",
+    "no spacecraft-specific gate output may be inspected before the selected dates are written",
+    "fixed event controls are selected from external NASA event metadata before gate retrieval",
+    "dates may not be replaced because their later gate result is inconvenient",
+    "the 70 percent flow-speed coverage gate was declared after a zero-eligible-day transport diagnostic and before any spacecraft gate output was retrieved"
+  ],
+  "intervals": [
+    {
+      "class": "LOW_ACTIVITY_OMNI_SELECTED_CONTROL",
+      "interval_id": "OMNI_LOW_ACTIVITY_1_2024_02_03",
+      "selection_basis": "lowest independent OMNI activity-rank sum under frozen eligibility and spacing rules",
+      "selection_metrics": {
+        "activity_rank_sum": 0.5333333333333333,
+        "daily_F_interdecile_range": 1.5270000000000001,
+        "daily_F_median_nT": 3.5,
+        "daily_SYM_H_interdecile_range": 8.0,
+        "daily_flow_speed_interdecile_range": 11.700000000000045,
+        "daily_flow_speed_median_km_s": 320.2,
+        "daily_max_SYM_H_nT": 9.0,
+        "daily_min_SYM_H_nT": -6.0
+      },
+      "start_utc": "2024-02-03T00:00:00Z",
+      "stop_utc": "2024-02-04T00:00:00Z"
+    },
+    {
+      "class": "LOW_ACTIVITY_OMNI_SELECTED_CONTROL",
+      "interval_id": "OMNI_LOW_ACTIVITY_2_2024_03_17",
+      "selection_basis": "lowest independent OMNI activity-rank sum under frozen eligibility and spacing rules",
+      "selection_metrics": {
+        "activity_rank_sum": 0.5333333333333333,
+        "daily_F_interdecile_range": 0.77,
+        "daily_F_median_nT": 3.61,
+        "daily_SYM_H_interdecile_range": 6.0,
+        "daily_flow_speed_interdecile_range": 38.379999999999995,
+        "daily_flow_speed_median_km_s": 336.2,
+        "daily_max_SYM_H_nT": 7.0,
+        "daily_min_SYM_H_nT": -2.0
+      },
+      "start_utc": "2024-03-17T00:00:00Z",
+      "stop_utc": "2024-03-18T00:00:00Z"
+    },
+    {
+      "class": "LOW_ACTIVITY_OMNI_SELECTED_CONTROL",
+      "interval_id": "OMNI_LOW_ACTIVITY_3_2024_01_13",
+      "selection_basis": "lowest independent OMNI activity-rank sum under frozen eligibility and spacing rules",
+      "selection_metrics": {
+        "activity_rank_sum": 0.5499999999999999,
+        "daily_F_interdecile_range": 1.1800000000000002,
+        "daily_F_median_nT": 4.33,
+        "daily_SYM_H_interdecile_range": 7.0,
+        "daily_flow_speed_interdecile_range": 26.30000000000001,
+        "daily_flow_speed_median_km_s": 344.3,
+        "daily_max_SYM_H_nT": 2.0,
+        "daily_min_SYM_H_nT": -9.0
+      },
+      "start_utc": "2024-01-13T00:00:00Z",
+      "stop_utc": "2024-01-14T00:00:00Z"
+    },
+    {
+      "class": "MODERATE_ACTIVITY_OMNI_SELECTED_CONTROL",
+      "interval_id": "OMNI_MODERATE_ACTIVITY_1_2024_01_04",
+      "selection_basis": "closest to independent OMNI activity-rank median after quiet-date removal and frozen spacing rules",
+      "selection_metrics": {
+        "activity_rank_sum": 2.0166666666666666,
+        "daily_F_interdecile_range": 3.8359999999999994,
+        "daily_F_median_nT": 4.19,
+        "daily_SYM_H_interdecile_range": 11.0,
+        "daily_flow_speed_interdecile_range": 48.56999999999999,
+        "daily_flow_speed_median_km_s": 427.8,
+        "daily_max_SYM_H_nT": -4.0,
+        "daily_min_SYM_H_nT": -21.0,
+        "distance_from_activity_median": 0.04999999999999982
+      },
+      "start_utc": "2024-01-04T00:00:00Z",
+      "stop_utc": "2024-01-05T00:00:00Z"
+    },
+    {
+      "class": "MODERATE_ACTIVITY_OMNI_SELECTED_CONTROL",
+      "interval_id": "OMNI_MODERATE_ACTIVITY_2_2024_01_23",
+      "selection_basis": "closest to independent OMNI activity-rank median after quiet-date removal and frozen spacing rules",
+      "selection_metrics": {
+        "activity_rank_sum": 1.7166666666666668,
+        "daily_F_interdecile_range": 3.9050000000000002,
+        "daily_F_median_nT": 5.835,
+        "daily_SYM_H_interdecile_range": 18.0,
+        "daily_flow_speed_interdecile_range": 24.810000000000002,
+        "daily_flow_speed_median_km_s": 418.25,
+        "daily_max_SYM_H_nT": 12.0,
+        "daily_min_SYM_H_nT": -16.0,
+        "distance_from_activity_median": 0.34999999999999964
+      },
+      "start_utc": "2024-01-23T00:00:00Z",
+      "stop_utc": "2024-01-24T00:00:00Z"
+    },
+    {
+      "class": "MODERATE_ACTIVITY_OMNI_SELECTED_CONTROL",
+      "interval_id": "OMNI_MODERATE_ACTIVITY_3_2024_04_09",
+      "selection_basis": "closest to independent OMNI activity-rank median after quiet-date removal and frozen spacing rules",
+      "selection_metrics": {
+        "activity_rank_sum": 2.5,
+        "daily_F_interdecile_range": 2.5700000000000003,
+        "daily_F_median_nT": 7.09,
+        "daily_SYM_H_interdecile_range": 18.0,
+        "daily_flow_speed_interdecile_range": 78.30000000000001,
+        "daily_flow_speed_median_km_s": 367.7,
+        "daily_max_SYM_H_nT": 3.0,
+        "daily_min_SYM_H_nT": -27.0,
+        "distance_from_activity_median": 0.43333333333333357
+      },
+      "start_utc": "2024-04-09T00:00:00Z",
+      "stop_utc": "2024-04-10T00:00:00Z"
+    },
+    {
+      "class": "COMPLEX_INTERACTING_EJECTA_DEVELOPMENT_EVENT",
+      "interval_id": "GANNON_COMPLEX_2024_05_11",
+      "selection_basis": "frozen development event already audited by NVCPP",
+      "start_utc": "2024-05-11T00:00:00Z",
+      "stop_utc": "2024-05-12T00:00:00Z"
+    },
+    {
+      "class": "CLEAR_INTERPLANETARY_SHOCK_CONTROL",
+      "interval_id": "DONKI_CLEAR_SHOCK_2024_06_28",
+      "reference_event_utc": "2024-06-28T09:09:00Z",
+      "reference_url": "https://kauai.ccmc.gsfc.nasa.gov/DONKI/view/IPS/31726/1",
+      "selection_basis": "NASA CCMC DONKI quality-2 clear signature selected before gate retrieval",
+      "start_utc": "2024-06-28T00:00:00Z",
+      "stop_utc": "2024-06-29T00:00:00Z"
+    },
+    {
+      "class": "MODERATE_GLANCING_ARRIVAL_CONTROL",
+      "interval_id": "DONKI_MILD_GLANCING_2024_09_28",
+      "reference_event_utc": "2024-09-28T07:00:00Z",
+      "reference_url": "https://kauai.ccmc.gsfc.nasa.gov/DONKI/view/IPS/33599/2",
+      "selection_basis": "NASA CCMC DONKI quality-1 glancing arrival selected before gate retrieval",
+      "start_utc": "2024-09-28T00:00:00Z",
+      "stop_utc": "2024-09-29T00:00:00Z"
+    }
+  ],
+  "registry_id": "NVCPP-MAG-GATE-CONTROL-INTERVALS-v1",
+  "registry_version": "1.0.0",
+  "selection_contract_id": "NVCPP-MAG-GATE-CONTROL-SELECTION-v1",
+  "selection_contract_sha256": "4b998740e44d235c9fa3313a43948fe417f4978be227b6e32569e8da394a8c38"
+}
