@@ -33,20 +33,27 @@ jobs:
           from pathlib import Path
 
           path = Path("historical/select_gannon_v2_holdout_registry.py")
-          text = path.read_text(encoding="utf-8")
-          old = '''        integer_times = group["time"].astype("int64").to_numpy()
-          reference = pd.Timestamp(int(np.median(integer_times)), tz="UTC")'''
-          new = '''        first_time = group["time"].min()
-          last_time = group["time"].max()
-          reference = first_time + (last_time - first_time) / 2'''
-          if text.count(old) != 1:
+          lines = path.read_text(encoding="utf-8").splitlines()
+          matches = [
+              index
+              for index, line in enumerate(lines)
+              if 'integer_times = group["time"].astype("int64").to_numpy()' in line
+          ]
+          if len(matches) != 1:
               raise SystemExit(
-                  "expected exactly one unit-sensitive IPShocks timestamp block"
+                  f"expected one unit-sensitive IPShocks timestamp line; found {len(matches)}"
               )
-          path.write_text(text.replace(old, new), encoding="utf-8")
-          print(
-              "Replaced integer timestamp reconstruction with timezone-aware midpoint"
-          )
+          index = matches[0]
+          if index + 1 >= len(lines) or "pd.Timestamp" not in lines[index + 1]:
+              raise SystemExit("timestamp reconstruction is not the expected two-line block")
+          indent = lines[index][: len(lines[index]) - len(lines[index].lstrip())]
+          lines[index:index + 2] = [
+              f'{indent}first_time = group["time"].min()',
+              f'{indent}last_time = group["time"].max()',
+              f'{indent}reference = first_time + (last_time - first_time) / 2',
+          ]
+          path.write_text("\n".join(lines) + "\n", encoding="utf-8")
+          print("Replaced integer timestamp reconstruction with timezone-aware midpoint")
           PY
 
       - name: Install dependencies and run focused invariants
