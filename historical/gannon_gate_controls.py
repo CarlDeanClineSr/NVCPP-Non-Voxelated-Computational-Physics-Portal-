@@ -602,6 +602,11 @@ def mismatched_day_controls(
     rotation_threshold = float(gate["rotation_threshold_degrees"])
     magnitude_threshold = float(gate["magnitude_change_threshold_fraction"])
 
+    # Every output directory is part of the executable contract. Local and
+    # Actions runs must not depend on a workflow-created parent directory.
+    for directory in (raw_root, canonical_root, quarantine_root):
+        directory.mkdir(parents=True, exist_ok=True)
+
     session = requests.Session()
     session.headers.update(
         {"User-Agent": f"NVCPP-GANNON-HARD-NULLS/{CONTROL_VERSION}"}
