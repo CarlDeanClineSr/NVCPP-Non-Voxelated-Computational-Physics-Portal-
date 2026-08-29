@@ -1,5 +1,6 @@
 name: NVCPP MAG Gate Control Interval Selection
 
+# Selection protocol v1.0.0: dates are frozen before spacecraft gate retrieval.
 on:
   workflow_dispatch:
   push:
