@@ -361,7 +361,6 @@ def canonical_magnitude_provenance(mission: str) -> dict[str, Any]:
         ),
     }
 
-
 def _slice_analysis(frame: pd.DataFrame, window: dict[str, pd.Timestamp]) -> pd.DataFrame:
     output = frame.copy()
     output["time"] = pd.to_datetime(output["time"], format="ISO8601", utc=True, errors="coerce")
