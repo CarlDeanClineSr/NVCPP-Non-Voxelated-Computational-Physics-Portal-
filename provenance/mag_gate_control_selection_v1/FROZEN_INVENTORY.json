@@ -1,0 +1,27 @@
+{
+  "files": [
+    {
+      "path": "control_interval_selection_manifest.json",
+      "sha256": "a13fb5cb27f30c13f6c80c0e48cc208fce852848595965804280c2266b87c41d",
+      "size_bytes": 6059
+    },
+    {
+      "path": "omni_daily_selection_metrics.csv",
+      "sha256": "02efd84a00dd31fbbab91946d4503cb739abeebd181a373c361caf9f6dfc7e29",
+      "size_bytes": 14762
+    },
+    {
+      "path": "omni_eligible_ranked_days.csv",
+      "sha256": "6dad11414499e71f4c54e0d4835fd993886398699811cb9d27118645c4083ef1",
+      "size_bytes": 6189
+    },
+    {
+      "path": "selected_control_intervals.v1.json",
+      "sha256": "0c208b43f0361eb7b2feddc1203bfeca309182a5fa8d76ca9a22030121f07647",
+      "size_bytes": 6835
+    }
+  ],
+  "selection_inputs": "NASA OMNI activity metrics and predeclared event controls only",
+  "spacecraft_gate_outputs_used": false,
+  "status": "FROZEN_BEFORE_SPACECRAFT_GATE_RETRIEVAL"
+}

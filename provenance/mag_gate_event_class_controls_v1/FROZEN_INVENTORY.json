@@ -1,0 +1,33 @@
+{
+  "detector_thresholds_changed": false,
+  "files": [
+    {
+      "path": "COMPACT_RESULT.json",
+      "sha256": "e85ee6d90ce673b70e58c57694023aa610f0c0612532092c529ca755091cdc1d",
+      "size_bytes": 53173
+    },
+    {
+      "path": "MAG_GATE_EVENT_CLASS_CONTROLS.md",
+      "sha256": "bda21a0592a672e184e93873e1a386a825bc01fd8e60d95dcc1ee57797933ab6",
+      "size_bytes": 6120
+    },
+    {
+      "path": "event_class_aggregate.csv",
+      "sha256": "ca88cee592710a6b1de5a0f051a3cc18f3554b692ef001ac478f1d6760d07975",
+      "size_bytes": 5663
+    },
+    {
+      "path": "event_class_failures.json",
+      "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "size_bytes": 2
+    },
+    {
+      "path": "event_class_interval_summary.csv",
+      "sha256": "42eccd5b57cbe208b4b0aaf6bb0fc81109cabebaa55c48bc0f32d8db0359846a",
+      "size_bytes": 2693
+    }
+  ],
+  "gannon_interpretation_reopened": false,
+  "raw_telemetry_committed": false,
+  "status": "EVENT_CLASS_CONTROL_DISTRIBUTIONS_FROZEN"
+}

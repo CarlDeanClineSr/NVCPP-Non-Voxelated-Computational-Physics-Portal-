@@ -1,0 +1,147 @@
+{
+  "artifacts": [
+    {
+      "path": "omni_daily_selection_metrics.csv",
+      "sha256": "02efd84a00dd31fbbab91946d4503cb739abeebd181a373c361caf9f6dfc7e29",
+      "size_bytes": 14762
+    },
+    {
+      "path": "omni_eligible_ranked_days.csv",
+      "sha256": "6dad11414499e71f4c54e0d4835fd993886398699811cb9d27118645c4083ef1",
+      "size_bytes": 6189
+    },
+    {
+      "path": "raw/omni_chunk_01.csv",
+      "sha256": "8f8f67cb0e70a20cc4d67b306dab70a63276a32b893b1c1a3ed235454363d8ec",
+      "size_bytes": 1965986
+    },
+    {
+      "path": "raw/omni_chunk_02.csv",
+      "sha256": "4dba85ba16c5f73a8d51c9b1381b498a3c8f19a92f13f69f04aa76f7fdb825ee",
+      "size_bytes": 1967124
+    },
+    {
+      "path": "raw/omni_chunk_03.csv",
+      "sha256": "ae2a7393a50353221f0d55a64cbc194b0f0c72e5dccfce2c9a69b2190ffa1a95",
+      "size_bytes": 1991396
+    },
+    {
+      "path": "raw/omni_chunk_04.csv",
+      "sha256": "6dc413f801ea8b611881e2bcba47437021626108607b90c85c402959a05b8d72",
+      "size_bytes": 1789439
+    },
+    {
+      "path": "raw/omni_hapi_info.json",
+      "sha256": "4be1b8ca333ac5dfa2e46638e8683f3886f966fb9f40aff24a4c3ba49d6bbc29",
+      "size_bytes": 5532
+    },
+    {
+      "path": "selected_control_intervals.v1.json",
+      "sha256": "0c208b43f0361eb7b2feddc1203bfeca309182a5fa8d76ca9a22030121f07647",
+      "size_bytes": 6835
+    }
+  ],
+  "completed_utc": "2026-08-29T12:12:58.668209+00:00",
+  "contract": {
+    "contract_id": "NVCPP-MAG-GATE-CONTROL-SELECTION-v1",
+    "contract_version": "1.0.0",
+    "path": "config/mag_gate_control_selection.v1.json",
+    "sha256": "4b998740e44d235c9fa3313a43948fe417f4978be227b6e32569e8da394a8c38"
+  },
+  "daily_metric_rows": 121,
+  "eligible_day_rows": 30,
+  "git_commit": "f047c2c234ee57efb53af540dcf35f0423751b9e",
+  "github_run_id": "33251929682",
+  "registry": {
+    "path": "runs/control_selection/selected_control_intervals.v1.json",
+    "sha256": "0c208b43f0361eb7b2feddc1203bfeca309182a5fa8d76ca9a22030121f07647"
+  },
+  "runtime": {
+    "python": "3.12.14"
+  },
+  "search_rows": 174240,
+  "selected_interval_count": 9,
+  "selected_interval_ids": [
+    "OMNI_LOW_ACTIVITY_1_2024_02_03",
+    "OMNI_LOW_ACTIVITY_2_2024_03_17",
+    "OMNI_LOW_ACTIVITY_3_2024_01_13",
+    "OMNI_MODERATE_ACTIVITY_1_2024_01_04",
+    "OMNI_MODERATE_ACTIVITY_2_2024_01_23",
+    "OMNI_MODERATE_ACTIVITY_3_2024_04_09",
+    "GANNON_COMPLEX_2024_05_11",
+    "DONKI_CLEAR_SHOCK_2024_06_28",
+    "DONKI_MILD_GLANCING_2024_09_28"
+  ],
+  "selection_limits": [
+    "the OMNI composite is used only to select low- and middle-activity dates, not to calculate spacecraft gates",
+    "low-activity and moderate labels are relative to this frozen search pool, not universal solar-wind classes",
+    "no spacecraft-specific gate output may be inspected before the selected dates are written",
+    "fixed event controls are selected from external NASA event metadata before gate retrieval",
+    "dates may not be replaced because their later gate result is inconvenient",
+    "the 70 percent flow-speed coverage gate was declared after a zero-eligible-day transport diagnostic and before any spacecraft gate output was retrieved"
+  ],
+  "selector_version": "1.0.0",
+  "source": {
+    "chunks": [
+      {
+        "chunk": 1,
+        "path": "runs/control_selection/raw/omni_chunk_01.csv",
+        "resolved_url": "https://cdaweb.gsfc.nasa.gov/hapi/data?id=OMNI_HRO2_1MIN&time.min=2024-01-01T00%3A00%3A00Z&time.max=2024-02-01T00%3A00%3A00Z&parameters=percent_interp%2CF%2Cflow_speed%2CSYM_H&format=csv",
+        "rows": 44640,
+        "sha256": "8f8f67cb0e70a20cc4d67b306dab70a63276a32b893b1c1a3ed235454363d8ec",
+        "size_bytes": 1965986,
+        "start_utc": "2024-01-01T00:00:00Z",
+        "stop_utc": "2024-02-01T00:00:00Z"
+      },
+      {
+        "chunk": 2,
+        "path": "runs/control_selection/raw/omni_chunk_02.csv",
+        "resolved_url": "https://cdaweb.gsfc.nasa.gov/hapi/data?id=OMNI_HRO2_1MIN&time.min=2024-02-01T00%3A00%3A00Z&time.max=2024-03-03T00%3A00%3A00Z&parameters=percent_interp%2CF%2Cflow_speed%2CSYM_H&format=csv",
+        "rows": 44640,
+        "sha256": "4dba85ba16c5f73a8d51c9b1381b498a3c8f19a92f13f69f04aa76f7fdb825ee",
+        "size_bytes": 1967124,
+        "start_utc": "2024-02-01T00:00:00Z",
+        "stop_utc": "2024-03-03T00:00:00Z"
+      },
+      {
+        "chunk": 3,
+        "path": "runs/control_selection/raw/omni_chunk_03.csv",
+        "resolved_url": "https://cdaweb.gsfc.nasa.gov/hapi/data?id=OMNI_HRO2_1MIN&time.min=2024-03-03T00%3A00%3A00Z&time.max=2024-04-03T00%3A00%3A00Z&parameters=percent_interp%2CF%2Cflow_speed%2CSYM_H&format=csv",
+        "rows": 44640,
+        "sha256": "ae2a7393a50353221f0d55a64cbc194b0f0c72e5dccfce2c9a69b2190ffa1a95",
+        "size_bytes": 1991396,
+        "start_utc": "2024-03-03T00:00:00Z",
+        "stop_utc": "2024-04-03T00:00:00Z"
+      },
+      {
+        "chunk": 4,
+        "path": "runs/control_selection/raw/omni_chunk_04.csv",
+        "resolved_url": "https://cdaweb.gsfc.nasa.gov/hapi/data?id=OMNI_HRO2_1MIN&time.min=2024-04-03T00%3A00%3A00Z&time.max=2024-05-01T00%3A00%3A00Z&parameters=percent_interp%2CF%2Cflow_speed%2CSYM_H&format=csv",
+        "rows": 40320,
+        "sha256": "6dc413f801ea8b611881e2bcba47437021626108607b90c85c402959a05b8d72",
+        "size_bytes": 1789439,
+        "start_utc": "2024-04-03T00:00:00Z",
+        "stop_utc": "2024-05-01T00:00:00Z"
+      }
+    ],
+    "dataset_id": "OMNI_HRO2_1MIN",
+    "hapi_startDate": "1995-01-01T00:00:00Z",
+    "hapi_stopDate": "2026-07-08T00:44:00Z",
+    "info": {
+      "path": "runs/control_selection/raw/omni_hapi_info.json",
+      "resolved_url": "https://cdaweb.gsfc.nasa.gov/hapi/info?id=OMNI_HRO2_1MIN",
+      "sha256": "4be1b8ca333ac5dfa2e46638e8683f3886f966fb9f40aff24a4c3ba49d6bbc29",
+      "size_bytes": 5532
+    },
+    "parameters": [
+      "percent_interp",
+      "F",
+      "flow_speed",
+      "SYM_H"
+    ],
+    "provider": "NASA CDAWeb HAPI"
+  },
+  "spacecraft_gate_data_retrieved": false,
+  "started_utc": "2026-08-29T12:12:54.886598+00:00",
+  "status": "SUCCESS"
+}

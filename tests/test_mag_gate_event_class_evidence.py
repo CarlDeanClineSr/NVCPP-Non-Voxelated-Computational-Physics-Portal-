@@ -26,7 +26,8 @@ def test_event_class_control_evidence_is_frozen_before_merge():
 
     result = json.loads(result_path.read_text(encoding="utf-8"))
     assert result["status"] == "SUCCESS"
-    assert result["successful_interval_counts"] >= EXPECTED_CLASSES
+    for control_class, minimum in EXPECTED_CLASSES.items():
+        assert result["successful_interval_counts"].get(control_class, 0) >= minimum
     assert result["failed_intervals"] == []
     assert result["event_interpretation_reopened"] is False
     assert result["geometry_blocked"] is True
