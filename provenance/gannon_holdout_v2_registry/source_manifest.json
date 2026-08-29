@@ -1,0 +1,14 @@
+{
+  "GFZ_KP": {
+    "resolved_url": "https://kp.gfz.de/app/files/Kp_ap_Ap_SN_F107_since_1932.txt",
+    "sha256": "97e2ef5f874058c8208f6162564598f2b3296d8d41bed91d834bea545e71ce30",
+    "size_bytes": 5500858
+  },
+  "RICHARDSON_CANE_ICME": {
+    "parsed_event_rows": 549,
+    "resolved_url": "https://izw1.caltech.edu/ACE/ASC/DATA/level3/icmetable2.htm",
+    "selection_pool_event_rows": 103,
+    "sha256": "f6f22e3b47805f86149f885424fc4ef095f5863d224a11a13972318e47abcb83",
+    "size_bytes": 273401
+  }
+}

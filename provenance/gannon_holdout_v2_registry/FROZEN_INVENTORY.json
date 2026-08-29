@@ -1,0 +1,51 @@
+{
+  "class_denominators": {
+    "COMPLEX_INTERACTING_EJECTA": 7,
+    "ISOLATED_SHOCK_OR_SHEATH": 12,
+    "MODERATE_VARIABILITY": 12,
+    "QUIET_SOLAR_WIND": 12
+  },
+  "clustering_outputs_inspected": false,
+  "files": [
+    {
+      "path": "config/gannon_holdout_v2.registry.json",
+      "sha256": "8c1510e026aa68dca21d42181bbe8a2fe1876a9738426be1378605f8bfe947af",
+      "size_bytes": 69343
+    },
+    {
+      "path": "config/gannon_holdout_v2.registry_status.json",
+      "sha256": "8a92239f5f1aae91d4c699809e6eff1229a72a54a7dcbb1e56c01516fba13526",
+      "size_bytes": 1200
+    },
+    {
+      "path": "config/gannon_holdout_v2_selection.amendment1.json",
+      "sha256": "39b15106811fa09e522e130db9b9a76702eb040b0a9c962dd086d50a7af690ee",
+      "size_bytes": 2666
+    },
+    {
+      "path": "config/gannon_holdout_v2_selection.effective.amendment1.json",
+      "sha256": "4bf994057e1c76a11dbb9eb38adddb38d56c3fb31efa6c18eba013c0fc04c9c0",
+      "size_bytes": 5851
+    },
+    {
+      "path": "provenance/gannon_holdout_v2_registry/registry.csv",
+      "sha256": "cfaf3d6e167e7c51535fc203ca3aa6ae6ac5e6b7753c1c6ee51ff2d0c54ef87f",
+      "size_bytes": 17317
+    },
+    {
+      "path": "provenance/gannon_holdout_v2_registry/source_manifest.json",
+      "sha256": "8ce26abec33512fdf119c9ade2ea0991d6b091d3a33a03b6306bb10c64c33465",
+      "size_bytes": 504
+    },
+    {
+      "path": "docs/GANNON_V2_FROZEN_DATE_LIST.md",
+      "sha256": "9d073064e4c1ef7f7bb2eda11d7b6e1b6a5e186af2c5bb9016e878118708dd31",
+      "size_bytes": 6490
+    }
+  ],
+  "gate_outputs_inspected": false,
+  "selection_amendment": "NVCPP-GANNON-V2-HOLDOUT-SELECTION-AMENDMENT-1",
+  "selector_commit": "6df747bf83bfedd8d5bec2be2d89ae7bfa877e7b",
+  "spacecraft_mag_retrieved": false,
+  "status": "FROZEN_BEFORE_HOLDOUT_MAG_RETRIEVAL"
+}
