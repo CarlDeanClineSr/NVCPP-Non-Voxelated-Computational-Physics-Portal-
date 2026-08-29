@@ -1,0 +1,96 @@
+{
+  "contract_id": "NVCPP-L1-MAG-GATE-CONTROL-HARNESS-v1",
+  "contract_version": "1.0.0",
+  "detector_contract_path": "config/gannon_gate_density.v1.json",
+  "frozen_detector": {
+    "coordinate_frame": "GSE",
+    "canonical_cadence_seconds": 60,
+    "required_previous_offset_seconds": 60,
+    "rotation_threshold_degrees": 45.0,
+    "magnitude_change_threshold_fraction": 0.25,
+    "logical_operator": "OR",
+    "support_radii_minutes": [
+      1,
+      2,
+      3,
+      5,
+      10,
+      15
+    ],
+    "support_half_window_minutes": 15,
+    "interpolation": "none",
+    "forward_fill": "none"
+  },
+  "development_interval": {
+    "id": "GANNON_2024_05_11",
+    "class": "COMPLEX_DISTURBED_DEVELOPMENT_EVENT",
+    "start_utc": "2024-05-11T00:00:00Z",
+    "stop_utc": "2024-05-12T00:00:00Z",
+    "candidate_utc": "2024-05-11T10:59:00Z"
+  },
+  "circular_shift_null": {
+    "iterations": 1000,
+    "seed": 20260829,
+    "period_minutes": 1440,
+    "minimum_absolute_shift_minutes": 60,
+    "maximum_absolute_shift_minutes": 720,
+    "shift_ace_and_wind_independently": true
+  },
+  "mismatched_spacecraft_days": [
+    {
+      "id": "ACE_PLUS1_WIND_MINUS1",
+      "ace_start_utc": "2024-05-12T00:00:00Z",
+      "ace_stop_utc": "2024-05-13T00:00:00Z",
+      "wind_start_utc": "2024-05-10T00:00:00Z",
+      "wind_stop_utc": "2024-05-11T00:00:00Z"
+    },
+    {
+      "id": "ACE_MINUS1_WIND_PLUS1",
+      "ace_start_utc": "2024-05-10T00:00:00Z",
+      "ace_stop_utc": "2024-05-11T00:00:00Z",
+      "wind_start_utc": "2024-05-12T00:00:00Z",
+      "wind_stop_utc": "2024-05-13T00:00:00Z"
+    },
+    {
+      "id": "ACE_PLUS7_WIND_MINUS7",
+      "ace_start_utc": "2024-05-18T00:00:00Z",
+      "ace_stop_utc": "2024-05-19T00:00:00Z",
+      "wind_start_utc": "2024-05-04T00:00:00Z",
+      "wind_stop_utc": "2024-05-05T00:00:00Z"
+    },
+    {
+      "id": "ACE_MINUS7_WIND_PLUS7",
+      "ace_start_utc": "2024-05-04T00:00:00Z",
+      "ace_stop_utc": "2024-05-05T00:00:00Z",
+      "wind_start_utc": "2024-05-18T00:00:00Z",
+      "wind_stop_utc": "2024-05-19T00:00:00Z"
+    }
+  ],
+  "decision_policy": {
+    "empirical_alpha": 0.05,
+    "candidate_nearest_joint_radius_metric": "smaller_or_equal_is_more_extreme",
+    "candidate_strongest_three_spacecraft_span_metric": "smaller_or_equal_is_more_extreme",
+    "all_anchor_joint_support_fraction_metric": "greater_or_equal_is_more_extreme",
+    "geometry_unlock_requires_complete_control_classes": true
+  },
+  "required_control_classes_before_geometry": [
+    "QUIET",
+    "MODERATE",
+    "ISOLATED_STRUCTURE",
+    "MISMATCHED_SPACECRAFT_DAY",
+    "CIRCULAR_SHIFT"
+  ],
+  "implemented_in_this_contract": [
+    "MISMATCHED_SPACECRAFT_DAY",
+    "CIRCULAR_SHIFT"
+  ],
+  "interpretation_limits": [
+    "The frozen detector thresholds, cadence, frame, and timing radii may not be changed in this control version.",
+    "Circular shifts preserve each independent spacecraft gate series and its autocorrelation while breaking simultaneity with DSCOVR.",
+    "Mismatched-day controls preserve real spacecraft-specific activity but do not represent quiet-time false-positive rates.",
+    "No independent-minute Bernoulli null is used.",
+    "Empirical circular-shift probabilities are conditional on the Gannon-day gate series.",
+    "The control harness does not classify a common surface, discontinuity type, propagation speed, or geoeffectiveness.",
+    "Geometry remains locked until quiet, moderate, and isolated-structure controls are independently selected and completed."
+  ]
+}
