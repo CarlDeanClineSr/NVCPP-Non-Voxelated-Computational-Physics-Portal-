@@ -19,6 +19,7 @@ concurrency:
 
 jobs:
   audit:
+    name: NVCPP CI / audit
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
