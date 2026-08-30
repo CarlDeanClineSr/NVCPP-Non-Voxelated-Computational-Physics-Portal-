@@ -13,7 +13,7 @@ concurrency:
 
 jobs:
   guard:
-    name: guard
+    name: NVCPP V2 Holdout Integrity Guard / guard
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
