@@ -1,0 +1,50 @@
+name: Run one-time JWST Jan-5 audit bootstrap
+
+on:
+  push:
+    branches:
+      - audit/jwst-jan5-retrospective-v1
+    paths:
+      - ".github/workflows/bootstrap_jwst_jan5_runner.yml"
+
+permissions:
+  contents: write
+
+jobs:
+  bootstrap:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out audit branch
+        uses: actions/checkout@v4
+        with:
+          ref: audit/jwst-jan5-retrospective-v1
+          fetch-depth: 0
+
+      - name: Extract and materialize reviewed files
+        shell: bash
+        run: |
+          set -euo pipefail
+          source_file=.github/workflows/bootstrap_jwst_jan5_retrospective.yml
+          mkdir -p experiments/jwst_jan5_retrospective .github/workflows
+
+          sed -n "/cat > \/tmp\/acquire.py.gz.b64/,/^ACQUIRE_B64$/p" "$source_file" \
+            | sed '1d;$d' | tr -d '\r\n ' > /tmp/acquire.py.gz.b64
+          base64 --decode /tmp/acquire.py.gz.b64 | gzip --decompress \
+            > experiments/jwst_jan5_retrospective/acquire.py
+
+          sed -n "/cat > \/tmp\/workflow.yml.gz.b64/,/^WORKFLOW_B64$/p" "$source_file" \
+            | sed '1d;$d' | tr -d '\r\n ' > /tmp/workflow.yml.gz.b64
+          base64 --decode /tmp/workflow.yml.gz.b64 | gzip --decompress \
+            > .github/workflows/jwst_jan5_retrospective.yml
+
+          python -m py_compile experiments/jwst_jan5_retrospective/acquire.py
+          rm -f "$source_file" .github/workflows/bootstrap_jwst_jan5_runner.yml
+
+      - name: Commit transparent acquisition implementation
+        shell: bash
+        run: |
+          git config user.name "Carl Dean Cline Sr"
+          git config user.email "CARLDCLINE@GMAIL.COM"
+          git add -A
+          git commit -m "Add evidence-only JWST Jan-5 acquisition [jwst-jan5-bootstrap-complete]"
+          git push origin audit/jwst-jan5-retrospective-v1
