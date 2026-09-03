@@ -1,0 +1,120 @@
+{
+  "protocol_version": "1.0.0",
+  "study_id": "JWST_L1_JAN5_2026_RETROSPECTIVE_V1",
+  "status": "RETROSPECTIVE_EXPLORATORY_NOT_EXECUTED",
+  "historical_hypothesis_labels_only": [
+    "re-addressing",
+    "expansion event"
+  ],
+  "analysis_interval": {
+    "start_utc": "2025-12-29T00:00:00Z",
+    "end_utc": "2026-01-13T00:00:00Z"
+  },
+  "full_day": {
+    "start_utc": "2026-01-05T00:00:00Z",
+    "end_utc": "2026-01-06T00:00:00Z"
+  },
+  "predeclared_event_windows": [
+    {
+      "id": "A_PRIMARY_0035_0125",
+      "start_utc": "2026-01-05T00:35:00Z",
+      "end_utc": "2026-01-05T01:25:00Z",
+      "historical_basis": "Contains the old 00:41-01:13 compression narrative and the overlapping 01:10-01:30 re-addressing narrative; treated as one test window."
+    },
+    {
+      "id": "B_SECONDARY_1455_1515",
+      "start_utc": "2026-01-05T14:55:00Z",
+      "end_utc": "2026-01-05T15:15:00Z",
+      "historical_basis": "Contains the old 15:04-15:06 interval previously labeled ambiguous."
+    }
+  ],
+  "control_dates": [
+    "2025-12-29",
+    "2025-12-30",
+    "2025-12-31",
+    "2026-01-01",
+    "2026-01-02",
+    "2026-01-03",
+    "2026-01-04",
+    "2026-01-06",
+    "2026-01-07",
+    "2026-01-08",
+    "2026-01-09",
+    "2026-01-10",
+    "2026-01-11",
+    "2026-01-12"
+  ],
+  "cdaweb_hapi": {
+    "base_url": "https://cdaweb.gsfc.nasa.gov/hapi",
+    "datasets": [
+      {
+        "source_id": "DSCOVR_MAG",
+        "dataset_id": "DSCOVR_H0_MAG",
+        "preferred_vector_parameters": ["B1GSE", "B1GSEc", "BGSE", "B_GSE"],
+        "coordinate_frame": "GSE"
+      },
+      {
+        "source_id": "ACE_MAG",
+        "dataset_id": "AC_H0_MFI",
+        "preferred_vector_parameters": ["BGSEc", "BGSE", "B1GSE", "B_GSE"],
+        "coordinate_frame": "GSE"
+      },
+      {
+        "source_id": "WIND_MAG",
+        "dataset_id": "WI_H0_MFI",
+        "preferred_vector_parameters": ["B3GSE", "BGSE", "B1GSE", "B_GSE"],
+        "coordinate_frame": "GSE"
+      }
+    ]
+  },
+  "mast": {
+    "invoke_url": "https://mast.stsci.edu/api/v0/invoke",
+    "search_url": "https://mast.stsci.edu/api/v0.1/invoke",
+    "edb_dictionary_service": "Mast.JwstEdb.Dictionary",
+    "edb_timeseries_service": "Mast.JwstEdb.GetTimeSeries",
+    "edb_mnemonics_to_verify": [
+      "SA_ZATTEST1",
+      "SA_ZATTEST2",
+      "SA_ZATTEST3",
+      "SA_ZATTEST4",
+      "SA_ZADUCMDX",
+      "SA_ZADUCMDY"
+    ],
+    "caom_service": "Mast.Caom.Filtered"
+  },
+  "detectors": {
+    "l1_magnetic_candidate": {
+      "minimum_vector_rotation_deg": 45.0,
+      "minimum_relative_magnitude_change": 0.25,
+      "minimum_previous_magnitude_nT": 0.5,
+      "maximum_pair_gap_seconds": 90.0
+    },
+    "jwst_attitude_candidate": {
+      "robust_z_threshold": 6.0,
+      "maximum_component_alignment_tolerance_seconds": 1.0
+    }
+  },
+  "timing": {
+    "fixed_dscovr_to_jwst_lag_enabled": false,
+    "reason": "V1 reports absolute UTC candidates. Propagation lag requires ephemerides, front geometry, speed, and an independently frozen model."
+  },
+  "forbidden_runtime_behavior": [
+    "simulation_fallback",
+    "demo_fallback",
+    "current_feed_relabelled_as_historical",
+    "forward_fill_detector_inputs",
+    "interpolate_detector_inputs",
+    "silent_source_substitution",
+    "modify_gannon_v2_holdout"
+  ],
+  "allowed_result_states": [
+    "NO_PUBLIC_JWST_DATA",
+    "INCOMPLETE_SOURCE",
+    "NO_L1_CANDIDATE",
+    "L1_ONLY",
+    "JWST_ONLY",
+    "TEMPORAL_COINCIDENCE_CANDIDATE",
+    "EXPLAINED_BY_OPERATIONS",
+    "UNRESOLVED_AFTER_CONTROLS"
+  ]
+}

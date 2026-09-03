@@ -1,0 +1,135 @@
+name: January 5 2026 JWST-L1 Retrospective
+
+on:
+  pull_request:
+    paths:
+      - "historical/jan5_2026_retrospective.py"
+      - "config/jan5_2026_retrospective.v1.json"
+      - "docs/JAN5_2026_RETROSPECTIVE_PROTOCOL_V1.md"
+      - "tests/test_jan5_2026_retrospective.py"
+      - "tests/conftest.py"
+      - ".github/workflows/jan5_2026_retrospective.yml"
+  workflow_dispatch:
+    inputs:
+      confirmation:
+        description: "Type RUN_JAN5_RETROSPECTIVE exactly"
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: jan5-2026-retrospective-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  validate:
+    name: Validate frozen protocol and geometry code
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+
+      - name: Install repository dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -r requirements.txt
+          python -m pip install pytest
+
+      - name: Compile the retrospective runner
+        run: python -m py_compile historical/jan5_2026_retrospective.py
+
+      - name: Run retrospective regression tests
+        run: python -m pytest -q tests/test_jan5_2026_retrospective.py
+
+      - name: Confirm forbidden shortcuts remain disabled
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+
+          cfg = json.loads(Path("config/jan5_2026_retrospective.v1.json").read_text())
+          forbidden = set(cfg["forbidden_runtime_behavior"])
+          required = {
+              "simulation_fallback",
+              "demo_fallback",
+              "current_feed_relabelled_as_historical",
+              "forward_fill_detector_inputs",
+              "interpolate_detector_inputs",
+              "silent_source_substitution",
+              "modify_gannon_v2_holdout",
+          }
+          assert required <= forbidden
+          assert cfg["timing"]["fixed_dscovr_to_jwst_lag_enabled"] is False
+          print("Fail-closed protocol controls verified.")
+          PY
+
+  retrospective:
+    name: Acquire and audit historical measurements
+    if: >-
+      github.event_name == 'workflow_dispatch' &&
+      github.event.inputs.confirmation == 'RUN_JAN5_RETROSPECTIVE'
+    needs: validate
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+
+      - name: Install repository dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -r requirements.txt
+
+      - name: Record immutable run identity
+        run: |
+          mkdir -p output/jan5_2026_retrospective_v1/run_identity
+          printf '%s\n' "${GITHUB_SHA}" > output/jan5_2026_retrospective_v1/run_identity/git_commit.txt
+          printf '%s\n' "${GITHUB_RUN_ID}" > output/jan5_2026_retrospective_v1/run_identity/github_run_id.txt
+          python -m pip freeze > output/jan5_2026_retrospective_v1/run_identity/pip_freeze.txt
+          sha256sum config/jan5_2026_retrospective.v1.json \
+            > output/jan5_2026_retrospective_v1/run_identity/config.sha256
+
+      - name: Run the fail-closed retrospective
+        run: |
+          python historical/jan5_2026_retrospective.py \
+            --config config/jan5_2026_retrospective.v1.json \
+            --output output/jan5_2026_retrospective_v1
+
+      - name: Display the scientific run report
+        if: always()
+        run: |
+          if [[ -f output/jan5_2026_retrospective_v1/reports/report.md ]]; then
+            cat output/jan5_2026_retrospective_v1/reports/report.md
+          else
+            echo "No report.md was produced. Inspect the preserved run files."
+          fi
+
+      - name: Verify no observational files entered the repository
+        if: always()
+        run: |
+          git status --short
+          test -z "$(git status --porcelain --untracked-files=no)"
+
+      - name: Upload the complete evidence package
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: jan5-2026-jwst-l1-retrospective-${{ github.run_id }}
+          path: output/jan5_2026_retrospective_v1/
+          if-no-files-found: error
+          retention-days: 90
