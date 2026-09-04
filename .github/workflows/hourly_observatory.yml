@@ -51,7 +51,8 @@ jobs:
           cache: pip
 
       - name: Restore NOAA rolling state
-        uses: actions/cache@v4
+        id: noaa_state_restore
+        uses: actions/cache/restore@v4
         with:
           path: ${{ env.NVCPP_NOAA_STATE_DIR }}
           key: nvcpp-noaa-state-v1-${{ github.run_id }}-${{ github.run_attempt }}
@@ -134,6 +135,26 @@ jobs:
           echo "exit_code=$OBS_RC" >> "$GITHUB_OUTPUT"
           exit 0
 
+      - name: Inspect NOAA rolling state before cache save
+        if: ${{ always() }}
+        shell: bash
+        run: |
+          mkdir -p "${NVCPP_NOAA_STATE_DIR}"
+          {
+            echo "NOAA rolling-state directory: ${NVCPP_NOAA_STATE_DIR}"
+            echo "Files present after the observatory run:"
+            find "${NVCPP_NOAA_STATE_DIR}" -type f -printf '%P\t%s bytes\n' | sort
+          } | tee noaa_state_persistence.log
+
+      - name: Save NOAA rolling state before result enforcement
+        id: noaa_state_save
+        if: ${{ always() }}
+        continue-on-error: true
+        uses: actions/cache/save@v4
+        with:
+          path: ${{ env.NVCPP_NOAA_STATE_DIR }}
+          key: nvcpp-noaa-state-v1-${{ github.run_id }}-${{ github.run_attempt }}
+
       - name: Publish immutable package to Google Drive
         id: drive
         if: >-
@@ -164,6 +185,7 @@ jobs:
           path: |
             ${{ steps.observatory.outputs.run_root }}
             drive_preflight_result.json
+            noaa_state_persistence.log
           if-no-files-found: error
           retention-days: 90
           compression-level: 6
@@ -181,6 +203,13 @@ jobs:
             cat drive_preflight_result.json >> "$GITHUB_STEP_SUMMARY"
             echo '```' >> "$GITHUB_STEP_SUMMARY"
           fi
+          if [[ -f noaa_state_persistence.log ]]; then
+            echo "" >> "$GITHUB_STEP_SUMMARY"
+            echo "## NOAA rolling-state persistence" >> "$GITHUB_STEP_SUMMARY"
+            echo '```text' >> "$GITHUB_STEP_SUMMARY"
+            cat noaa_state_persistence.log >> "$GITHUB_STEP_SUMMARY"
+            echo '```' >> "$GITHUB_STEP_SUMMARY"
+          fi
           echo "" >> "$GITHUB_STEP_SUMMARY"
           echo "Temporary GitHub artifacts are retained for 90 days; durable retention requires a successful Drive preflight and upload." >> "$GITHUB_STEP_SUMMARY"
 
@@ -189,6 +218,7 @@ jobs:
         env:
           RUN_ROOT: ${{ steps.observatory.outputs.run_root }}
           OBS_EXIT_CODE: ${{ steps.observatory.outputs.exit_code }}
+          NOAA_STATE_SAVE_OUTCOME: ${{ steps.noaa_state_save.outcome }}
           DRIVE_PREFLIGHT_READY: ${{ steps.drive_preflight.outputs.ready }}
           DRIVE_STEP_OUTCOME: ${{ steps.drive.outcome }}
         run: |
@@ -202,6 +232,13 @@ jobs:
               raise SystemExit("hourly observatory produced no evidence directory")
           root = Path(root_text)
           manifest = json.loads((root / "observatory_run_manifest.json").read_text())
+
+          if os.environ.get("NOAA_STATE_SAVE_OUTCOME") != "success":
+              raise SystemExit(
+                  "NOAA rolling-state persistence failed; telemetry evidence was preserved "
+                  "in the GitHub artifact"
+              )
+
           if manifest.get("status") == "FAILED":
               raise SystemExit("all configured observatory sources failed")
 
