@@ -1,0 +1,244 @@
+name: NVCPP Hourly Observatory
+
+on:
+  workflow_dispatch:
+    inputs:
+      now_utc:
+        description: Optional deterministic UTC time for a replay, e.g. 2026-08-26T20:37:00Z
+        required: false
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: nvcpp-hourly-observatory
+  cancel-in-progress: false
+
+env:
+  PYTHONUNBUFFERED: "1"
+  NVCPP_NOAA_STATE_DIR: .nvcpp_state/noaa
+  NVCPP_GOOGLE_AUTH_B64: ${{ secrets.NVCPP_GOOGLE_AUTH_B64 }}
+  NVCPP_DRIVE_PARENT_FOLDER_ID: ${{ secrets.NVCPP_DRIVE_PARENT_FOLDER_ID }}
+
+jobs:
+  observe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - name: Check out NVCPP
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Restore NOAA rolling state
+        id: noaa_state_restore
+        uses: actions/cache/restore@v4
+        with:
+          path: ${{ env.NVCPP_NOAA_STATE_DIR }}
+          key: nvcpp-noaa-state-v1-${{ github.run_id }}-${{ github.run_attempt }}
+          restore-keys: |
+            nvcpp-noaa-state-v1-
+
+      - name: Install locked dependencies
+        run: python -m pip install -r requirements.txt
+
+      - name: Preflight Google Drive credential and destination before telemetry
+        id: drive_preflight
+        if: >-
+          ${{ env.NVCPP_GOOGLE_AUTH_B64 != '' &&
+              env.NVCPP_DRIVE_PARENT_FOLDER_ID != '' }}
+        shell: bash
+        run: |
+          set +e
+          python -m pipelines.drive_preflight \
+            --output drive_preflight_result.json \
+            2>&1 | tee drive_preflight.log
+          RC=${PIPESTATUS[0]}
+          if [[ "$RC" == "0" ]]; then
+            echo "ready=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "ready=false" >> "$GITHUB_OUTPUT"
+          fi
+          echo "exit_code=$RC" >> "$GITHUB_OUTPUT"
+          # Storage failure is recorded now, but telemetry must still be observed
+          # and preserved as a temporary GitHub artifact.
+          exit 0
+
+      - name: Record Drive preflight not configured
+        if: >-
+          ${{ env.NVCPP_GOOGLE_AUTH_B64 == '' ||
+              env.NVCPP_DRIVE_PARENT_FOLDER_ID == '' }}
+        shell: bash
+        run: |
+          python - <<'PY'
+          import json
+          import os
+          from datetime import datetime, timezone
+          from pathlib import Path
+
+          result = {
+              "preflight_version": "1.0.0",
+              "checked_utc": datetime.now(timezone.utc).isoformat(),
+              "status": "NOT_CONFIGURED",
+              "credential_configured": bool(os.environ.get("NVCPP_GOOGLE_AUTH_B64")),
+              "folder_configured": bool(os.environ.get("NVCPP_DRIVE_PARENT_FOLDER_ID")),
+              "writes_performed": False,
+          }
+          Path("drive_preflight_result.json").write_text(
+              json.dumps(result, indent=2, sort_keys=True), encoding="utf-8"
+          )
+          print(json.dumps(result, indent=2, sort_keys=True))
+          PY
+
+      - name: Run hourly observatory
+        id: observatory
+        shell: bash
+        run: |
+          set +e
+          NOW_ARG=""
+          if [[ -n "${{ inputs.now_utc }}" ]]; then
+            NOW_ARG="--now ${{ inputs.now_utc }}"
+          fi
+          python -m observatory.run_hourly \
+            --config config/hourly_observatory.v1.json \
+            --outdir runs/hourly \
+            $NOW_ARG 2>&1 | tee hourly_observatory.log
+          OBS_RC=${PIPESTATUS[0]}
+          RUN_MANIFEST=$(find runs/hourly -name observatory_run_manifest.json -type f | sort | tail -n 1)
+          if [[ -n "$RUN_MANIFEST" ]]; then
+            RUN_ROOT=$(dirname "$RUN_MANIFEST")
+            RUN_NAME=$(basename "$RUN_ROOT")
+            echo "run_root=$RUN_ROOT" >> "$GITHUB_OUTPUT"
+            echo "run_name=$RUN_NAME" >> "$GITHUB_OUTPUT"
+            echo "run_manifest=$RUN_MANIFEST" >> "$GITHUB_OUTPUT"
+          fi
+          echo "exit_code=$OBS_RC" >> "$GITHUB_OUTPUT"
+          exit 0
+
+      - name: Inspect NOAA rolling state before cache save
+        if: ${{ always() }}
+        shell: bash
+        run: |
+          mkdir -p "${NVCPP_NOAA_STATE_DIR}"
+          {
+            echo "NOAA rolling-state directory: ${NVCPP_NOAA_STATE_DIR}"
+            echo "Files present after the observatory run:"
+            find "${NVCPP_NOAA_STATE_DIR}" -type f -printf '%P\t%s bytes\n' | sort
+          } | tee noaa_state_persistence.log
+
+      - name: Save NOAA rolling state before result enforcement
+        id: noaa_state_save
+        if: ${{ always() }}
+        continue-on-error: true
+        uses: actions/cache/save@v4
+        with:
+          path: ${{ env.NVCPP_NOAA_STATE_DIR }}
+          key: nvcpp-noaa-state-v1-${{ github.run_id }}-${{ github.run_attempt }}
+
+      - name: Publish immutable package to Google Drive
+        id: drive
+        if: >-
+          ${{ always() && steps.observatory.outputs.run_root != '' &&
+              steps.drive_preflight.outputs.ready == 'true' }}
+        continue-on-error: true
+        run: |
+          python -m pipelines.drive_vault \
+            --source "${{ steps.observatory.outputs.run_root }}" \
+            --run-name "${{ steps.observatory.outputs.run_name }}"
+
+      - name: Record Drive unavailable or not configured state
+        if: >-
+          ${{ always() && steps.observatory.outputs.run_root != '' &&
+              steps.drive_preflight.outputs.ready != 'true' }}
+        run: |
+          python -m pipelines.drive_vault \
+            --source "${{ steps.observatory.outputs.run_root }}" \
+            --run-name "${{ steps.observatory.outputs.run_name }}" \
+            --parent-folder-id "${NVCPP_DRIVE_PARENT_FOLDER_ID:-1hpgY8SYPpp6_rFv7PV61cuqUSUwTZC20}" \
+            --dry-run
+
+      - name: Upload temporary GitHub evidence package
+        if: ${{ always() && steps.observatory.outputs.run_root != '' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ steps.observatory.outputs.run_name }}
+          path: |
+            ${{ steps.observatory.outputs.run_root }}
+            drive_preflight_result.json
+            noaa_state_persistence.log
+          if-no-files-found: error
+          retention-days: 90
+          compression-level: 6
+
+      - name: Write Actions summary
+        if: ${{ always() && steps.observatory.outputs.run_root != '' }}
+        run: |
+          if [[ -f "${{ steps.observatory.outputs.run_root }}/status/LATEST.md" ]]; then
+            cat "${{ steps.observatory.outputs.run_root }}/status/LATEST.md" >> "$GITHUB_STEP_SUMMARY"
+          fi
+          if [[ -f drive_preflight_result.json ]]; then
+            echo "" >> "$GITHUB_STEP_SUMMARY"
+            echo "## Google Drive preflight" >> "$GITHUB_STEP_SUMMARY"
+            echo '```json' >> "$GITHUB_STEP_SUMMARY"
+            cat drive_preflight_result.json >> "$GITHUB_STEP_SUMMARY"
+            echo '```' >> "$GITHUB_STEP_SUMMARY"
+          fi
+          if [[ -f noaa_state_persistence.log ]]; then
+            echo "" >> "$GITHUB_STEP_SUMMARY"
+            echo "## NOAA rolling-state persistence" >> "$GITHUB_STEP_SUMMARY"
+            echo '```text' >> "$GITHUB_STEP_SUMMARY"
+            cat noaa_state_persistence.log >> "$GITHUB_STEP_SUMMARY"
+            echo '```' >> "$GITHUB_STEP_SUMMARY"
+          fi
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          echo "Temporary GitHub artifacts are retained for 90 days; durable retention requires a successful Drive preflight and upload." >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Enforce observatory and configured-vault result
+        if: always()
+        env:
+          RUN_ROOT: ${{ steps.observatory.outputs.run_root }}
+          OBS_EXIT_CODE: ${{ steps.observatory.outputs.exit_code }}
+          NOAA_STATE_SAVE_OUTCOME: ${{ steps.noaa_state_save.outcome }}
+          DRIVE_PREFLIGHT_READY: ${{ steps.drive_preflight.outputs.ready }}
+          DRIVE_STEP_OUTCOME: ${{ steps.drive.outcome }}
+        run: |
+          python - <<'PY'
+          import json
+          import os
+          from pathlib import Path
+
+          root_text = os.environ.get("RUN_ROOT", "")
+          if not root_text:
+              raise SystemExit("hourly observatory produced no evidence directory")
+          root = Path(root_text)
+          manifest = json.loads((root / "observatory_run_manifest.json").read_text())
+
+          if os.environ.get("NOAA_STATE_SAVE_OUTCOME") != "success":
+              raise SystemExit(
+                  "NOAA rolling-state persistence failed; telemetry evidence was preserved "
+                  "in the GitHub artifact"
+              )
+
+          if manifest.get("status") == "FAILED":
+              raise SystemExit("all configured observatory sources failed")
+
+          credentials_configured = bool(os.environ.get("NVCPP_GOOGLE_AUTH_B64")) and bool(
+              os.environ.get("NVCPP_DRIVE_PARENT_FOLDER_ID")
+          )
+          if credentials_configured and os.environ.get("DRIVE_PREFLIGHT_READY") != "true":
+              raise SystemExit(
+                  "Google Drive vault was configured but credential preflight failed; "
+                  "telemetry evidence was preserved in the GitHub artifact"
+              )
+          if credentials_configured and os.environ.get("DRIVE_STEP_OUTCOME") != "success":
+              raise SystemExit(
+                  "Google Drive credential preflight passed but publication failed; "
+                  "telemetry evidence was preserved in the GitHub artifact"
+              )
+          print(f"NVCPP hourly observatory completed with state {manifest.get('status')}")
+          PY
