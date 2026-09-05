@@ -16,6 +16,7 @@ import pandas as pd
 import requests
 
 from core.event_detection import CanonicalColumns, EventThresholds, detect_events
+from core.exceptions import SourceDiagnosticError
 from observatory.capsules import write_event_capsules, write_run_lesson
 from observatory.charts import generate_mission_charts
 from observatory.status import inventory, write_latest_status
@@ -69,6 +70,33 @@ def _quarantine_rows(path: Path) -> int:
         return 0
 
 
+def _failure_context(manifest_path: Path, exc: Exception) -> dict[str, Any]:
+    """Carry diagnostics forward without replacing the original source error."""
+    result: dict[str, Any] = {
+        "reason_code": "SOURCE_EXCEPTION",
+        "evaluation_state": "UNAVAILABLE",
+    }
+    if manifest_path.exists():
+        try:
+            manifest = _read_json(manifest_path)
+            if not isinstance(manifest, dict):
+                raise ValueError("mission manifest is not an object")
+            for key in (
+                "reason_code", "diagnostics", "source_state", "freshness_minutes",
+                "provider_availability", "hourly_requested_window", "hourly_effective_window",
+                "requested_retrieval_window", "requested_analysis_window",
+                "effective_retrieval_window", "effective_analysis_window",
+                "retrieval_window", "analysis_window", "latest_physical_sample_utc",
+                "source_boundaries",
+            ):
+                if key in manifest:
+                    result[key] = manifest[key]
+        except (OSError, ValueError, TypeError) as diagnostic_error:
+            result["diagnostic_read_error"] = str(diagnostic_error)
+    if isinstance(exc, SourceDiagnosticError):
+        result.update(exc.as_dict())
+    return result
+
 
 def _solar1_hourly_runner(
     *,
@@ -112,41 +140,55 @@ def _solar1_hourly_runner(
     if effective_start < provider_start:
         raise ObservatoryError("SOLAR-1 provider history lacks the required pre-roll")
 
-    run_solar1_pipeline(
-        run_name="solar1_mag",
-        start_time=_iso(effective_start),
-        analysis_start=_iso(effective_analysis),
-        end_time=_iso(effective_end),
-        outdir=mission_root,
-        contract_path=contract_path,
-    )
-
     manifest_path = mission_root / "solar1_mag" / "solar1_run_manifest.json"
-    manifest = _read_json(manifest_path)
     freshness_minutes = max(
         0.0, (window.analysis_end - provider_stop).total_seconds() / 60.0
     )
     source_state = "CURRENT" if freshness_minutes <= 20.0 else "DELAYED"
-    manifest.update(
-        {
-            "source_state": source_state,
-            "freshness_minutes": freshness_minutes,
-            "hourly_requested_window": window.as_dict(),
-            "provider_availability": {
-                "start": provider_start.isoformat(),
-                "stop": provider_stop.isoformat(),
-            },
-            "hourly_effective_window": {
-                "retrieval_start": effective_start.isoformat(),
-                "analysis_start": effective_analysis.isoformat(),
-                "analysis_end": effective_end.isoformat(),
-            },
-            "interpretation_limit": (
-                "DELAYED SOLAR-1 science is an independent confirmation stream, "
-                "not a current-hour solar-event alert."
-            ),
-        }
-    )
+    hourly_context = {
+        "source_state": source_state,
+        "freshness_minutes": freshness_minutes,
+        "hourly_requested_window": window.as_dict(),
+        "provider_availability": {
+            "start": provider_start.isoformat(),
+            "stop": provider_stop.isoformat(),
+        },
+        "hourly_effective_window": {
+            "retrieval_start": effective_start.isoformat(),
+            "analysis_start": effective_analysis.isoformat(),
+            "analysis_end": effective_end.isoformat(),
+        },
+        "interpretation_limit": (
+            "DELAYED SOLAR-1 science is an independent confirmation stream, "
+            "not a current-hour solar-event alert."
+        ),
+    }
+    try:
+        run_solar1_pipeline(
+            run_name="solar1_mag",
+            start_time=_iso(effective_start),
+            analysis_start=_iso(effective_analysis),
+            end_time=_iso(effective_end),
+            outdir=mission_root,
+            contract_path=contract_path,
+        )
+    except Exception as exc:
+        # Preserve the requested/effective distinction on FAILED runs too.
+        # A diagnostic write error must not hide the original acquisition error.
+        try:
+            if manifest_path.exists():
+                manifest = _read_json(manifest_path)
+                manifest.update(hourly_context)
+                manifest_path.write_text(
+                    json.dumps(manifest, indent=2, sort_keys=True, default=str),
+                    encoding="utf-8",
+                )
+        except (OSError, ValueError, TypeError, AttributeError) as diagnostic_error:
+            exc.add_note(f"hourly window diagnostic write failed: {diagnostic_error}")
+        raise
+
+    manifest = _read_json(manifest_path)
+    manifest.update(hourly_context)
     manifest_path.write_text(
         json.dumps(manifest, indent=2, sort_keys=True, default=str),
         encoding="utf-8",
@@ -247,6 +289,11 @@ def _write_result_index(
                 "latest": summary.get("latest"),
                 "event_count": summary.get("event_count", 0),
                 "quarantine_rows": summary.get("quarantine_rows", 0),
+                **{
+                    key: summary[key]
+                    for key in ("reason_code", "diagnostics", "evaluation_state")
+                    if key in summary
+                },
             }
         )
         for event in summary.get("events", []):
@@ -380,6 +427,7 @@ def run_hourly_observatory(
             observatory_manifest["missions"][name] = {"status": "SUCCESS"}
         except Exception as exc:  # preserve one source failure without erasing other evidence
             errors[name] = f"{type(exc).__name__}: {exc}"
+            failure_context = _failure_context(spec["manifest"], exc)
             mission_summaries[name] = {
                 "status": "FAILED",
                 "error": errors[name],
@@ -388,10 +436,12 @@ def run_hourly_observatory(
                 "quarantine_rows": _quarantine_rows(spec["quarantine"]),
                 "latest": {},
                 "events": [],
+                **failure_context,
             }
             observatory_manifest["missions"][name] = {
                 "status": "FAILED",
                 "error": errors[name],
+                **failure_context,
             }
 
     success_count = sum(

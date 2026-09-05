@@ -21,6 +21,10 @@ import pandas as pd
 import requests
 
 from core.cline_l1_chain_v1 import PROTOCOL_ID, PROTOCOL_VERSION, run_chain
+from core.diagnostics import baseline_failure, source_boundary_diagnostics
+from core.exceptions import (
+    SourceDiagnosticError, SourceEndIncompleteError, SourcePrerollIncompleteError,
+)
 from sources.solar1.mission_phase import classify_solar1_interval
 from sources.solar1.validate_contract import load_contract_or_raise
 
@@ -380,18 +384,32 @@ def run_solar1_pipeline(
         session = requests.Session()
         session.headers.update({"User-Agent": f"NVCPP-SOLAR1/{RUNNER_VERSION}"})
         info_meta = request_hapi_info(session, contract, run_output)
+        manifest["provider_availability"] = {
+            "start": info_meta["info"].get("startDate"),
+            "stop": info_meta["info"].get("stopDate"),
+        }
         raw, acquisition = request_hapi_csv(
             session, contract, start_time, end_time, run_output
         )
         clean, sanitation = sanitize(raw, contract, run_output)
+        manifest["sanitation"] = sanitation
 
         first_time = clean[contract["time"]["parameter_id"]].min()
         last_time = clean[contract["time"]["parameter_id"]].max()
         tolerance = pd.Timedelta(seconds=contract["cadence"]["expected_seconds"])
+        boundaries = source_boundary_diagnostics(
+            raw[contract["time"]["parameter_id"]],
+            clean[contract["time"]["parameter_id"]],
+            requested_start=start, requested_end=end,
+            cadence_seconds=float(contract["cadence"]["expected_seconds"]),
+            quarantined_rows=sanitation["quarantine_rows"],
+            provider_info=info_meta["info"],
+        )
+        manifest["source_boundaries"] = boundaries
         if first_time > start + tolerance:
-            raise ValueError("returned data do not cover the requested pre-roll start")
+            raise SourcePrerollIncompleteError(**boundaries)
         if last_time < end - tolerance:
-            raise ValueError("returned data stop before the requested end")
+            raise SourceEndIncompleteError(**boundaries)
 
         components = [
             contract["vector"]["components"][axis]["parameter_id"]
@@ -416,7 +434,12 @@ def run_solar1_pipeline(
         ].copy()
         valid = analysis_df["baseline_status"] == "VALID"
         if not valid.any():
-            raise ValueError("analysis interval contains no valid canonical baseline rows")
+            raise baseline_failure(
+                processed, analysis_df, time_col=time_col,
+                window_hours=contract["physics"]["pre_roll_hours"],
+                min_coverage=contract["physics"]["minimum_baseline_coverage_fraction"],
+                cadence_seconds=float(contract["cadence"]["expected_seconds"]),
+            )
 
         output_csv = run_output / "solar1_cline_l1_rows.csv"
         analysis_df.to_csv(output_csv, index=False)
@@ -500,6 +523,8 @@ def run_solar1_pipeline(
                 "artifacts": _inventory(run_output),
             }
         )
+        if isinstance(exc, SourceDiagnosticError):
+            manifest.update(exc.as_dict())
         manifest_path.write_text(json.dumps(manifest, indent=2), encoding="utf-8")
         raise
 
