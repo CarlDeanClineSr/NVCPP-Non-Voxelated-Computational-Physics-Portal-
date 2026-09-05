@@ -24,7 +24,9 @@ import numpy as np
 import pandas as pd
 import requests
 
-from core.cline_l1_chain_v1 import PROTOCOL_ID, PROTOCOL_VERSION, run_chain
+from core.cline_l1_chain_v1 import PROTOCOL_ID, PROTOCOL_VERSION, ProtocolConfig, run_chain
+from core.diagnostics import baseline_failure
+from core.exceptions import SourceDiagnosticError
 
 PIPELINE_VERSION = "1.2.0"
 MAG_URL = "https://services.swpc.noaa.gov/json/rtsw/rtsw_mag_1m.json"
@@ -604,6 +606,7 @@ def run_noaa_realtime_pipeline(
         "artifacts": [],
     }
     _write_json(manifest_path, manifest)
+    quarantine_records: list[pd.DataFrame] = []
 
     try:
         session = session or requests.Session()
@@ -614,6 +617,7 @@ def run_noaa_realtime_pipeline(
         plasma_payload, plasma_meta = _download_json(
             session, PLASMA_URL, run_dir / "rtsw_wind_1m_raw.json"
         )
+        manifest["downloads"] = {"magnetic": mag_meta, "plasma": plasma_meta}
         # Current production feeds are lists of objects. Legacy header fixtures
         # are also accepted by _table for reproducibility.
         mag_raw = _table(mag_payload, required=["time_tag"], source_name="NOAA SWPC magnetic")
@@ -621,7 +625,6 @@ def run_noaa_realtime_pipeline(
             plasma_payload, required=["time_tag"], source_name="NOAA SWPC plasma"
         )
 
-        quarantine_records: list[pd.DataFrame] = []
         mag_active = _select_active_operational_rows(
             mag_raw, source_name="NOAA SWPC magnetic"
         )
@@ -683,11 +686,19 @@ def run_noaa_realtime_pipeline(
         else:
             mag_all = mag_current
             plasma_all = plasma_current
+        manifest["rolling_state"] = cache_meta
 
         latest_mag = mag_current["time"].max()
         effective_end = min(requested_end, latest_mag + pd.Timedelta(seconds=CADENCE_SECONDS))
         effective_start = effective_end - retrieval_duration
         effective_analysis_start = effective_end - analysis_duration
+        manifest["latest_physical_sample_utc"] = latest_mag.isoformat()
+        manifest["effective_retrieval_window"] = {
+            "start": effective_start.isoformat(), "end": effective_end.isoformat()
+        }
+        manifest["effective_analysis_window"] = {
+            "start": effective_analysis_start.isoformat(), "end": effective_end.isoformat()
+        }
         mag = mag_all.loc[
             (mag_all["time"] >= effective_start) & (mag_all["time"] < effective_end)
         ].copy()
@@ -721,9 +732,12 @@ def run_noaa_realtime_pipeline(
         ].copy()
         valid = analysis["chi_B24M"].notna()
         if not valid.any():
-            raise NoaaRealtimeError(
-                "NOAA rolling state is still warming up; no row yet has a complete "
-                "prior 24-hour baseline"
+            protocol = ProtocolConfig()
+            raise baseline_failure(
+                processed, analysis, time_col="time",
+                window_hours=protocol.window_hours,
+                min_coverage=protocol.min_coverage,
+                cadence_seconds=CADENCE_SECONDS,
             )
 
         quarantine = (
@@ -835,6 +849,22 @@ def run_noaa_realtime_pipeline(
                 "error": str(exc),
             }
         )
+        if isinstance(exc, SourceDiagnosticError):
+            manifest.update(exc.as_dict())
+        # Persist existing quarantine decisions even when baseline admission fails.
+        quarantine = (
+            pd.concat(quarantine_records, ignore_index=True, sort=False)
+            if quarantine_records
+            else pd.DataFrame(columns=["source_product", "reason_code"])
+        )
+        quarantine.to_csv(run_dir / "noaa_realtime_quarantine.csv", index=False)
+        manifest["sanitization"] = {
+            "quarantine_rows": int(len(quarantine)),
+            "reason_counts": {
+                str(key): int(value)
+                for key, value in quarantine["reason_code"].value_counts().items()
+            },
+        }
         manifest["artifacts"] = [
             _artifact(path)
             for path in sorted(run_dir.iterdir())

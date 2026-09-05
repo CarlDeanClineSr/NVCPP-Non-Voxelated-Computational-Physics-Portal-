@@ -52,6 +52,9 @@ def write_latest_status(
         "",
     ]
     for mission, summary in status.get("missions", {}).items():
+        failed = summary.get("status") == "FAILED"
+        event_count = "unavailable (source failed)" if failed else summary.get("event_count", 0)
+        watch_rows = "unavailable (source failed)" if failed else summary.get("watch_rows", 0)
         lines.extend(
             [
                 f"### {mission}",
@@ -62,12 +65,29 @@ def write_latest_status(
                 f"- B: `{summary.get('latest', {}).get('B_nT')}` nT",
                 f"- Signed ΔB24M: `{summary.get('latest', {}).get('delta_B24M')}`",
                 f"- χB24M: `{summary.get('latest', {}).get('chi_B24M')}`",
-                f"- Candidate events: **{summary.get('event_count', 0)}**",
-                f"- Research-watch rows: **{summary.get('watch_rows', 0)}**",
+                f"- Candidate events: **{event_count}**",
+                f"- Research-watch rows: **{watch_rows}**",
                 f"- Quarantine rows: **{summary.get('quarantine_rows', 0)}**",
                 "",
             ]
         )
+        if failed:
+            lines.append(f"- Failure reason: **{summary.get('reason_code', 'SOURCE_EXCEPTION')}**")
+            if not summary.get("diagnostics"):
+                lines.append(f"- Error: `{summary.get('error', 'not reported')}`")
+            context = {
+                key: summary[key]
+                for key in (
+                    "diagnostics", "provider_availability", "hourly_requested_window",
+                    "hourly_effective_window", "effective_retrieval_window",
+                    "effective_analysis_window", "latest_physical_sample_utc",
+                    "diagnostic_read_error",
+                )
+                if key in summary
+            }
+            if context:
+                lines.extend(["", "```json", json.dumps(context, indent=2, sort_keys=True, default=str), "```"])
+            lines.append("")
     lines.extend(
         [
             "## Storage",
