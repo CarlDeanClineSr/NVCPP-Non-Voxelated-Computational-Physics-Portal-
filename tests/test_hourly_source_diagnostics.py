@@ -1,7 +1,6 @@
 """Offline source/summary regression fixtures; no operational data acquisition."""
 
 import json
-from pathlib import Path
 
 import pandas as pd
 import pytest
@@ -59,6 +58,12 @@ def test_noaa_failed_baseline_preserves_state_quarantine_and_exact_diagnostic(tm
     times, session = noaa_fixture(1800, sparse=True)
     end = times[-1] + pd.Timedelta(minutes=1)
     state = tmp_path / "state"
+    state.mkdir()
+    # Match #219's existing rolling cache, not the separate cold-start path.
+    magnetic, _ = noaa._sanitize_magnetic(pd.DataFrame(session.magnetic), [])
+    plasma = noaa._sanitize_plasma(pd.DataFrame(session.plasma), [])
+    magnetic.iloc[:1].to_csv(state / "noaa_mag_active_history.csv", index=False)
+    plasma.iloc[:1].to_csv(state / "noaa_plasma_active_history.csv", index=False)
     with pytest.raises(InsufficientCoverageError) as caught:
         noaa.run_noaa_realtime_pipeline(
             run_name="fixture", retrieval_start=times[0].isoformat(),
@@ -277,3 +282,29 @@ def test_unreadable_diagnostic_manifest_does_not_mask_original_failure(tmp_path)
     assert details["reason_code"] == "SOURCE_EXCEPTION"
     assert "diagnostic_read_error" in details
     assert details["evaluation_state"] == "UNAVAILABLE"
+
+
+@pytest.mark.xfail(
+    strict=True, raises=ValueError,
+    reason="Pre-existing empty-cache pandas 3 time dtype mismatch; not changed by diagnostic-only PR",
+)
+def test_known_cold_cache_issue_reaches_baseline_instead_of_dtype_error(tmp_path):
+    """Keep the newly exposed ingestion defect visible, not silently omitted."""
+    times, session = noaa_fixture(1800, sparse=True)
+    end = times[-1] + pd.Timedelta(minutes=1)
+    with pytest.raises(InsufficientCoverageError):
+        try:
+            noaa.run_noaa_realtime_pipeline(
+                run_name="cold-fixture", retrieval_start=times[0].isoformat(),
+                analysis_start=(end - pd.Timedelta(hours=6)).isoformat(),
+                analysis_end=end.isoformat(), outdir=tmp_path,
+                state_dir=tmp_path / "empty-state", session=session,
+            )
+        except InsufficientCoverageError:
+            raise
+        except ValueError as exc:
+            # Only this observed pre-existing error is an expected failure.
+            # Any other failure remains a hard assertion failure in CI.
+            assert "merge on datetime64" in str(exc)
+            assert "object columns for key 'time'" in str(exc)
+            raise

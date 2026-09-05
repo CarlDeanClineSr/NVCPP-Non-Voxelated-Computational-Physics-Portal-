@@ -93,3 +93,21 @@ preservation of the original failure when a diagnostic manifest is unreadable.
 These fixtures are synthetic engineering tests, not observational evidence or
 fallback source data. The patch does not supply missing data, make a failing
 source pass, or guarantee that the next scheduled Action will be green.
+
+## Separate cold-start ingestion issue exposed by the new tests
+
+The first full CI run (33968119076, job 101311730444) passed 165 tests and failed
+one new NOAA fixture before reaching its baseline diagnostic. With an entirely
+empty configured cache under the locked pandas 3 environment, the unchanged
+`_merge_operational_history` concatenates an empty object-typed frame with current
+rows. Its plasma `time` column can remain object-typed, while the canonical core
+converts magnetic time to a timezone-aware datetime. The unchanged plasma merge
+then raises a datetime/object-key mismatch. This is not #219's populated-cache
+coverage failure and is not caused by the diagnostic changes.
+
+The coverage/persistence regression now explicitly starts from a populated
+cache, as #219 did. The cold-start case remains as a separate strict expected-
+failure regression: only the observed datetime/object merge error is accepted
+as an expected failure; other errors still fail CI, and a future fix must remove
+the marker. It is deliberately NOT counted as a passing test. No history-merge
+or plasma-pairing logic was changed to hide it in this diagnostic-only patch.
