@@ -1,5 +1,12 @@
 name: NVCPP Hourly Observatory
 
+# Manual-only operational workflow.
+# Automatic source-path triggers are intentionally disabled, but these paths are
+# retained here as audit documentation for the scientific modules this workflow exercises:
+# core/event_detection.py
+# sources/noaa_swpc/**
+# sources/solar1/**
+
 on:
   workflow_dispatch:
     inputs:
