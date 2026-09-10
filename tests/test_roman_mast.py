@@ -110,7 +110,7 @@ def test_archive_state_is_conservative():
             missions=["HST", "JWST"],
             collection_counts={"Roman": 0, "ROMAN": 0},
         )
-        == "PRELAUNCH_NO_ROMAN_CAOM_HOLDINGS"
+        == "NO_MATCHING_ROMAN_CAOM_ROWS"
     )
     assert roman_registered(["Nancy Grace Roman Space Telescope"])
     assert (

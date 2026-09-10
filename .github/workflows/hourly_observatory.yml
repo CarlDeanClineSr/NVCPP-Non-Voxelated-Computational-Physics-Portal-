@@ -34,17 +34,17 @@ jobs:
     timeout-minutes: 45
     steps:
       - name: Check out NVCPP
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: Set up Python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v6
         with:
           python-version: "3.12"
           cache: pip
 
       - name: Restore NOAA rolling state
         id: noaa_state_restore
-        uses: actions/cache/restore@v4
+        uses: actions/cache/restore@v5
         with:
           path: ${{ env.NVCPP_NOAA_STATE_DIR }}
           key: nvcpp-noaa-state-v1-${{ github.run_id }}-${{ github.run_attempt }}
@@ -142,7 +142,7 @@ jobs:
         id: noaa_state_save
         if: ${{ always() }}
         continue-on-error: true
-        uses: actions/cache/save@v4
+        uses: actions/cache/save@v5
         with:
           path: ${{ env.NVCPP_NOAA_STATE_DIR }}
           key: nvcpp-noaa-state-v1-${{ github.run_id }}-${{ github.run_attempt }}
@@ -171,7 +171,7 @@ jobs:
 
       - name: Upload temporary GitHub evidence package
         if: ${{ always() && steps.observatory.outputs.run_root != '' }}
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: ${{ steps.observatory.outputs.run_name }}
           path: |

@@ -20,6 +20,8 @@ from urllib.parse import quote
 
 import requests
 
+from .page_reporting import classify_page_capture
+
 
 MAST_INVOKE_URL = "https://mast.stsci.edu/api/v0/invoke"
 DEFAULT_USER_AGENT = "NVCPP-Roman-Readiness/1.0"
@@ -87,6 +89,7 @@ class PageProbe:
 
     def summary(self) -> dict[str, Any]:
         return {
+            "capture_state": classify_page_capture(self.http_status, self.final_url),
             "requested_url": self.requested_url,
             "final_url": self.final_url,
             "http_status": self.http_status,
@@ -307,7 +310,7 @@ def classify_archive_state(
         return "ROMAN_CAOM_HOLDINGS_AVAILABLE"
     if roman_registered(missions):
         return "ROMAN_REGISTERED_NO_MATCHING_ROWS"
-    return "PRELAUNCH_NO_ROMAN_CAOM_HOLDINGS"
+    return "NO_MATCHING_ROMAN_CAOM_ROWS"
 
 
 def probe_page(
