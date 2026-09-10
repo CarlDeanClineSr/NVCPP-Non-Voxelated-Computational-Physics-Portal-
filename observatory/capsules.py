@@ -99,6 +99,16 @@ def write_event_capsules(
     return written
 
 
+def _event_count_display(summary: dict[str, Any]) -> str:
+    """Do not turn an unavailable evaluation into a numerical zero."""
+    if str(summary.get("evaluation_state", "")).upper() == "UNAVAILABLE":
+        return "unavailable (not evaluated)"
+    if str(summary.get("status", "")).upper() == "FAILED":
+        return "unavailable (source failed)"
+    value = summary.get("event_count")
+    return str(value) if value is not None else "unavailable"
+
+
 def write_run_lesson(
     *,
     run_id: str,
@@ -130,7 +140,7 @@ def write_run_lesson(
                 f"- Latest B: `{summary.get('latest', {}).get('B_nT')}` nT",
                 f"- Latest signed Δ: `{summary.get('latest', {}).get('delta_B24M')}`",
                 f"- Latest χ: `{summary.get('latest', {}).get('chi_B24M')}`",
-                f"- Candidate events: **{summary.get('event_count', 0)}**",
+                f"- Candidate events: **{_event_count_display(summary)}**",
                 f"- Quarantine rows: **{summary.get('quarantine_rows', 0)}**",
                 "",
             ]
