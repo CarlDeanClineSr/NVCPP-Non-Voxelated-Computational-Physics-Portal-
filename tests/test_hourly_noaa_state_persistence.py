@@ -17,9 +17,9 @@ def _step_block(text: str, step_name: str, next_step_name: str) -> str:
 def test_noaa_state_uses_explicit_restore_and_save_actions() -> None:
     text = _workflow_text()
 
-    assert "uses: actions/cache/restore@v4" in text
-    assert "uses: actions/cache/save@v4" in text
-    assert "uses: actions/cache@v4" not in text
+    assert "uses: actions/cache/restore@v5" in text
+    assert "uses: actions/cache/save@v5" in text
+    assert "uses: actions/cache@" not in text
 
     key = "nvcpp-noaa-state-v1-${{ github.run_id }}-${{ github.run_attempt }}"
     assert text.count(key) == 2
@@ -28,7 +28,7 @@ def test_noaa_state_uses_explicit_restore_and_save_actions() -> None:
 def test_noaa_state_is_saved_before_the_job_can_be_marked_failed() -> None:
     text = _workflow_text()
 
-    restore_position = text.index("uses: actions/cache/restore@v4")
+    restore_position = text.index("uses: actions/cache/restore@v5")
     observatory_position = text.index("      - name: Run hourly observatory")
     save_position = text.index(
         "      - name: Save NOAA rolling state before result enforcement"

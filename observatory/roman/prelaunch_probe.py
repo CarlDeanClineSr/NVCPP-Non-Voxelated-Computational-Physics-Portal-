@@ -33,6 +33,7 @@ from .mast_client import (
     probe_page,
     safe_slug,
 )
+from .page_reporting import summarize_page_captures
 from .synthetic_fixture import generate_fixture
 from .truth_benchmark import run_truth_benchmark
 
@@ -236,14 +237,17 @@ def run_probe(
     transport_ok = mission_response_summary is not None or bool(
         collection_response_summaries
     )
+    page_counts = summarize_page_captures(
+        page_summaries, transport_error_count=len(page_errors)
+    )
     overall_status = "READY"
     if not transport_ok:
         overall_status = "FAILED"
-    elif mast_errors or page_errors:
+    elif mast_errors or page_errors or page_counts["http_non_2xx_count"]:
         overall_status = "PARTIAL"
 
     manifest: dict[str, Any] = {
-        "manifest_version": "1.1.0",
+        "manifest_version": "1.2.0",
         "status": overall_status,
         "mission": "ROMAN",
         "domain": "ASTRONOMICAL_OBSERVATORY",
@@ -268,6 +272,12 @@ def run_probe(
             "errors": mast_errors,
         },
         "official_pages": {
+            "summary": page_counts,
+            "interpretation": (
+                "Response capture and HTTP 2xx do not establish requested-content "
+                "access, authentication, or spacecraft status. Login capture is "
+                "identified from explicit final-URL path segments only."
+            ),
             "results": page_summaries,
             "errors": page_errors,
         },
@@ -336,13 +346,21 @@ def run_probe(
         f"- **Scheduled launch UTC:** {launch.isoformat()}",
         f"- **Hours to scheduled launch:** {hours_to_launch:.3f}",
         f"- **MAST transport available:** {transport_ok}",
-        f"- **Official page successes:** {len(page_summaries)}",
+        f"- **Official responses captured:** {page_counts['captured_response_count']}",
+        f"- **HTTP 2xx responses:** {page_counts['http_2xx_count']}",
+        f"- **HTTP non-2xx responses:** {page_counts['http_non_2xx_count']}",
+        f"- **Login-page captures (within HTTP 2xx):** {page_counts['login_page_capture_count']}",
+        f"- **Other HTTP 2xx captures (access unverified):** {page_counts['non_login_http_2xx_count']}",
+        f"- **Page transport errors:** {page_counts['transport_error_count']}",
         f"- **Synthetic fixture:** `{fixture.metrics['fixture_class']}`",
         f"- **Injected sources:** {benchmark_metrics['injected_source_count']}",
         f"- **Matched sources:** {benchmark_metrics['matched_source_count']}",
         f"- **Truth completeness:** {benchmark_metrics['completeness']:.3f}",
         f"- **Detection purity:** {benchmark_metrics['purity']:.3f}",
         f"- **Cosmic-ray leakage detections:** {benchmark_metrics['cosmic_ray_detection_leakage_count']}",
+        "",
+        "A captured response is not proof of successful requested-page access. "
+        "HTTP 2xx alone does not verify content or authenticated access.",
         "",
         "## What ran",
         "",
