@@ -122,7 +122,7 @@ def test_prelaunch_probe_treats_zero_roman_rows_as_readiness_state(tmp_path):
 
     assert manifest["status"] == "READY"
     assert manifest["mission_phase"] == "PRELAUNCH"
-    assert manifest["archive_state"] == "PRELAUNCH_NO_ROMAN_CAOM_HOLDINGS"
+    assert manifest["archive_state"] == "NO_MATCHING_ROMAN_CAOM_ROWS"
     assert manifest["flight_science_data_processed"] is False
     assert manifest["l1_plasma_physics_allowed"] is False
     assert manifest["synthetic_fixture"]["status"] == "SUCCESS"
@@ -152,3 +152,129 @@ def test_scheduled_launch_time_does_not_claim_launch_success(tmp_path):
         "does not establish that launch occurred" in item
         for item in manifest["interpretation_limits"]
     )
+
+
+class RedirectSession(FakeSession):
+    """Keep the simulated final URL instead of replacing it with the request."""
+
+    def get(self, _url, *_args, **_kwargs):
+        return self.gets.pop(0)
+
+
+def test_captured_404_and_login_are_reported_without_changing_fixture(tmp_path, monkeypatch):
+    import hashlib
+    import requests
+
+    def no_network(*_args, **_kwargs):
+        raise AssertionError("reporting regression must remain offline")
+
+    monkeypatch.setattr(requests.sessions.Session, "request", no_network)
+    config = _config()
+    config["official_pages"] = [
+        {"name": name, "url": "https://example.test/" + name.lower()}
+        for name in ["Countdown", "MAST", "Triplet", "Nexus", "ISim"]
+    ]
+    config_path = tmp_path / "roman.json"
+    config_path.write_text(json.dumps(config))
+    bodies = [
+        "<html><title>Page not found</title>404 evidence</html>",
+        "<html><title>MAST</title>metadata</html>",
+        "<html><title>Triplet</title>ground test</html>",
+        "<html><title>JupyterHub</title>login</html>",
+        "<html><title>I-Sim</title>documentation</html>",
+    ]
+    gets = [
+        FakeResponse(
+            body,
+            status_code=404 if i == 0 else 200,
+            url="https://example.test/hub/login?next=%2Fhub%2F"
+            if i == 3 else config["official_pages"][i]["url"],
+            content_type="text/html",
+        )
+        for i, body in enumerate(bodies)
+    ]
+    session = RedirectSession(posts=_session().posts, gets=gets)
+    run_dir = tmp_path / "partial"
+    manifest = run_probe(
+        config_path=config_path,
+        outdir=run_dir,
+        now_value="2026-09-10T06:52:23Z",
+        session=session,
+    )
+    assert not session.posts and not session.gets
+    assert manifest["manifest_version"] == "1.2.0"
+    assert manifest["status"] == "PARTIAL"
+    assert manifest["mission_phase"] == "POSTLAUNCH_STATUS_UNVERIFIED"
+    assert manifest["archive_state"] == "NO_MATCHING_ROMAN_CAOM_ROWS"
+    assert manifest["official_pages"]["errors"] == []  # no transport error
+    assert manifest["official_pages"]["summary"] == {
+        "captured_response_count": 5,
+        "http_2xx_count": 4,
+        "http_non_2xx_count": 1,
+        "login_page_capture_count": 1,
+        "non_login_http_2xx_count": 3,
+        "transport_error_count": 0,
+    }
+    for row, body in zip(manifest["official_pages"]["results"], bodies):
+        data = (run_dir / row["raw_path"]).read_bytes()
+        assert data == body.encode()
+        assert row["raw_sha256"] == hashlib.sha256(data).hexdigest()
+    for row in manifest["artifact_inventory"]:
+        data = (run_dir / row["path"]).read_bytes()
+        assert len(data) == row["size_bytes"]
+        assert hashlib.sha256(data).hexdigest() == row["sha256"]
+    report = (run_dir / "reports" / "ROMAN_READINESS.md").read_text()
+    assert "Official page successes" not in report
+    assert "Official responses captured:** 5" in report
+    assert "HTTP 2xx responses:** 4" in report
+    assert "HTTP non-2xx responses:** 1" in report
+    assert "Login-page captures (within HTTP 2xx):** 1" in report
+
+    # The same source-generation and detection settings still give the same math.
+    config["official_pages"] = _config()["official_pages"]
+    config_path.write_text(json.dumps(config))
+    control = run_probe(
+        config_path=config_path,
+        outdir=tmp_path / "control",
+        now_value="2026-09-10T06:52:23Z",
+        session=_session(),
+    )
+    assert control["status"] == "READY"
+    assert control["synthetic_fixture"]["metrics"]["array_sha256"] == (
+        manifest["synthetic_fixture"]["metrics"]["array_sha256"]
+    )
+    assert control["truth_recovery_benchmark"]["metrics"] == (
+        manifest["truth_recovery_benchmark"]["metrics"]
+    )
+
+
+def test_page_transport_error_is_separate_from_captured_http_error(tmp_path, monkeypatch):
+    import requests
+
+    def no_network(*_args, **_kwargs):
+        raise AssertionError("reporting regression must remain offline")
+
+    monkeypatch.setattr(requests.sessions.Session, "request", no_network)
+
+    class OneMissingPageSession(FakeSession):
+        def get(self, url, *_args, **_kwargs):
+            if url.endswith("/nasa"):
+                raise requests.ConnectionError("offline transport fixture")
+            return super().get(url, *_args, **_kwargs)
+
+    config_path = tmp_path / "roman.json"
+    config_path.write_text(json.dumps(_config()))
+    session = OneMissingPageSession(posts=_session().posts, gets=_session().gets[1:])
+    manifest = run_probe(
+        config_path=config_path,
+        outdir=tmp_path / "run",
+        now_value="2026-09-10T06:52:23Z",
+        session=session,
+    )
+    assert manifest["status"] == "PARTIAL"
+    counts = manifest["official_pages"]["summary"]
+    assert counts["captured_response_count"] == 1
+    assert counts["http_2xx_count"] == 1
+    assert counts["http_non_2xx_count"] == 0
+    assert counts["transport_error_count"] == 1
+    assert len(manifest["official_pages"]["errors"]) == 1
