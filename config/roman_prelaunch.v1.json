@@ -1,5 +1,5 @@
 {
-  "contract_version": "1.1.0",
+  "contract_version": "1.2.0",
   "domain": "ASTRONOMICAL_OBSERVATORY",
   "launch_utc": "2026-08-30T11:26:00Z",
   "mast": {
@@ -13,6 +13,12 @@
     "timeout_seconds": 45
   },
   "mission": "ROMAN",
+  "mission_status_reference": {
+    "phase": "COMMISSIONING_REPORTED",
+    "source_date": "2026-09-15",
+    "source_url": "https://science.nasa.gov/blogs/roman/2026/09/15/nasa-activates-romans-primary-instrument-checks-out-coronagraph/",
+    "summary": "NASA reports WFI activation and coronagraph checks during commissioning on the journey to L2. This dated report does not classify any MAST record as flight data."
+  },
   "nexus": {
     "accepted_source_classes": [
       "ROMAN_RESEARCH_NEXUS_EXPORT",
@@ -29,8 +35,8 @@
   "official_name": "Nancy Grace Roman Space Telescope",
   "official_pages": [
     {
-      "name": "NASA Roman launch countdown",
-      "url": "https://science.nasa.gov/mission/roman-space-telescope/roman-launch-countdown/"
+      "name": "NASA Roman commissioning report 2026-09-15",
+      "url": "https://science.nasa.gov/blogs/roman/2026/09/15/nasa-activates-romans-primary-instrument-checks-out-coronagraph/"
     },
     {
       "name": "MAST Roman mission page",

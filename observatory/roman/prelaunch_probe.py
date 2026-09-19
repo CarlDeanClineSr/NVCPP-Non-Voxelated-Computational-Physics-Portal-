@@ -1,4 +1,4 @@
-"""Roman prelaunch archive and simulation-readiness probe.
+"""Roman archive and simulation-readiness probe with dated mission context.
 
 The probe asks only bounded, public questions:
 
@@ -232,7 +232,17 @@ def run_probe(
     )
 
     hours_to_launch = _hours_to_launch(now, launch)
-    mission_phase = _mission_phase(hours_to_launch)
+    schedule_based_watch_state = _mission_phase(hours_to_launch)
+    mission_phase = schedule_based_watch_state
+    mission_phase_basis = "SCHEDULE_ONLY"
+    reference = contract.get("mission_status_reference")
+    # A manually reviewed report is dated context, not live telemetry. Do not
+    # let a report from a later calendar day leak into an earlier replay.
+    mission_status_reference = None
+    if reference and reference["source_date"] <= now.date().isoformat():
+        mission_status_reference = dict(reference)
+        mission_phase = reference["phase"]
+        mission_phase_basis = "REVIEWED_OFFICIAL_REPORT"
 
     transport_ok = mission_response_summary is not None or bool(
         collection_response_summaries
@@ -247,11 +257,14 @@ def run_probe(
         overall_status = "PARTIAL"
 
     manifest: dict[str, Any] = {
-        "manifest_version": "1.2.0",
+        "manifest_version": "1.3.0",
         "status": overall_status,
         "mission": "ROMAN",
         "domain": "ASTRONOMICAL_OBSERVATORY",
         "mission_phase": mission_phase,
+        "mission_phase_basis": mission_phase_basis,
+        "schedule_based_watch_state": schedule_based_watch_state,
+        "mission_status_reference": mission_status_reference,
         "checked_utc": now.isoformat(),
         "launch_utc": launch.isoformat(),
         "hours_to_launch": hours_to_launch,
@@ -323,6 +336,8 @@ def run_probe(
             "The local deterministic fixture is not Roman I-Sim output or flight data.",
             "No MAST archive result establishes launch or commissioning success.",
             "Crossing the scheduled launch time does not establish that launch occurred.",
+            "Reviewed mission reports describe their source date, not live spacecraft status; no later phase is inferred.",
+            "A commissioning report does not classify MAST records or authorize flight science.",
             "No absence from MAST is interpreted as an instrument failure.",
             "Truth-recovery scores measure this simple fixture detector, not Roman performance.",
         ],
@@ -340,7 +355,9 @@ def run_probe(
         "# NVCPP Roman Readiness Watch",
         "",
         f"- **Status:** `{overall_status}`",
-        f"- **Mission phase:** `{mission_phase}`",
+        f"- **Mission phase label:** `{mission_phase}`",
+        f"- **Phase basis:** `{mission_phase_basis}`",
+        f"- **Schedule-only watch state:** `{schedule_based_watch_state}`",
         f"- **Archive state:** `{archive_state}`",
         f"- **Checked UTC:** {now.isoformat()}",
         f"- **Scheduled launch UTC:** {launch.isoformat()}",
@@ -381,6 +398,20 @@ def run_probe(
         "",
         "See `roman_readiness_manifest.json` for machine-readable evidence.",
     ]
+    if mission_status_reference:
+        report.extend([
+            "",
+            "## Dated mission-status reference",
+            "",
+            f"NASA report dated {mission_status_reference['source_date']}: "
+            f"[source]({mission_status_reference['source_url']}).",
+            "",
+            mission_status_reference["summary"],
+            "",
+            "This is manually reviewed, date-granularity context, not a live status "
+            "check. HTTP success, archive rows, and the clock cannot update it. "
+            "Later mission phases require another reviewed report.",
+        ])
     (reports_dir / "ROMAN_READINESS.md").write_text(
         "\n".join(report) + "\n",
         encoding="utf-8",

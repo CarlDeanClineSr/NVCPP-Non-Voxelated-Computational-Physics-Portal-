@@ -1,5 +1,9 @@
 import json
+from pathlib import Path
 
+import pytest
+
+from observatory.roman.contracts import load_contract, validate_contract
 from observatory.roman.prelaunch_probe import run_probe
 
 
@@ -202,7 +206,7 @@ def test_captured_404_and_login_are_reported_without_changing_fixture(tmp_path, 
         session=session,
     )
     assert not session.posts and not session.gets
-    assert manifest["manifest_version"] == "1.2.0"
+    assert manifest["manifest_version"] == "1.3.0"
     assert manifest["status"] == "PARTIAL"
     assert manifest["mission_phase"] == "POSTLAUNCH_STATUS_UNVERIFIED"
     assert manifest["archive_state"] == "NO_MATCHING_ROMAN_CAOM_ROWS"
@@ -278,3 +282,79 @@ def test_page_transport_error_is_separate_from_captured_http_error(tmp_path, mon
     assert counts["http_non_2xx_count"] == 0
     assert counts["transport_error_count"] == 1
     assert len(manifest["official_pages"]["errors"]) == 1
+
+
+@pytest.mark.parametrize(
+    ("now", "expected_phase", "expected_basis"),
+    [
+        ("2026-09-14T12:00:00Z", "POSTLAUNCH_STATUS_UNVERIFIED", "SCHEDULE_ONLY"),
+        ("2026-09-19T12:00:00Z", "COMMISSIONING_REPORTED", "REVIEWED_OFFICIAL_REPORT"),
+        ("2026-12-20T12:00:00Z", "COMMISSIONING_REPORTED", "REVIEWED_OFFICIAL_REPORT"),
+    ],
+)
+def test_dated_report_is_separate_from_clock_and_archive(
+    tmp_path, monkeypatch, now, expected_phase, expected_basis
+):
+    import requests
+
+    def no_network(*_args, **_kwargs):
+        raise AssertionError("mission-status regression must remain offline")
+
+    monkeypatch.setattr(requests.sessions.Session, "request", no_network)
+    reference = load_contract(Path("config/roman_prelaunch.v1.json"))["mission_status_reference"]
+    config = _config()
+    config["mission_status_reference"] = reference
+    config_path = tmp_path / "roman.json"
+    config_path.write_text(json.dumps(config))
+    manifest = run_probe(
+        config_path=config_path,
+        outdir=tmp_path / "run",
+        now_value=now,
+        session=_session(),
+    )
+    assert manifest["mission_phase"] == expected_phase
+    assert manifest["mission_phase_basis"] == expected_basis
+    assert manifest["schedule_based_watch_state"] in {
+        "POSTLAUNCH_STATUS_UNVERIFIED", "POSTLAUNCH_ARCHIVE_WATCH"
+    }
+    assert manifest["archive_state"] == "NO_MATCHING_ROMAN_CAOM_ROWS"
+    report = (tmp_path / "run/reports/ROMAN_READINESS.md").read_text()
+    if expected_basis == "SCHEDULE_ONLY":
+        assert manifest["mission_status_reference"] is None
+        assert "Dated mission-status reference" not in report
+    else:
+        assert manifest["mission_status_reference"] == reference
+        assert reference["source_date"] in report
+        assert reference["source_url"] in report
+        assert "not a live status check" in report
+    for flag in ("flight_science_data_processed", "science_claims_enabled",
+                 "l1_plasma_physics_allowed", "chi_B24M_allowed"):
+        assert manifest[flag] is False
+
+
+@pytest.mark.parametrize(
+    ("key", "value"),
+    [("phase", "SCIENCE_OPERATIONS"), ("source_date", "2026-99-99"),
+     ("source_date", None), ("source_url", "https://example.test/claim"),
+     ("summary", "")],
+)
+def test_mission_reference_requires_supported_phase_date_and_source(key, value):
+    config = load_contract(Path("config/roman_prelaunch.v1.json"))
+    config["mission_status_reference"][key] = value
+    assert any("mission_status_reference" in error for error in validate_contract(config))
+
+
+def test_mission_reference_rejects_non_object():
+    config = _config()
+    config["mission_status_reference"] = "commissioning"
+    assert "mission_status_reference must be an object" in validate_contract(config)
+
+
+def test_current_reference_replaces_obsolete_countdown_without_changing_boundaries():
+    config = load_contract(Path("config/roman_prelaunch.v1.json"))
+    urls = [page["url"] for page in config["official_pages"]]
+    assert config["mission_status_reference"]["source_url"] in urls
+    assert not any("roman-launch-countdown" in url for url in urls)
+    assert config["physics"]["science_claims_enabled"] is False
+    assert config["mast"]["sample_row_limit"] == 25
+    assert config["nexus"]["automated_public_scrape"] is False

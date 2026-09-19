@@ -36,6 +36,7 @@ def test_runtime_maintenance_does_not_enable_hourly_or_holdout_automation():
     assert "push:" not in triggers
     assert "pull_request:" not in triggers
     roman = (ROOT / ".github/workflows/roman_prelaunch_readiness.yml").read_text()
+    assert "runs-on: ubuntu-24.04" in roman
     assert 'cron: "37 */6 * * *"' in roman  # retain, do not widen the existing watch
     assert "tests/test_roman_page_reporting.py" in roman
     for text in (hourly, roman):

@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import date, datetime
 import json
 from pathlib import Path
 from typing import Any
@@ -35,6 +35,28 @@ def validate_contract(contract: dict[str, Any]) -> list[str]:
         parse_utc(str(contract.get("launch_utc", "")))
     except (ValueError, RomanContractError):
         errors.append("launch_utc must be an ISO-8601 UTC timestamp")
+
+    reference = contract.get("mission_status_reference")
+    if reference is not None:
+        if not isinstance(reference, dict):
+            errors.append("mission_status_reference must be an object")
+        else:
+            if reference.get("phase") != "COMMISSIONING_REPORTED":
+                errors.append("mission_status_reference.phase must be COMMISSIONING_REPORTED")
+            try:
+                source_date = reference.get("source_date")
+                if date.fromisoformat(source_date).isoformat() != source_date:
+                    raise ValueError("noncanonical date")
+            except (TypeError, ValueError):
+                errors.append("mission_status_reference.source_date must be YYYY-MM-DD")
+            source_url = reference.get("source_url")
+            if not isinstance(source_url, str) or not source_url.startswith(
+                "https://science.nasa.gov/"
+            ):
+                errors.append("mission_status_reference.source_url must identify a NASA Science report")
+            summary = reference.get("summary")
+            if not isinstance(summary, str) or not summary.strip():
+                errors.append("mission_status_reference.summary must state the dated reported status")
 
     physics = contract.get("physics")
     if not isinstance(physics, dict):
