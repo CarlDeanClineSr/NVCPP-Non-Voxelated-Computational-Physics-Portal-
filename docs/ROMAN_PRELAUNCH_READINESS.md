@@ -1,4 +1,4 @@
-# Roman Prelaunch and Archive Readiness
+# Roman Archive Readiness and Dated Mission Context
 
 ## Purpose
 
@@ -15,7 +15,7 @@ The readiness path has five immediate jobs:
 4. score that fixture against its known injected truth;
 5. define the intake boundary for Roman Research Nexus and Roman I-Sim exports.
 
-## Launch posture
+## Launch schedule versus reported mission status
 
 The frozen readiness contract records the scheduled launch time as:
 
@@ -31,8 +31,31 @@ SCHEDULED_LAUNCH_WINDOW_UNVERIFIED
 ```
 
 It does not declare launch, deployment, commissioning, or mission success from
-the clock alone. Later states remain unverified until an authoritative source or
-archive transition supports them.
+the clock alone. An archive transition cannot establish those milestones either.
+
+The reviewed [NASA report dated September 15, 2026](https://science.nasa.gov/blogs/roman/2026/09/15/nasa-activates-romans-primary-instrument-checks-out-coronagraph/)
+describes WFI activation and coronagraph checks during commissioning on the
+journey to L2. Contract version 1.2.0 records this under
+`mission_status_reference`, with phase `COMMISSIONING_REPORTED`, source date,
+source URL, and an interpretation limit. Its URL replaces the obsolete countdown
+page, which returned HTTP 404 in the September 19 readiness capture.
+
+Manifest version 1.3.0 separates:
+
+- `schedule_based_watch_state`: the unchanged clock-only calculation;
+- `mission_phase_basis`: `SCHEDULE_ONLY` or `REVIEWED_OFFICIAL_REPORT`;
+- `mission_status_reference`: the dated reviewed report, or null for a replay
+  earlier than the report's calendar date;
+- `archive_state`: MAST availability, independent of the mission report.
+
+The phase is **reported as of the source date**, not a live spacecraft-status
+measurement. Dates are evaluated at calendar-day precision. Advancing the clock,
+capturing an HTTP 200 page, or finding MAST records cannot promote the reference
+to L2 arrival or science operations. Later phases require a new reviewed source.
+Commissioning context never classifies a catalog record as flight data and never
+enables science claims. Legacy `prelaunch` filenames and the contract's
+`PRELAUNCH_READINESS` safety-profile name are retained for compatibility; they
+are not assertions about the spacecraft's current location.
 
 ## Public MAST path
 
@@ -56,7 +79,7 @@ metadata sample only when a count is positive. No bulk product download occurs.
 Possible archive states are:
 
 ```text
-PRELAUNCH_NO_ROMAN_CAOM_HOLDINGS
+NO_MATCHING_ROMAN_CAOM_ROWS
 ROMAN_REGISTERED_NO_MATCHING_ROWS
 ROMAN_CAOM_HOLDINGS_AVAILABLE
 MAST_TRANSPORT_FAILED
@@ -236,7 +259,9 @@ python -m observatory.roman.prelaunch_probe \
 ```
 
 The GitHub workflow runs every six hours at minute 37 UTC and can also be
-dispatched manually.
+dispatched manually. Its runner is pinned to `ubuntu-24.04`; existing Node 24
+actions, Python 3.12, schedule, metadata limits, and synthetic fixture settings
+are unchanged.
 
 ## Evidence products
 
