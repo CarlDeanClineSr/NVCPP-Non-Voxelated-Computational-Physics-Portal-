@@ -1,0 +1,78 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Imperial Physics Observatory</title>
+<meta name="description" content="Imperial Physics Observatory — public front door for NVCPP.">
+<style>
+:root{--bg:#05080d;--panel:#0b111a;--line:#203047;--text:#e6edf5;--muted:#8fa3b8;--cyan:#52d6ff;--green:#63f2a3;--amber:#ffd166}
+*{box-sizing:border-box}body{margin:0;min-height:100vh;background:radial-gradient(circle at 20% 0%,#122033 0%,var(--bg) 45%);color:var(--text);font-family:Segoe UI,system-ui,sans-serif}
+main{max-width:1160px;margin:auto;padding:28px 20px 48px}header{padding-bottom:20px;border-bottom:1px solid var(--line)}
+.eyebrow{font-size:.75rem;letter-spacing:.18em;text-transform:uppercase;color:var(--muted)}
+h1{font-size:clamp(2.1rem,5vw,4.2rem);margin:.25rem 0 .5rem;color:var(--cyan);letter-spacing:.03em}
+.lead{max-width:900px;color:#c7d3df;line-height:1.6}.nav{display:flex;flex-wrap:wrap;gap:10px;margin-top:18px}.nav a,.list a{color:var(--text);text-decoration:none}
+.nav a{padding:10px 14px;background:var(--panel);border:1px solid var(--line);border-radius:9px}.nav a:hover{border-color:var(--cyan);color:var(--cyan)}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(270px,1fr));gap:16px;margin-top:18px}.card{background:rgba(11,17,26,.96);border:1px solid var(--line);border-radius:14px;padding:18px}.card h2{margin:0 0 12px;font-size:1rem;letter-spacing:.08em;color:var(--cyan);text-transform:uppercase}
+.row{display:flex;justify-content:space-between;gap:12px;padding:9px 0;border-bottom:1px solid rgba(32,48,71,.7)}.row:last-child{border-bottom:0}.label{color:var(--muted)}.value{font-weight:600;text-align:right}
+.ok{color:var(--green)}.warn{color:var(--amber)}.big{font-size:2rem;font-weight:700;margin:.2rem 0 .5rem}.small{color:var(--muted);font-size:.9rem;line-height:1.5}.list{display:grid;gap:11px}.list a:hover{text-decoration:underline}
+footer{margin-top:24px;padding-top:16px;border-top:1px solid var(--line);color:var(--muted);font-size:.85rem;line-height:1.6}
+</style>
+</head>
+<body><main>
+<header>
+<div class="eyebrow">Imperial Physics Observatory</div>
+<h1>OBSERVATORY CONTROL FRONT DOOR</h1>
+<p class="lead">Public web front end for the NVCPP (Non-Voxelated Computational Physics Portal). The repository is the source for program code, source contracts, tests, workflows, provenance, and compact observatory records.</p>
+<div class="nav">
+<a href="https://github.com/CarlDeanClineSr/NVCPP-Non-Voxelated-Computational-Physics-Portal-">NVCPP Repository</a>
+<a href="https://github.com/CarlDeanClineSr/NVCPP-Non-Voxelated-Computational-Physics-Portal-/actions">Workflow Control</a>
+<a href="https://github.com/CarlDeanClineSr/NVCPP-Non-Voxelated-Computational-Physics-Portal-/blob/main/README.md">Program State</a>
+<a href="https://github.com/CarlDeanClineSr/NVCPP-Non-Voxelated-Computational-Physics-Portal-/tree/main/docs">Documentation</a>
+<a href="https://github.com/CarlDeanClineSr/NVCPP-Non-Voxelated-Computational-Physics-Portal-/tree/main/observatory/roman">Roman Readiness</a>
+</div>
+</header>
+
+<div class="grid">
+<section class="card"><h2>Public Site</h2>
+<div class="row"><span class="label">Domain</span><span class="value ok">imperialphysicsobservatory.org</span></div>
+<div class="row"><span class="label">Program</span><span class="value ok">NVCPP</span></div>
+<div class="row"><span class="label">UTC</span><span class="value" id="clock">--:--:--</span></div>
+</section>
+
+<section class="card"><h2>Repository</h2>
+<div class="big" id="repoState">CHECKING</div>
+<div class="small">The page reads public repository metadata directly from GitHub. It does not invent telemetry values.</div>
+<div class="row"><span class="label">Last push</span><span class="value" id="repoUpdated">—</span></div>
+</section>
+
+<section class="card"><h2>Hourly Observatory</h2>
+<div class="big warn">MANUAL-ONLY</div>
+<div class="row"><span class="label">Operational sources</span><span class="value">NOAA / SOLAR-1</span></div>
+<div class="row"><span class="label">Automatic schedule</span><span class="value">Disabled</span></div>
+</section>
+
+<section class="card"><h2>Observatory Domains</h2>
+<div class="row"><span class="label">L1 space weather</span><span class="value ok">Operational tooling</span></div>
+<div class="row"><span class="label">Roman readiness</span><span class="value ok">Implemented</span></div>
+<div class="row"><span class="label">JWST / HST</span><span class="value warn">Reserved</span></div>
+<div class="row"><span class="label">IMAP</span><span class="value warn">Not enabled</span></div>
+</section>
+</div>
+
+<section class="card" style="margin-top:18px"><h2>Operator Links</h2><div class="list">
+<a href="https://github.com/CarlDeanClineSr/NVCPP-Non-Voxelated-Computational-Physics-Portal-/actions/workflows/hourly_observatory.yml">Hourly Observatory workflow</a>
+<a href="https://github.com/CarlDeanClineSr/NVCPP-Non-Voxelated-Computational-Physics-Portal-/blob/main/docs/HOURLY_OBSERVATORY.md">Hourly operating protocol</a>
+<a href="https://github.com/CarlDeanClineSr/NVCPP-Non-Voxelated-Computational-Physics-Portal-/tree/main/config">Configuration contracts</a>
+<a href="https://github.com/CarlDeanClineSr/NVCPP-Non-Voxelated-Computational-Physics-Portal-/tree/main/provenance">Provenance records</a>
+<a href="https://github.com/CarlDeanClineSr/NVCPP-Non-Voxelated-Computational-Physics-Portal-/tree/main/tests">Tests and integrity checks</a>
+</div></section>
+
+<footer>Imperial Physics Observatory · NVCPP public front door<br><span id="status">Checking repository…</span></footer>
+</main>
+<script>
+const REPO="CarlDeanClineSr/NVCPP-Non-Voxelated-Computational-Physics-Portal-";
+function tick(){document.getElementById('clock').textContent=new Date().toISOString().slice(11,19)+" UTC"} tick(); setInterval(tick,1000);
+(async()=>{try{const r=await fetch("https://api.github.com/repos/"+REPO);if(!r.ok)throw new Error(r.status);const d=await r.json();document.getElementById("repoState").textContent=d.archived?"ARCHIVED":"ONLINE";document.getElementById("repoState").className="big "+(d.archived?"warn":"ok");document.getElementById("repoUpdated").textContent=new Date(d.pushed_at).toISOString().replace("T"," ").replace(".000Z"," UTC");document.getElementById("status").textContent="Repository metadata verified at page load."}catch(e){document.getElementById("repoState").textContent="UNAVAILABLE";document.getElementById("status").textContent="Repository metadata request failed."}})();
+</script>
+</body></html>
