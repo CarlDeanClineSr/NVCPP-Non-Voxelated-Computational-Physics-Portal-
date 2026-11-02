@@ -33,12 +33,19 @@ SCHEDULED_LAUNCH_WINDOW_UNVERIFIED
 It does not declare launch, deployment, commissioning, or mission success from
 the clock alone. An archive transition cannot establish those milestones either.
 
-The reviewed [NASA report dated September 15, 2026](https://science.nasa.gov/blogs/roman/2026/09/15/nasa-activates-romans-primary-instrument-checks-out-coronagraph/)
-describes WFI activation and coronagraph checks during commissioning on the
-journey to L2. Contract version 1.2.0 records this under
-`mission_status_reference`, with phase `COMMISSIONING_REPORTED`, source date,
-source URL, and an interpretation limit. Its URL replaces the obsolete countdown
-page, which returned HTTP 404 in the September 19 readiness capture.
+The latest reviewed mission-status reference is the [NASA report dated
+October 22, 2026](https://science.nasa.gov/blogs/roman/2026/10/22/nasas-roman-space-telescope-enters-final-commissioning-phase/).
+NASA reports that Roman entered its science commissioning phase after the
+observatory and primary-instrument checkout. The report says the observatory can
+guide, take exposures, slew between targets, and return data. The team is still
+conducting planned test observations to characterize instrument response and
+refine image quality before routine science operations.
+
+`config/roman_prelaunch.v1.json` records this under `mission_status_reference`
+with phase `COMMISSIONING_REPORTED`, source date `2026-10-22`, source URL, and an
+interpretation limit. The September 15 report remains in `official_pages` as a
+historical source capture; the October 22 report is the newer dated reference.
+Neither report classifies a MAST catalog row as flight science data.
 
 Manifest version 1.3.0 separates:
 
@@ -51,9 +58,9 @@ Manifest version 1.3.0 separates:
 The phase is **reported as of the source date**, not a live spacecraft-status
 measurement. Dates are evaluated at calendar-day precision. Advancing the clock,
 capturing an HTTP 200 page, or finding MAST records cannot promote the reference
-to L2 arrival or science operations. Later phases require a new reviewed source.
-Commissioning context never classifies a catalog record as flight data and never
-enables science claims. Legacy `prelaunch` filenames and the contract's
+to L2 arrival or routine science operations. Later phases require a new reviewed
+source. Commissioning context never classifies a catalog record as flight data
+and never enables science claims. Legacy `prelaunch` filenames and the contract's
 `PRELAUNCH_READINESS` safety-profile name are retained for compatibility; they
 are not assertions about the spacecraft's current location.
 
