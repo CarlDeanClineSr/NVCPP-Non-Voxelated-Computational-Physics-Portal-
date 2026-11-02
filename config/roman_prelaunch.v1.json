@@ -15,9 +15,9 @@
   "mission": "ROMAN",
   "mission_status_reference": {
     "phase": "COMMISSIONING_REPORTED",
-    "source_date": "2026-09-15",
-    "source_url": "https://science.nasa.gov/blogs/roman/2026/09/15/nasa-activates-romans-primary-instrument-checks-out-coronagraph/",
-    "summary": "NASA reports WFI activation and coronagraph checks during commissioning on the journey to L2. This dated report does not classify any MAST record as flight data."
+    "source_date": "2026-10-22",
+    "source_url": "https://science.nasa.gov/blogs/roman/2026/10/22/nasas-roman-space-telescope-enters-final-commissioning-phase/",
+    "summary": "NASA reports that Roman entered its science commissioning phase after observatory and primary-instrument checkout. The observatory can guide, take exposures, move between targets, and return data; test observations continue to characterize instrument response and image quality before routine science operations. This dated report does not classify any MAST record as flight science data."
   },
   "nexus": {
     "accepted_source_classes": [
@@ -34,6 +34,10 @@
   },
   "official_name": "Nancy Grace Roman Space Telescope",
   "official_pages": [
+    {
+      "name": "NASA Roman science commissioning report 2026-10-22",
+      "url": "https://science.nasa.gov/blogs/roman/2026/10/22/nasas-roman-space-telescope-enters-final-commissioning-phase/"
+    },
     {
       "name": "NASA Roman commissioning report 2026-09-15",
       "url": "https://science.nasa.gov/blogs/roman/2026/09/15/nasa-activates-romans-primary-instrument-checks-out-coronagraph/"
@@ -70,25 +74,25 @@
   },
   "status": "PRELAUNCH_READINESS",
   "synthetic_fixture": {
-    "background_electrons": 1000.0,
+    "background_electrons": 1000,
     "cosmic_ray_count": 10,
-    "cosmic_ray_signal": 25000.0,
-    "detection_sigma": 5.0,
+    "cosmic_ray_signal": 25000,
+    "detection_sigma": 5,
     "psf_sigma_pixels": 1.35,
-    "read_noise_electrons": 6.0,
-    "saturation_level": 65000.0,
+    "read_noise_electrons": 6,
+    "saturation_level": 65000,
     "seed": 20260830,
     "shape": [
       128,
       128
     ],
     "source_count": 24,
-    "source_flux_max": 12000.0,
-    "source_flux_min": 750.0
+    "source_flux_max": 12000,
+    "source_flux_min": 750
   },
   "truth_benchmark": {
-    "detection_sigma": 5.0,
-    "match_radius_pixels": 4.0,
+    "detection_sigma": 5,
+    "match_radius_pixels": 4,
     "minimum_component_pixels": 2,
     "use_limit": "Engineering readiness only; scores describe the current simple detector on a known synthetic fixture, not Roman flight performance."
   }
