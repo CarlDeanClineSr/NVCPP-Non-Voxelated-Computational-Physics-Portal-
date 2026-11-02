@@ -154,7 +154,7 @@ Roman readiness and truth recovery
 
 Implemented; commissioning reference updated October 22, 2026
 
-Six-hour archive watch, bounded public queries, official-page hashing, deterministic fixtures, truth matching, and authenticated-export inventory. NASA reports Roman has entered science commissioning; test observations are still being used to characterize instrument response and image quality before routine science operations.
+Six-hour archive watch, bounded public queries, official-page hashing, deterministic fixtures, truth matching, and authenticated-export inventory. The November 2 MAST probe returned 285,345 CAOM rows for each capitalization of the Roman collection name (identical count response; not additive). A 25-row WFI sample was tagged `ROMAN TEST` and included public science-intent image records at data Levels 1, 2, and 3. Product bytes were not downloaded in that readiness run. NASA reports Roman is in science commissioning, with test observations continuing before routine science operations.
 
 IMAP mission-specific adapter
 

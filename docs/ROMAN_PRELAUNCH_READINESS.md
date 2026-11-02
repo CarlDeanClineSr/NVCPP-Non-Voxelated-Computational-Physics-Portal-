@@ -95,6 +95,80 @@ MAST_TRANSPORT_FAILED
 A zero result is an archive-availability state. It is not interpreted as a
 hardware, launch, commissioning, or science failure.
 
+### Observed public MAST holdings — November 2, 2026
+
+The post-merge readiness run `41454886341` queried the two configured collection
+spellings, `Roman` and `ROMAN`. Each returned 285,345 CAOM rows. Both count
+responses had the same SHA-256
+(`de465fa5d6c4023326fe53116447d83cf587107f1bf6f7e09d501d1e2d9c7ffd`), so the
+two spellings are aliases for this query result and must not be added together.
+
+The bounded sample preserved 25 metadata rows for each spelling. In the
+`Roman` sample, all 25 rows had:
+
+- `obs_collection = ROMAN`
+- `provenance_name = ROMAN TEST`
+- `instrument_name = WFI`
+- `intentType = science`
+- `dataproduct_type = image`
+- `dataRights = PUBLIC`
+
+The 25-row sample included 12 Level 3 records, 12 Level 2 records, and 1 Level 1
+record. The metadata included DARK frames and imaging filters F062, F087, F106,
+F129, F146, F158, and F184. The sampled observation times ran from
+2026-09-15 through 2026-10-23. Some proposal types were marked `COM`; six
+sample rows had no proposal type recorded.
+
+This is a real change from an empty archive watch: MAST now returns a substantial
+Roman WFI catalog and public product paths. It is not yet a claim that 285,345
+independent exposures exist, nor that routine Roman survey operations have
+started. The count is a CAOM row count, not a count of unique exposures. The
+sample's `ROMAN TEST` provenance and commissioning-era dates must remain visible
+alongside the archive's science-intent and product-level fields. The readiness
+run sampled metadata only; it did **not** download or inspect the ASDF product
+bytes. Product-level interpretation and byte validation remain the next step.
+
+The sampled product paths included ASDF products ending in `_uncal.asdf`,
+`_cal.asdf`, and `_coadd.asdf`. These suffixes identify materially different
+processing levels; do not treat them as interchangeable or label all of them
+"raw."
+
+### What "raw" means for public Roman WFI data
+
+STScI's WFI data-level documentation distinguishes the instrument packet stream
+from the lowest public science product:
+
+- **Level 0 (L0):** raw, packetized data received from WFI. STScI states that L0
+  products are not publicly accessible.
+- **Level 1 (L1):** uncalibrated detector data, including science ramps in
+  `_uncal.asdf` files. L1 is constructed from L0; data are reoriented into the
+  science coordinate frame and essential metadata are populated. It is the
+  lowest public WFI science-data level, but it is not byte-for-byte raw L0.
+- **Level 2 (L2):** calibrated two-dimensional detector rate images in DN/s.
+  The pipeline fits count-rate slopes and applies detector-level calibrations;
+  uncertainty information is propagated into the product.
+- **Level 3 (L3):** co-additions/mosaics made from L2 products. The pipeline
+  corrects geometric distortion, converts to surface-brightness units, and uses
+  data-quality information to screen detector effects.
+
+Consequently, NVCPP must call L1 "uncalibrated public detector data," not
+"unprocessed raw telemetry." Preserve the exact L1 source bytes as received,
+including all ramp, reference-pixel, uncertainty, and data-quality arrays
+present in the product. Preserve L2 and L3 as separate source products when
+used; do not replace L1 with them or silently reverse-engineer a processed
+product into a claimed raw record.
+
+For Roman WFI product definitions and public-access limits, see:
+- https://roman-docs.stsci.edu/data-handbook/wfi-data-levels-and-products
+- https://roman-docs.stsci.edu/data-handbook/accessing-wfi-data/the-roman-archive-in-mast
+- https://archive.stsci.edu/missions-and-data/roman
+
+The run's full raw MAST responses, sampled metadata, and hashes are in the
+90-day GitHub artifact
+[roman-readiness-41454886341](https://github.com/CarlDeanClineSr/NVCPP-Non-Voxelated-Computational-Physics-Portal-/actions/runs/41454886341).
+The artifact SHA-256 is
+`417c2b247ac0611571e14084a9e8bc04719207cc2c3ccba1e96e199632e4f4ae`.
+
 ## Roman Research Nexus
 
 The Roman Research Nexus is an authenticated myST cloud environment. NVCPP does
