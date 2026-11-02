@@ -1,7 +1,7 @@
 NVCPP — Non-Voxelated Computational Physics Portal
 
 Program state report and operator guide
-State snapshot: September 8, 2026
+State snapshot: November 2, 2026
 Creator and project lead: Carl Dean Cline Sr.
 
 NVCPP is an evidence-preserving telemetry, observatory-readiness, and cross-mission analysis system. It is not one equation, one event claim, or one spacecraft downloader. It is a Python program for acquiring measurements, proving where they came from, preserving the original responses, rejecting malformed or mismatched data, calculating reversible physical observables, comparing independent instruments, generating charts and teaching capsules, and recording both positive and contrary results.
@@ -9,6 +9,10 @@ NVCPP is an evidence-preserving telemetry, observatory-readiness, and cross-miss
 The central rule is simple:
 
 The numerical record, source contract, exclusions, and hashes outrank the prose written about them.
+
+Raw evidence is preserved before interpretation. For every acquisition path, retain the provider-returned bytes or exact response body, request parameters, source identity, timestamps, response metadata, and hashes. Do not overwrite raw evidence with cleaned, averaged, clipped, smoothed, resampled, or relabeled values. Derived products are separate outputs with explicit transformations. Invalid, missing, suspect, and rejected records remain represented in manifests or quarantine records with reasons; they are not silently erased or repaired.
+
+NVCPP does not reserve interpretation for one school of thought. Separate observations, source processing, mathematical transformations, physical inferences, and hypotheses. Preserve more than one physically admissible explanation when the evidence does not distinguish them. Compare competing explanations against the same measurements, dimensional consistency, instrument limitations, independent observations, controls, and testable predictions. Neither academic status nor novelty is evidence by itself; an alternative is not accepted merely because it is alternative, and a conventional explanation is not accepted merely because it is conventional. Record what would distinguish the explanations and what remains unresolved.
 
 NVCPP is the clean successor to the useful parts of the LUFT Portal. It keeps the LUFT learning-loop idea—observe, calculate, chart, report, question, and return—but excludes the old repository bulk and prevents unrelated data domains from being mixed together.
 
@@ -116,11 +120,11 @@ Discovery only
 
 Public product and schema discovery exist; SOLAR-1 plasma calculations remain disabled until a verified product is available
 
-NOAA SWPC plasma context
+NOAA SWPC operational solar-wind context
 
-Operational but provider-selected
+Operational provider feed; source priority is time-dependent
 
-Useful near-real-time plasma context; not treated as an independently identified DSCOVR, ACE, IMAP, or SOLAR-1 measurement without separate identity proof
+NOAA's June 30, 2026 notice identifies SOLAR-1 as primary and ACE as backup until IMAP I-ALiRT has 24/7 coverage. Keep the NOAA operational feed distinct from separately acquired, mission-identified science products; record the provider's stated upstream identity and any ambiguity.
 
 L1 MAG coherence engine
 
@@ -148,15 +152,15 @@ The 43-date registry and consumer are merged, hash-locked, manual-only, and stil
 
 Roman readiness and truth recovery
 
-Implemented
+Implemented; commissioning reference updated October 22, 2026
 
-Six-hour archive watch, bounded public queries, page hashing, deterministic fixtures, truth matching, and authenticated-export inventory
+Six-hour archive watch, bounded public queries, official-page hashing, deterministic fixtures, truth matching, and authenticated-export inventory. NASA reports Roman has entered science commissioning; test observations are still being used to characterize instrument response and image quality before routine science operations.
 
 IMAP mission-specific adapter
 
-Not enabled
+Not enabled; discovery priority raised
 
-No canonical mission-specific production path yet
+IMAP Release 2 data were announced as available October 28, 2026. Product-by-product coverage, versions, variables, coordinate frames, cadence, calibration, and quality metadata still require an audit before a mission-specific production adapter is enabled.
 
 JWST/HST production adapters
 
@@ -165,6 +169,8 @@ Not enabled
 Domain reserved; no live archive pipeline presently claimed
 
 At this snapshot, the automatic Hourly Observatory schedule and push triggers are disabled. The workflow remains available for explicit manual runs. Repository CI and the frozen holdout integrity controls remain separate from provider-dependent observatory execution.
+
+Monthly science and technology watch: [docs/RESEARCH_WATCH.md](docs/RESEARCH_WATCH.md). The November 2, 2026 entry records the Roman commissioning update, IMAP Release 2 announcement, NOAA source-priority notice, data-preservation rules, and the next evidence-gated investigations.
 
 4. What has been built and repaired
 
