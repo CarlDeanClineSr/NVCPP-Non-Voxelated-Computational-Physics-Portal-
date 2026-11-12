@@ -7,6 +7,83 @@ research priorities, source contracts, data access, or interpretation. It is a
 review log, not an automatic authorization to change a scientific method or
 run a sealed experiment.
 
+## November 11, 2026 — reviewed developments
+
+### 1. Roman MAST archive recheck
+
+The scheduled Roman readiness workflow completed successfully on November 11, 2026. Run:
+https://github.com/CarlDeanClineSr/NVCPP-Non-Voxelated-Computational-Physics-Portal-/actions/runs/43079630041
+
+The run queried the public MAST CAOM service and preserved the raw responses, a bounded 25-row metadata sample, official-page captures, hashes, and the deterministic local fixture outputs. The run completed with no reported MAST transport errors.
+
+Observed CAOM row counts:
+
+| Query collection spelling | November 2, 2026 | November 11, 2026 |
+|---|---:|---:|
+| `Roman` | 285,345 | 395,526 |
+| `ROMAN` | 285,345 | 395,534 |
+
+The November 11 results are approximately 110,000 rows higher than the November 2 results. The two spellings now differ by eight rows and their response hashes differ. Do not describe them as identical aliases, and do not add their counts as independent holdings. These are CAOM catalog row counts, not verified unique exposure counts.
+
+The bounded `Roman` sample contained 25/25 records with:
+- `obs_collection=ROMAN`, `provenance_name=ROMAN TEST`, and `instrument_name=WFI`;
+- `intentType=science`, `dataproduct_type=image`, and `dataRights=PUBLIC`;
+- 18 Level 2 records (`_cal.asdf`) and 7 Level 3 records (`_coadd.asdf`);
+- no Level 1 (`_uncal.asdf`) record in this particular 25-row sample;
+- sampled observation dates from September 15 through November 4, 2026.
+
+The absence of an L1 row from this bounded sample is not evidence that MAST has no L1 holdings. Sampling is not an exhaustive product inventory. The sample does establish that public WFI catalog metadata continue to appear under `ROMAN TEST` provenance. The science-intent field and public-access flag must be read alongside that provenance and the reviewed commissioning status.
+
+No ASDF product bytes were downloaded or inspected by this workflow. The run therefore does not validate ramp arrays, DQ/ERR/variance arrays, ASDF schemas, calibration state, or a matched L1/L2/L3 product relationship. It does not establish routine survey science operations or authorize flight-data science claims.
+
+The November 11 artifact is approximately 462 KB and has artifact SHA-256:
+`dca659e22a4aa2f371d17f9c3ac8f22a248058e0257c4b3c5d63cb921733f1ef`.
+The raw MAST response hashes and per-file inventory are recorded in `roman_readiness_manifest.json` inside that artifact. The artifact is retained for 90 days, through February 9, 2027.
+
+NVCPP action:
+- Keep the six-hour readiness watch operating; its November 11 scheduled runs completed successfully.
+- Select one bounded WFI observation/association with a defensible product relationship.
+- Verify whether the associated public L1 `_uncal.asdf`, L2 `_cal.asdf`, and L3 `_coadd.asdf` products can actually be retrieved.
+- Preserve exact source bytes, request/response metadata, product identifiers, retrieval times, and SHA-256 before parsing.
+- Inspect the pinned ASDF/Roman datamodel requirements and preserve SCI, ERR/variance, DQ, reference-pixel, and other arrays as present.
+- Keep L1, L2, and L3 as separate source products. Do not relabel L1 as raw L0 telemetry or infer L1 availability from a Level 2/3 catalog row.
+- Do not enable Roman production processing or L1 plasma calculations.
+
+Mission-status reference: NASA's October 22, 2026 report remains the latest reviewed mission-phase reference in the repository. It describes science commissioning and test observations before routine science operations. The November 11 MAST recheck does not itself update the mission phase.
+
+### 2. IMAP Release 2 MAG product inventory discovery
+
+Princeton's IMAP science-data page states that Release 2 data became available October 28, 2026:
+https://imap.princeton.edu/data
+
+The public Princeton publication hierarchy exposes an IMAP MAG product-level structure containing L0, L1A, L1B, L1C, L1D, and L2. The MAG Level 2 directory exposes daily CDF products in DSRF and GSE coordinate frames; multiple versions (including v001 and v002) are visible for some dates. This is a useful step beyond the October 28 release announcement: the MAG archive has an identifiable product hierarchy and concrete daily product files to inventory.
+
+This directory-level discovery does not yet establish the meaning or suitability of every product level, validate the CDF variable schema, or show that a selected file is interchangeable with another mission's canonical magnetic series. The exact dataset identifiers, version precedence, time coverage, native cadence, vector variable names, units, coordinate definitions, fill values, quality flags, calibration references, and provenance must be checked against the product documentation and the actual CDF headers.
+
+NVCPP action:
+- Keep the IMAP mission-specific production adapter disabled.
+- Build a versioned MAG inventory from the official Princeton Release 2 hierarchy and compare it with SPDF/CDAWeb holdings.
+- Start with one bounded daily MAG product in a clearly identified level and frame; inspect its CDF metadata before writing ingestion assumptions.
+- Record the exact file URL, filename, version, time coverage, cadence, variables, units, frame, fill/quality conventions, and calibration references.
+- Preserve the original CDF bytes and SHA-256 before parsing; retain later reprocessed versions as distinct evidence rather than overwriting earlier acquisitions.
+- Keep science-grade MAG products distinct from I-ALiRT near-real-time products.
+- Do not change the SOLAR-1, DSCOVR, ACE, or Wind historical source contracts as a side effect of this inventory.
+
+Sources:
+- Princeton IMAP Science Data (Release 2 date): https://imap.princeton.edu/data
+- NASA SPDF archive and CDF access: https://spdf.gsfc.nasa.gov/
+
+### 3. Actions and repository operating status
+
+The following workflow state was verified from GitHub Actions on November 11:
+- Roman Archive Readiness Watch: scheduled six-hour runs completed successfully, including run 43079630041.
+- SOLAR-1 MAG Historical Regression: latest returned run, November 9, completed successfully.
+- NVCPP CI and V2 Holdout Integrity Guard: latest verified runs remain November 2 and completed successfully.
+- Hourly Observatory: remains manual-only by design.
+- Gannon V2 immutable holdout consumer: remains manual-only and requires explicit acknowledgement plus the exact frozen registry hash.
+
+The README/code snapshot remains based on the November 2 main-branch commit. The November 11 scheduled Roman runs execute that same code against current public MAST responses. No source contract, detector threshold, frozen registry, workflow trigger, or production adapter was changed by this review.
+
 ## November 2, 2026 — reviewed developments
 
 ### 1. Nancy Grace Roman Space Telescope
@@ -246,8 +323,8 @@ At each monthly review:
 
 | Priority | Investigation | Entry condition | Current decision |
 |---|---|---|---|
-| 1 | IMAP Release 2 MAG product inventory | Confirm product IDs, variables, coverage, version, coordinates, cadence, quality flags, calibration documentation | Discovery only; adapter disabled |
-| 2 | Roman WFI product-level intake | Select a bounded, matched observation/association; inspect L1 uncalibrated ramp bytes, corresponding L2/L3 products where available, ASDF schemas, DQ/ERR/variance arrays, calibration/reference files, and provenance | Public WFI metadata found; product bytes not yet downloaded or validated |
+| 1 | IMAP Release 2 MAG product inventory | Confirm product IDs, variables, coverage, version, coordinates, cadence, quality flags, calibration documentation | Public MAG hierarchy and daily L2 CDF files identified; detailed CDF/header and contract audit pending; adapter disabled |
+| 2 | Roman WFI product-level intake | Select a bounded, matched observation/association; inspect L1 uncalibrated ramp bytes, corresponding L2/L3 products where available, ASDF schemas, DQ/ERR/variance arrays, calibration/reference files, and provenance | Nov 11 MAST counts: 395,526 (`Roman`) and 395,534 (`ROMAN`); bounded sample 18 L2/7 L3/0 L1, all `ROMAN TEST`; product bytes not downloaded or validated |
 | 3 | NOAA live-source contract comparison | Compare the actual operational endpoint payload with the existing SOLAR-1 and NOAA source contracts | No source-contract change until payload audit |
 | 4 | Cross-mission comparison design | Establish time alignment, location/propagation context, instrument independence, and product compatibility | Design only; no shared-surface or mechanism claim |
 
