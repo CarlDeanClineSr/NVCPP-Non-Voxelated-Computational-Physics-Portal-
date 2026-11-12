@@ -1,7 +1,7 @@
 NVCPP — Non-Voxelated Computational Physics Portal
 
 Program state report and operator guide
-State snapshot: November 2, 2026
+State snapshot: November 11, 2026
 Creator and project lead: Carl Dean Cline Sr.
 
 NVCPP is an evidence-preserving telemetry, observatory-readiness, and cross-mission analysis system. It is not one equation, one event claim, or one spacecraft downloader. It is a Python program for acquiring measurements, proving where they came from, preserving the original responses, rejecting malformed or mismatched data, calculating reversible physical observables, comparing independent instruments, generating charts and teaching capsules, and recording both positive and contrary results.
@@ -154,13 +154,13 @@ Roman readiness and truth recovery
 
 Implemented; commissioning reference updated October 22, 2026
 
-Six-hour archive watch, bounded public queries, official-page hashing, deterministic fixtures, truth matching, and authenticated-export inventory. The November 2 MAST probe returned 285,345 CAOM rows for each capitalization of the Roman collection name (identical count response; not additive). A 25-row WFI sample was tagged `ROMAN TEST` and included public science-intent image records at data Levels 1, 2, and 3. Product bytes were not downloaded in that readiness run. NASA reports Roman is in science commissioning, with test observations continuing before routine science operations.
+Six-hour archive watch, bounded public queries, official-page hashing, deterministic fixtures, truth matching, and authenticated-export inventory. The November 11 MAST probe returned 395,526 CAOM rows for `Roman` and 395,534 for `ROMAN` (an eight-row difference; these query results must not be summed as independent holdings). This is approximately 110,000 more rows than the November 2 counts. The bounded 25-row `Roman` sample contained 25 public science-intent WFI image records with `ROMAN TEST` provenance: 18 Level 2 and 7 Level 3; no Level 1 record appeared in that sample. Sampled observation dates extended through November 4. The workflow preserved metadata and hashes but did not download or validate ASDF science-product bytes. The next Roman step remains a bounded, matched product-level intake, not a production adapter. NASA's latest reviewed mission-status reference remains its October 22 science-commissioning report; no later phase is inferred.
 
 IMAP mission-specific adapter
 
-Not enabled; discovery priority raised
+Not enabled; Release 2 MAG inventory identified, product contract audit pending
 
-IMAP Release 2 data were announced as available October 28, 2026. Product-by-product coverage, versions, variables, coordinate frames, cadence, calibration, and quality metadata still require an audit before a mission-specific production adapter is enabled.
+IMAP Release 2 data were announced as available October 28, 2026. The Princeton publication hierarchy exposes MAG product levels L0, L1A, L1B, L1C, L1D, and L2. The L2 directory includes daily CDF products in DSRF and GSE frames, with multiple published versions visible for some dates. This is an inventory discovery, not validation of the product schemas or scientific suitability. Dataset identifiers, variable definitions, units, cadence, coordinate conventions, fill values, quality flags, calibration references, coverage, and version-selection rules still require inspection before a mission-specific production adapter is enabled.
 
 JWST/HST production adapters
 
@@ -170,7 +170,7 @@ Domain reserved; no live archive pipeline presently claimed
 
 At this snapshot, the automatic Hourly Observatory schedule and push triggers are disabled. The workflow remains available for explicit manual runs. Repository CI and the frozen holdout integrity controls remain separate from provider-dependent observatory execution.
 
-Monthly science and technology watch: [docs/RESEARCH_WATCH.md](docs/RESEARCH_WATCH.md). The November 2, 2026 entry records the Roman commissioning update, IMAP Release 2 announcement, NOAA source-priority notice, data-preservation rules, and the next evidence-gated investigations.
+Monthly science and technology watch: [docs/RESEARCH_WATCH.md](docs/RESEARCH_WATCH.md). The November 11, 2026 entry records the latest Roman MAST counts and bounded sample, the current IMAP MAG Release 2 inventory findings, workflow status, and evidence-gated next steps. The November 2 entry remains as the prior dated review.
 
 4. What has been built and repaired
 
