@@ -15,9 +15,9 @@
   "mission": "ROMAN",
   "mission_status_reference": {
     "phase": "COMMISSIONING_REPORTED",
-    "source_date": "2026-10-22",
-    "source_url": "https://science.nasa.gov/blogs/roman/2026/10/22/nasas-roman-space-telescope-enters-final-commissioning-phase/",
-    "summary": "NASA reports that Roman entered its science commissioning phase after observatory and primary-instrument checkout. The observatory can guide, take exposures, move between targets, and return data; test observations continue to characterize instrument response and image quality before routine science operations. This dated report does not classify any MAST record as flight science data."
+    "source_date": "2026-11-13",
+    "source_url": "https://science.nasa.gov/blogs/roman/2026/11/13/instruments-on-nasas-roman-space-telescope-get-in-sync-for-science/",
+    "summary": "NASA's November 13 report confirms that Roman's optics and instruments have been brought into precise alignment, another step toward science operations. NASA says the team will next exercise more than 3,000 moving parts in the Coronagraph deformable mirrors. This does not report completion of commissioning or routine science operations and does not classify any MAST record as flight science data."
   },
   "nexus": {
     "accepted_source_classes": [
@@ -34,6 +34,14 @@
   },
   "official_name": "Nancy Grace Roman Space Telescope",
   "official_pages": [
+    {
+      "name": "NASA Roman instrument alignment report 2026-11-13",
+      "url": "https://science.nasa.gov/blogs/roman/2026/11/13/instruments-on-nasas-roman-space-telescope-get-in-sync-for-science/"
+    },
+    {
+      "name": "NASA announcement of Roman first images 2026-11-23",
+      "url": "https://science.nasa.gov/astrophysics/programs/physics-of-the-cosmos/community/romans-first-images-to-be-revealed/"
+    },
     {
       "name": "NASA Roman science commissioning report 2026-10-22",
       "url": "https://science.nasa.gov/blogs/roman/2026/10/22/nasas-roman-space-telescope-enters-final-commissioning-phase/"

@@ -113,6 +113,75 @@ def _session():
     )
 
 
+def test_case_variant_counts_keep_separate_raw_evidence_when_samples_timeout(tmp_path):
+    import requests
+
+    config = _config()
+    config["official_pages"] = [
+        {"name": "Test page", "url": "https://example.test/roman"}
+    ]
+    config_path = tmp_path / "roman.json"
+    config_path.write_text(json.dumps(config))
+
+    class SampleTimeoutSession(FakeSession):
+        def __init__(self, posts, gets):
+            super().__init__(posts, gets)
+            self.post_call_count = 0
+
+        def post(self, url, **kwargs):
+            call_number = self.post_call_count
+            self.post_call_count += 1
+            if call_number in {2, 4}:
+                raise requests.ReadTimeout("sample timeout fixture")
+            if not self.posts:
+                raise AssertionError("unexpected POST")
+            return self.posts.pop(0)
+
+    session = SampleTimeoutSession(
+        [
+            FakeResponse({"status": "COMPLETE", "data": [{"distinctValue": "ROMAN"}]}),
+            FakeResponse({"status": "COMPLETE", "data": [{"Column1": 476611}]}),
+            FakeResponse({"status": "COMPLETE", "data": [{"Column1": 476636}]}),
+        ],
+        [FakeResponse("<html><title>Test</title></html>", content_type="text/html")],
+    )
+    outdir = tmp_path / "run"
+    manifest = run_probe(
+        config_path=config_path,
+        outdir=outdir,
+        now_value="2026-11-23T18:00:00Z",
+        session=session,
+    )
+
+    assert manifest["status"] == "PARTIAL"
+    assert manifest["mast"]["collection_counts"] == {
+        "Roman": 476611,
+        "ROMAN": 476636,
+    }
+    assert manifest["mast"]["sample_row_counts"] == {}
+    assert manifest["mast"]["errors"] == [
+        "Roman sample: MAST transport failed: ReadTimeout",
+        "ROMAN sample: MAST transport failed: ReadTimeout",
+    ]
+    count_files = [
+        row for row in manifest["artifact_inventory"]
+        if row["path"].startswith("raw/mast_count_")
+    ]
+    assert len(count_files) == 2
+    assert len({row["path"] for row in count_files}) == 2
+    assert sorted(
+        json.loads((outdir / row["path"]).read_text())["data"][0]["Column1"]
+        for row in count_files
+    ) == [476611, 476636]
+    for collection, response in manifest["mast"]["collection_responses"].items():
+        assert any(row["sha256"] == response["raw_sha256"] for row in count_files), collection
+
+    report = (outdir / "reports" / "ROMAN_READINESS.md").read_text()
+    assert "MAST errors:** 2" in report
+    assert "Roman sample: MAST transport failed: ReadTimeout" in report
+    assert "ROMAN sample: MAST transport failed: ReadTimeout" in report
+
+
 def test_prelaunch_probe_treats_zero_roman_rows_as_readiness_state(tmp_path):
     config_path = tmp_path / "roman.json"
     config_path.write_text(json.dumps(_config()))
@@ -290,7 +359,10 @@ def test_page_transport_error_is_separate_from_captured_http_error(tmp_path, mon
         ("2026-09-14T12:00:00Z", "POSTLAUNCH_STATUS_UNVERIFIED", "SCHEDULE_ONLY"),
         ("2026-09-19T12:00:00Z", "POSTLAUNCH_STATUS_UNVERIFIED", "SCHEDULE_ONLY"),
         ("2026-10-21T12:00:00Z", "POSTLAUNCH_ARCHIVE_WATCH", "SCHEDULE_ONLY"),
-        ("2026-10-23T12:00:00Z", "COMMISSIONING_REPORTED", "REVIEWED_OFFICIAL_REPORT"),
+        ("2026-10-23T12:00:00Z", "POSTLAUNCH_ARCHIVE_WATCH", "SCHEDULE_ONLY"),
+        ("2026-11-12T12:00:00Z", "POSTLAUNCH_ARCHIVE_WATCH", "SCHEDULE_ONLY"),
+        ("2026-11-13T12:00:00Z", "COMMISSIONING_REPORTED", "REVIEWED_OFFICIAL_REPORT"),
+        ("2026-11-14T12:00:00Z", "COMMISSIONING_REPORTED", "REVIEWED_OFFICIAL_REPORT"),
         ("2026-12-20T12:00:00Z", "COMMISSIONING_REPORTED", "REVIEWED_OFFICIAL_REPORT"),
     ],
 )

@@ -42,6 +42,13 @@ def _sha256(path: Path) -> str:
     return hashlib.sha256(path.read_bytes()).hexdigest()
 
 
+def _collection_artifact_slug(collection: str) -> str:
+    """Return a filesystem-safe slug that preserves case-sensitive identity."""
+
+    suffix = hashlib.sha256(collection.encode("utf-8")).hexdigest()[:8]
+    return f"{safe_slug(collection)}_{suffix}"
+
+
 def _write_json(path: Path, payload: Any) -> Path:
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(
@@ -160,28 +167,35 @@ def run_probe(
         mast_errors.append(str(exc))
 
     for collection in mast_config["candidate_obs_collections"]:
-        slug = safe_slug(collection)
+        slug = _collection_artifact_slug(collection)
         try:
             count, response = mast.count_collection(collection)
             response.write_raw(raw_dir / f"mast_count_{slug}.json")
             collection_counts[collection] = count
             collection_response_summaries[collection] = response.summary()
-            if count > 0:
-                sample = mast.sample_collection(
-                    collection,
-                    pagesize=int(mast_config["sample_row_limit"]),
-                )
-                sample.write_raw(raw_dir / f"mast_sample_{slug}.json")
-                data = sample.payload.get("data", [])
-                if not isinstance(data, list):
-                    raise MastError(f"sample data for {collection} is not a list")
-                rows = [row for row in data if isinstance(row, dict)]
-                sample_rows[collection] = rows
-                _write_json(outdir / f"roman_mast_sample_{slug}.json", rows)
-                collection_response_summaries[collection]["sample"] = sample.summary()
         except MastError as exc:
             collection_counts.setdefault(collection, 0)
-            mast_errors.append(f"{collection}: {exc}")
+            mast_errors.append(f"{collection} count: {exc}")
+            continue
+
+        if count <= 0:
+            continue
+
+        try:
+            sample = mast.sample_collection(
+                collection,
+                pagesize=int(mast_config["sample_row_limit"]),
+            )
+            sample.write_raw(raw_dir / f"mast_sample_{slug}.json")
+            data = sample.payload.get("data", [])
+            if not isinstance(data, list):
+                raise MastError(f"sample data for {collection} is not a list")
+            rows = [row for row in data if isinstance(row, dict)]
+            sample_rows[collection] = rows
+            _write_json(outdir / f"roman_mast_sample_{slug}.json", rows)
+            collection_response_summaries[collection]["sample"] = sample.summary()
+        except MastError as exc:
+            mast_errors.append(f"{collection} sample: {exc}")
 
     if mission_response_summary is None and not collection_response_summaries:
         archive_state = "MAST_TRANSPORT_FAILED"
@@ -363,6 +377,7 @@ def run_probe(
         f"- **Scheduled launch UTC:** {launch.isoformat()}",
         f"- **Hours to scheduled launch:** {hours_to_launch:.3f}",
         f"- **MAST transport available:** {transport_ok}",
+        f"- **MAST errors:** {len(mast_errors)}",
         f"- **Official responses captured:** {page_counts['captured_response_count']}",
         f"- **HTTP 2xx responses:** {page_counts['http_2xx_count']}",
         f"- **HTTP non-2xx responses:** {page_counts['http_non_2xx_count']}",
@@ -398,6 +413,13 @@ def run_probe(
         "",
         "See `roman_readiness_manifest.json` for machine-readable evidence.",
     ]
+    if mast_errors:
+        report.extend([
+            "",
+            "## MAST operation errors",
+            "",
+            *[f"- `{error}`" for error in mast_errors],
+        ])
     if mission_status_reference:
         report.extend([
             "",
