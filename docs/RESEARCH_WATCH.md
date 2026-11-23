@@ -54,9 +54,26 @@ NVCPP action:
 - Do not use this run to authorize product downloads, authenticated Nexus scraping, Roman production calibration, L1 plasma calculations, or `chi_B24M` access.
 - Reconcile the next preserved count response against this run without assuming the collection spelling variants are duplicates.
 
+### 2a. Post-merge verification — November 23
+
+PR #62 merged to `main` as commit `76d4a3e`. The push-triggered Roman readiness run `45250403830` completed with GitHub Actions conclusion `success`; its internal readiness status remained `PARTIAL` because both metadata sample requests timed out.
+
+| Collection query | Pre-fix run 45240545852 | Post-merge run 45250403830 |
+|---|---:|---:|
+| `Roman` | 476,611 | 477,734 |
+| `ROMAN` | 476,636 | 477,749 |
+
+The post-merge artifact has two separately named raw count-response files: `raw/mast_count_roman_d52a38e0.json` for `Roman` and `raw/mast_count_roman_53d8b109.json` for `ROMAN`. Their SHA-256 values (`9d1895d4b32dea835b8b88c48da388201023e1d64511c6d8bb47237c062fb626` and `c7a2edf9d69bb8c9b5aadb9f87166a08c58d1e5187fe2aba417d6a33e1c48cec`) match the two response summaries and the artifact inventory. This verifies the case-sensitive filename collision is corrected.
+
+Both 25-row sample requests still timed out with `ReadTimeout`; no sample rows were preserved. The MAST counts are CAOM query results and must not be added together or represented as unique exposures. Eight official pages returned HTTP 2xx, one was an identified login page, seven had access unverified, and page transport errors were zero.
+
+The artifact ZIP SHA-256 is `2849cae54c416913fe66df4005e48893bf24db3538148e1d0aa4f2f81557462a`. No ASDF/FITS product bytes were downloaded or inspected. The synthetic fixture remains an engineering-only fixture, not Roman flight-performance evidence.
+
+Interpretation: the evidence-filename fix is verified. The sample-timeout issue is not resolved, and no product-level access or production-processing permission follows from these count results.
+
 ### 3. Repository review scope
 
-This review updates the dated mission reference and fixes the MAST evidence-filename collision and sample-error labeling in NVCPP. The companion `Roman-Observatory-Data-System` remains intentionally metadata-only and count-only. Its restricted access, manual provider-watch, zero-download, and no-L1/`chi_B24M` boundaries are not expanded by NVCPP observations.
+This review updates the dated mission reference, fixes the MAST evidence-filename collision and sample-error labeling in NVCPP, and verifies the filename correction in the first post-merge run. The companion `Roman-Observatory-Data-System` remains intentionally metadata-only and count-only. Its restricted access, manual provider-watch, zero-download, and no-L1/`chi_B24M` boundaries are not expanded by NVCPP observations.
 
 ## November 11, 2026 — reviewed developments
 
