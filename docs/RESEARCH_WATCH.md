@@ -1,11 +1,62 @@
 # NVCPP Science and Technology Research Watch
 
-Review date: 2026-11-02
+Review date: 2026-11-23
 
 This document records dated external developments that may affect NVCPP's
 research priorities, source contracts, data access, or interpretation. It is a
 review log, not an automatic authorization to change a scientific method or
 run a sealed experiment.
+
+## November 23, 2026 — reviewed Roman developments
+
+### 1. Mission commissioning and public-image milestone
+
+NASA's October 22 report said Roman entered its science commissioning phase after observatory and primary-instrument checkout. NASA's November 13 update reports that the optics and instruments have now been brought into precise alignment. The article describes this as another step toward science operations and says the team will next exercise more than 3,000 moving parts in the Coronagraph deformable mirrors. This remains commissioning context; it does not establish that commissioning is complete or routine survey operations have begun.
+
+On November 23, NASA announced that Roman's first images will be revealed at AGU26 on **December 7, 2026**. This is a future public-release event as of this review, not a set of images already available for analysis. NASA also announced that the WFI Cycle 2 call for proposals opened November 18, with proposals due February 24, 2027. A proposal opportunity is a program milestone, not evidence that routine science operations have started.
+
+Sources:
+- NASA, November 13, 2026, instrument alignment: https://science.nasa.gov/blogs/roman/2026/11/13/instruments-on-nasas-roman-space-telescope-get-in-sync-for-science/
+- NASA, November 23, 2026, first-image release schedule: https://science.nasa.gov/astrophysics/programs/physics-of-the-cosmos/community/romans-first-images-to-be-revealed/
+- NASA, November 20, 2026, WFI Cycle 2 call: https://science.nasa.gov/astrophysics/programs/cosmic-origins/community/roman-space-telescope-cycle-2-call-for-proposals/
+
+NVCPP action:
+- Keep mission phase `COMMISSIONING_REPORTED`, with the November 13 report as the dated phase reference.
+- Record December 7 as a scheduled first-image public-release date; do not infer that the release has occurred.
+- Keep the mission phase, schedule-only watch state, MAST archive state, and product provenance as separate fields.
+- Do not promote public catalog rows or commissioning/test observations to routine survey flight science solely from `intentType=science` or `dataRights=PUBLIC`.
+
+### 2. November 23 MAST count and bounded-sample result
+
+The Roman Archive Readiness Watch run `45240545852` completed at the GitHub Actions level with conclusion `success`; its generated readiness report was `PARTIAL`. Its artifact is `roman-readiness-45240545852` and has ZIP SHA-256 `24cabfba765cb5d5ecbd71b39df27d2bce8482946862250298cf3942717b79f9`.
+
+The MAST mission-list response contained 24 mission rows and included `ROMAN`. Both CAOM count queries returned HTTP 200 with MAST status `COMPLETE`:
+
+| Query collection spelling | November 2, 2026 | November 11, 2026 | November 23, 2026 |
+|---|---:|---:|---:|
+| `Roman` | 285,345 | 395,526 | 476,611 |
+| `ROMAN` | 285,345 | 395,534 | 476,636 |
+
+The November 23 case variants differ by 25 rows and have different response hashes. They are not identical aliases in this result. Do not add the counts as independent holdings and do not treat CAOM rows as unique exposures.
+
+Both 25-row sample requests timed out with `ReadTimeout`. The manifest therefore has empty `sample_row_counts` and no sample rows. Two sample-stage errors were recorded. The successful count responses remain usable as counts, but do not imply that a metadata sample or product-level inspection succeeded.
+
+**Artifact defect:** the manifest has separate hashes for the `Roman` and `ROMAN` count responses (`aabe272d4e90f1626c629ee4542050217f0efa8e6ab56361cd8f7e10cef3ca40` and `2e0171d4d52576c21612f56e69bcd901282d81bf660fdd543ac8f175606e0ddb`). However, the ZIP contains one `raw/mast_count_roman.json` file, matching the latter hash. The shared lowercase filename caused the second response to overwrite the first. The first response body is not preserved in this artifact even though its hash and count summary are recorded.
+
+The six official-page captures all returned HTTP 2xx and had zero transport errors. One was explicitly identified as the Roman Research Nexus login page; the other five were HTTP 2xx captures with access unverified. The response status alone does not prove authenticated or page-content access.
+
+The local deterministic fixture recorded 24 injected sources, 16 matched sources, completeness 0.667, purity 1.000, and zero cosmic-ray leakage detections. The fixture is synthetic and is not Roman flight data or Roman performance evidence.
+
+NVCPP action:
+- Use case-sensitive, collision-resistant filenames for each MAST collection query and add a regression test for `Roman` versus `ROMAN` evidence preservation.
+- Report sample-query timeouts separately from count-query failures; retain successful count evidence when a later bounded sample times out.
+- Keep the 25-row sample cap and the existing public metadata-only scope. No ASDF/FITS products were downloaded or validated in this run.
+- Do not use this run to authorize product downloads, authenticated Nexus scraping, Roman production calibration, L1 plasma calculations, or `chi_B24M` access.
+- Reconcile the next preserved count response against this run without assuming the collection spelling variants are duplicates.
+
+### 3. Repository review scope
+
+This review updates the dated mission reference and fixes the MAST evidence-filename collision and sample-error labeling in NVCPP. The companion `Roman-Observatory-Data-System` remains intentionally metadata-only and count-only. Its restricted access, manual provider-watch, zero-download, and no-L1/`chi_B24M` boundaries are not expanded by NVCPP observations.
 
 ## November 11, 2026 — reviewed developments
 
