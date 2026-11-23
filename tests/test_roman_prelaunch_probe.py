@@ -117,7 +117,9 @@ def test_case_variant_counts_keep_separate_raw_evidence_when_samples_timeout(tmp
     import requests
 
     config = _config()
-    config["official_pages"] = []
+    config["official_pages"] = [
+        {"name": "Test page", "url": "https://example.test/roman"}
+    ]
     config_path = tmp_path / "roman.json"
     config_path.write_text(json.dumps(config))
 
@@ -137,7 +139,7 @@ def test_case_variant_counts_keep_separate_raw_evidence_when_samples_timeout(tmp
             FakeResponse({"status": "COMPLETE", "data": [{"Column1": 476611}]}),
             FakeResponse({"status": "COMPLETE", "data": [{"Column1": 476636}]}),
         ],
-        gets=[],
+        gets=[FakeResponse("<html><title>Test</title></html>", content_type="text/html")],
     )
     outdir = tmp_path / "run"
     manifest = run_probe(
