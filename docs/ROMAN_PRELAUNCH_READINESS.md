@@ -119,6 +119,30 @@ The deterministic local fixture remains separate from Roman observations: 24 inj
 
 The ZIP artifact SHA-256 is `24cabfba765cb5d5ecbd71b39df27d2bce8482946862250298cf3942717b79f9`. No ASDF/FITS product bytes were downloaded or inspected by this run.
 
+### Post-merge evidence verification — November 23, 2026
+
+After PR #62 merged as commit `76d4a3e`, the push-triggered readiness run [45250403830](https://github.com/CarlDeanClineSr/NVCPP-Non-Voxelated-Computational-Physics-Portal-/actions/runs/45250403830) completed successfully at the GitHub Actions level. Its readiness report remained `PARTIAL` because both metadata-sample calls timed out.
+
+| Collection query | Pre-fix run 45240545852 | Post-merge run 45250403830 |
+|---|---:|---:|
+| `Roman` | 476,611 | 477,734 |
+| `ROMAN` | 476,636 | 477,749 |
+
+The latest run returned 24 mission-list rows and preserved two distinct count-response bodies:
+
+| Collection | Artifact path | Response SHA-256 |
+|---|---|---|
+| `Roman` | `raw/mast_count_roman_d52a38e0.json` | `9d1895d4b32dea835b8b88c48da388201023e1d64511c6d8bb47237c062fb626` |
+| `ROMAN` | `raw/mast_count_roman_53d8b109.json` | `c7a2edf9d69bb8c9b5aadb9f87166a08c58d1e5187fe2aba417d6a33e1c48cec` |
+
+Both response files are present in the artifact and each file SHA-256 matches the corresponding `collection_responses` and `artifact_inventory` entry in `roman_readiness_manifest.json`. This verifies that the case-sensitive filename collision from run `45240545852` is corrected.
+
+Both 25-row sample calls still failed with `ReadTimeout`; `sample_row_counts` is empty and the readiness status correctly remains `PARTIAL`. The run captured eight HTTP 2xx official-page responses, including one identified login page; the other seven have access unverified. Page transport errors were zero. The deterministic local fixture remained `NVCPP_DETERMINISTIC_ROMAN_LIKE_FIXTURE` with 24 injected sources, 16 matched, completeness 0.667, purity 1.000, and zero cosmic-ray leakage detections. These fixture metrics are not Roman performance evidence.
+
+The post-merge ZIP artifact SHA-256 is `2849cae54c416913fe66df4005e48893bf24db3538148e1d0aa4f2f81557462a`. No ASDF/FITS product bytes were downloaded or inspected. The two CAOM row counts are separate query results, not additive counts or verified unique exposures.
+
+The post-merge verification establishes the file-preservation fix, not successful metadata sampling or product access. Keep the 25-row sample limit and existing access boundaries until a later run supplies usable, preserved sample evidence and a separate review authorizes any further step.
+
 The review-branch code gives each case-sensitive collection query a distinct deterministic evidence filename and reports count-query failures separately from sample-query failures. It preserves a successful count even when its later bounded sample request times out. The MAST sample limit remains 25; no product download, authenticated access, or production processing is enabled.
 
 ### Observed public MAST holdings — November 2, 2026
