@@ -124,9 +124,13 @@ def test_case_variant_counts_keep_separate_raw_evidence_when_samples_timeout(tmp
     config_path.write_text(json.dumps(config))
 
     class SampleTimeoutSession(FakeSession):
+        def __init__(self, posts, gets):
+            super().__init__(posts, gets)
+            self.post_call_count = 0
+
         def post(self, url, **kwargs):
-            call_number = len(self.post_calls)
-            self.post_calls.append((url, kwargs))
+            call_number = self.post_call_count
+            self.post_call_count += 1
             if call_number in {2, 4}:
                 raise requests.ReadTimeout("sample timeout fixture")
             if not self.posts:
@@ -134,12 +138,12 @@ def test_case_variant_counts_keep_separate_raw_evidence_when_samples_timeout(tmp
             return self.posts.pop(0)
 
     session = SampleTimeoutSession(
-        posts=[
+        [
             FakeResponse({"status": "COMPLETE", "data": [{"distinctValue": "ROMAN"}]}),
             FakeResponse({"status": "COMPLETE", "data": [{"Column1": 476611}]}),
             FakeResponse({"status": "COMPLETE", "data": [{"Column1": 476636}]}),
         ],
-        gets=[FakeResponse("<html><title>Test</title></html>", content_type="text/html")],
+        [FakeResponse("<html><title>Test</title></html>", content_type="text/html")],
     )
     outdir = tmp_path / "run"
     manifest = run_probe(
