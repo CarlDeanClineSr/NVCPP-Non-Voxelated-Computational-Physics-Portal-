@@ -152,9 +152,9 @@ The 43-date registry and consumer are merged, hash-locked, manual-only, and stil
 
 Roman readiness and truth recovery
 
-Implemented; commissioning reference updated October 22, 2026
+Implemented; commissioning reference updated November 13, 2026
 
-Six-hour archive watch, bounded public queries, official-page hashing, deterministic fixtures, truth matching, and authenticated-export inventory. The November 11 MAST probe returned 395,526 CAOM rows for `Roman` and 395,534 for `ROMAN` (an eight-row difference; these query results must not be summed as independent holdings). This is approximately 110,000 more rows than the November 2 counts. The bounded 25-row `Roman` sample contained 25 public science-intent WFI image records with `ROMAN TEST` provenance: 18 Level 2 and 7 Level 3; no Level 1 record appeared in that sample. Sampled observation dates extended through November 4. The workflow preserved metadata and hashes but did not download or validate ASDF science-product bytes. The next Roman step remains a bounded, matched product-level intake, not a production adapter. NASA's latest reviewed mission-status reference remains its October 22 science-commissioning report; no later phase is inferred.
+Six-hour archive watch, bounded public queries, official-page hashing, deterministic fixtures, truth matching, and authenticated-export inventory. NASA reported precise instrument alignment on November 13; on November 23 it scheduled Roman's first public images for December 7, 2026. The mission remains `COMMISSIONING_REPORTED`; neither the alignment milestone nor the future image release is evidence that routine science operations have begun. The November 23 MAST run returned 476,611 CAOM rows for `Roman` and 476,636 for `ROMAN`; the counts differ and must not be summed as unique holdings. Both bounded 25-row sample requests timed out. The workflow completed successfully at the Actions level but its internal readiness status was `PARTIAL`. Inspection found that lowercase filename normalization overwrote one of the two raw count-response bodies; the review branch fixes the collision and reports sample timeouts as sample-stage errors. No ASDF/FITS product bytes were downloaded or inspected. The next Roman step remains a separately reviewed bounded product intake, not a production adapter.
 
 IMAP mission-specific adapter
 
@@ -170,7 +170,7 @@ Domain reserved; no live archive pipeline presently claimed
 
 At this snapshot, the automatic Hourly Observatory schedule and push triggers are disabled. The workflow remains available for explicit manual runs. Repository CI and the frozen holdout integrity controls remain separate from provider-dependent observatory execution.
 
-Monthly science and technology watch: [docs/RESEARCH_WATCH.md](docs/RESEARCH_WATCH.md). The November 11, 2026 entry records the latest Roman MAST counts and bounded sample, the current IMAP MAG Release 2 inventory findings, workflow status, and evidence-gated next steps. The November 2 entry remains as the prior dated review.
+Monthly science and technology watch: [docs/RESEARCH_WATCH.md](docs/RESEARCH_WATCH.md). The November 23, 2026 entry records the updated Roman commissioning reference, first-image schedule, MAST counts, sample timeouts, and artifact-preservation defect. The November 11 and November 2 entries remain as prior dated reviews.
 
 4. What has been built and repaired
 
