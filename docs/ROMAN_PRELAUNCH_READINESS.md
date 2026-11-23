@@ -33,19 +33,22 @@ SCHEDULED_LAUNCH_WINDOW_UNVERIFIED
 It does not declare launch, deployment, commissioning, or mission success from
 the clock alone. An archive transition cannot establish those milestones either.
 
-The latest reviewed mission-status reference is the [NASA report dated
-October 22, 2026](https://science.nasa.gov/blogs/roman/2026/10/22/nasas-roman-space-telescope-enters-final-commissioning-phase/).
-NASA reports that Roman entered its science commissioning phase after the
-observatory and primary-instrument checkout. The report says the observatory can
-guide, take exposures, slew between targets, and return data. The team is still
-conducting planned test observations to characterize instrument response and
-refine image quality before routine science operations.
+The latest reviewed mission-phase reference is the [NASA report dated
+November 13, 2026](https://science.nasa.gov/blogs/roman/2026/11/13/instruments-on-nasas-roman-space-telescope-get-in-sync-for-science/).
+NASA reports that Roman's optics and instruments have been brought into precise
+alignment, another step toward science operations. NASA says the team will next
+exercise more than 3,000 moving parts in the Coronagraph deformable mirrors. This
+is a commissioning milestone; it does not say commissioning is complete or that
+routine science operations have begun.
 
-`config/roman_prelaunch.v1.json` records this under `mission_status_reference`
-with phase `COMMISSIONING_REPORTED`, source date `2026-10-22`, source URL, and an
-interpretation limit. The September 15 report remains in `official_pages` as a
-historical source capture; the October 22 report is the newer dated reference.
-Neither report classifies a MAST catalog row as flight science data.
+On November 23, NASA announced that Roman's first images will be revealed at
+AGU26 on December 7, 2026. That is a scheduled future public release, not an
+image already available for inspection and not, by itself, a mission-phase
+change. `config/roman_prelaunch.v1.json` records phase `COMMISSIONING_REPORTED`
+with the November 13 source date and adds the November 23 first-image announcement
+to the official-page watch. The mission phase, schedule-only watch state, and
+archive state remain separate. Neither NASA report classifies a MAST catalog row
+as flight science data.
 
 Manifest version 1.3.0 separates:
 
@@ -94,6 +97,29 @@ MAST_TRANSPORT_FAILED
 
 A zero result is an archive-availability state. It is not interpreted as a
 hardware, launch, commissioning, or science failure.
+
+### November 23, 2026 MAST evidence check
+
+Run [45240545852](https://github.com/CarlDeanClineSr/NVCPP-Non-Voxelated-Computational-Physics-Portal-/actions/runs/45240545852) completed with GitHub Actions conclusion `success`, but the generated readiness report was `PARTIAL`.
+
+The run recorded 24 MAST mission-list rows and completed count responses for both configured collection spellings:
+
+| Collection query | CAOM rows | MAST response |
+|---|---:|---|
+| `Roman` | 476,611 | HTTP 200 / `COMPLETE` |
+| `ROMAN` | 476,636 | HTTP 200 / `COMPLETE` |
+
+The 25-row metadata-sample requests for both spellings timed out (`ReadTimeout`). No sample rows were preserved; `sample_row_counts` is empty. The two count values are distinct query results and must not be added together or described as unique exposures.
+
+**Evidence preservation defect found:** the two response summaries have different raw hashes, but the ZIP contains only one raw count file. The output filename used a lowercase slug, so `Roman` and `ROMAN` both mapped to `raw/mast_count_roman.json`; the later response overwrote the earlier body. The included file matches the `ROMAN` response hash `2e0171d4d52576c21612f56e69bcd901282d81bf660fdd543ac8f175606e0ddb`. The `Roman` response hash `aabe272d4e90f1626c629ee4542050217f0efa8e6ab56361cd8f7e10cef3ca40` is recorded in the manifest but its exact body is absent from this artifact.
+
+The artifact captured six official pages with HTTP 2xx responses and no page transport errors. One response was the Roman Research Nexus login page; the other five were HTTP 2xx captures with access unverified. The configured mission capture was still the October 22 NASA report, so the review branch updates the contract to include the November 13 alignment report and the November 23 first-image announcement.
+
+The deterministic local fixture remains separate from Roman observations: 24 injected synthetic sources, 16 matched, completeness 0.667, purity 1.000, and zero cosmic-ray leakage detections. These are engineering-fixture results, not Roman flight performance.
+
+The ZIP artifact SHA-256 is `24cabfba765cb5d5ecbd71b39df27d2bce8482946862250298cf3942717b79f9`. No ASDF/FITS product bytes were downloaded or inspected by this run.
+
+The review-branch code gives each case-sensitive collection query a distinct deterministic evidence filename and reports count-query failures separately from sample-query failures. It preserves a successful count even when its later bounded sample request times out. The MAST sample limit remains 25; no product download, authenticated access, or production processing is enabled.
 
 ### Observed public MAST holdings — November 2, 2026
 
